@@ -1,0 +1,17 @@
+{
+  "queue": [
+    {
+      "url": "https://www.instagram.com/reel/C9xYzAbcDef/",
+      "username": "evolving.ai",
+      "notes": "Test reel 1",
+      "added_at": "2026-01-15T10:30:00Z"
+    }
+  ],
+  "processed": [],
+  "metadata": {
+    "total_queued": 1,
+    "total_processed": 0,
+    "last_run": null,
+    "next_scheduled": null
+  }
+}
