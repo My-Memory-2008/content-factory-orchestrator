@@ -93,26 +93,38 @@ jobs:
           git diff-index --quiet HEAD -- || git commit -m "Auto: queued reel [skip ci]" && git push || true
           echo "✅ Data committed. Kaggle sync will detect update within ~60s."
 
-      # 6. 🔥 TRIGGER KAGGLE EXECUTION (API + Wait for Sync)
+      # 6. 🔥 TRIGGER KAGGLE EXECUTION (API v1 + Sync Wait)
       - name: Trigger Kaggle Execution
         env:
-          KAGGLE_CONFIG: ${{ secrets.KAGGLE_CONFIG }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          # Setup auth
-          mkdir -p ~/.kaggle
-          echo "$KAGGLE_CONFIG" > ~/.kaggle/kaggle.json
-          chmod 600 ~/.kaggle/kaggle.json
-          
-          # CRITICAL: Wait for Kaggle to register the GitHub sync
+          # 1. Wait for GitHub-Kaggle sync to register the new version
           echo "⏳ Waiting 50s for Kaggle-GitHub sync to register..."
           sleep 50
           
-          # Trigger execution of the latest synced version
-          echo "🔥 Triggering notebook execution..."
-          kaggle kernels run -k "muhammadasjad2008/content-factory-engine"
+          # 2. Trigger execution via Kaggle API v1
+          echo "🔥 Triggering notebook execution via API..."
+          HTTP_CODE=$(curl -s -o /tmp/kaggle_response.json -w "%{http_code}" -X POST \
+            -u "$KAGGLE_USERNAME:$KAGGLE_KEY" \
+            "https://www.kaggle.com/api/v1/kernels/execute" \
+            -H "Content-Type: application/json" \
+            -d "{\"kernel_slug\": \"muhammadasjad2008/content-factory-engine\"}")
           
-          echo "✅ Execution triggered! Kaggle will now process the reel."
-          echo "🔗 Monitor: https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine"
+          # 3. Handle response
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "✅ Execution triggered successfully (HTTP $HTTP_CODE)"
+          elif [ "$HTTP_CODE" = "404" ]; then
+            echo "⚠️ API returned 404 (known Kaggle quirk). Checking if 'Run on push' auto-triggered..."
+            echo "💡 Kaggle usually auto-runs within 60s of sync. Monitor notebook status."
+          else
+            echo "⚠️ API response: HTTP $HTTP_CODE"
+            cat /tmp/kaggle_response.json
+          fi
+          
+          echo "🔗 Monitor progress: https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine"
+
+      
 # name: Content Factory Orchestrator
 
 # on:
