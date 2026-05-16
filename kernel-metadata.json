@@ -1,9 +1,9 @@
 {
   "id": "muhammadasjad2008/content-factory-engine",
-  "title": "Content Factory Engine",
-  "code_file": "production_pipeline.py",
+  "title": "content-factory-engine",
+  "code_file": "content-factory-engine.ipynb",
   "language": "python",
-  "kernel_type": "script",
+  "kernel_type": "notebook",
   "is_private": "true",
   "enable_gpu": "true",
   "enable_internet": "true",
