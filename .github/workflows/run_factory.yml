@@ -125,38 +125,47 @@ jobs:
             git push
           fi
 
-                  # 6. Push to Kaggle (FIXED: New Auth Method)
+                    # 6. Push to Kaggle (FIXED: New Token + Old JSON Format)
       - name: Push to Kaggle
         env:
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}  # Your Kaggle username
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}  # Your KGAT_... token
         run: |
-          echo "🔐 Setting up NEW Kaggle authentication..."
+          echo "🔐 Setting up Kaggle authentication (hybrid method)..."
           
-          # NEW METHOD: Write token to access_token (NOT kaggle.json)
+          # Create kaggle.json with NEW token as KEY value
           mkdir -p ~/.kaggle
-          echo -n "$KAGGLE_API_TOKEN" > ~/.kaggle/access_token
-          chmod 600 ~/.kaggle/access_token
+          cat > ~/.kaggle/kaggle.json << EOF
+          {"username":"$KAGGLE_USERNAME","key":"$KAGGLE_API_TOKEN"}
+          EOF
+          chmod 600 ~/.kaggle/kaggle.json
           
-          # Verify
-          echo "📄 Token file created:"
-          cat ~/.kaggle/access_token | head -c 20; echo "..."
+          # Verify file exists and is valid JSON
+          echo "📄 Verifying kaggle.json..."
+          python3 -c "import json; d=json.load(open('~/.kaggle/kaggle.json')); print(f'✅ username: {d[\"username\"]}, key starts with: {d[\"key\"][:10]}...')"
           
-          # Install CLI
+          # Install/upgrade Kaggle CLI
+          echo "📦 Installing Kaggle CLI..."
           pip install --upgrade -q kaggle
           
-          # Test auth
+          # Test authentication
           echo "🧪 Testing authentication..."
           if kaggle kernels list -m 1 --csv 2>/dev/null | head -1 > /dev/null; then
             echo "✅ Authentication successful!"
           else
-            echo "❌ Auth failed. Check your KAGGLE_API_TOKEN secret."
+            echo "❌ Auth test failed. Checking file..."
+            cat ~/.kaggle/kaggle.json
             exit 1
           fi
           
-          # Push
+          # Push code
           echo "🚀 Pushing to Kaggle..."
           kaggle kernels push -p .
           echo "✅ Push complete!"
+          
+          # Confirm
+          echo "📅 Kaggle will auto-run on its schedule (check notebook settings)"
+          echo "🔗 Monitor: https://www.kaggle.com/$KAGGLE_USERNAME/content-factory-engine"
       # 7. Final log
       - name: Final Status
         run: |
