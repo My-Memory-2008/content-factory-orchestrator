@@ -1,12 +1,12 @@
-name: Content Factory Orchestrator (Notebook)
+name: Content Factory Orchestrator (Minimal)
 
 on:
   schedule:
-    - cron: '0 9,17 * * *'  # 9 AM & 5 PM UTC
-  workflow_dispatch:         # Manual one-click trigger
+    - cron: '0 9,17 * * *'
+  workflow_dispatch:
 
 jobs:
-  push-notebook:
+  push-and-run:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,90 +22,66 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 3. Install dependencies for queue processing
+      # 3. Install deps for queue processing
       - name: Install Dependencies
-        run: pip install requests openai
+        run: pip install requests openai kaggle
 
-      # 4. Process queue & generate pipeline_data.json
-      - name: Process Queue & Generate Script
+      # 4. Process queue → generate pipeline_data.json
+      - name: Process Queue
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          python3 << 'PYTHON_EOF'
-          import os, json, requests, re
+          python3 << 'EOF'
+          import os, json, re, requests
           from datetime import datetime, timezone
           from openai import OpenAI
-
-          print("🧠 Starting Orchestrator...")
-          with open('reel_queue.json', 'r') as f:
-              queue_data = json.load(f)
-
-          queue = queue_data.get('queue', [])
-          processed_urls = {item['url'] for item in queue_data.get('processed', [])}
           
-          print(f"📊 Queue: {len(queue)} pending, {len(processed_urls)} done")
-
-          next_reel = None
-          for reel in queue:
-              url = reel.get('url', '').strip()
-              if 'instagram.com/reel/' not in url: continue
-              if url in processed_urls:
-                  print(f"⏭️ Skipped (Duplicate): {url}")
-                  continue
-              next_reel = reel
-              print(f"🎯 SELECTED: {url}")
-              break
-
-          if not next_reel:
+          with open('reel_queue.json', 'r') as f:
+              data = json.load(f)
+          
+          queue = data.get('queue', [])
+          processed = {p['url'] for p in data.get('processed', [])}
+          
+          # Pick first unprocessed reel
+          pick = None
+          for r in queue:
+              if r['url'] not in processed and 'instagram.com/reel/' in r['url']:
+                  pick = r
+                  break
+          
+          if not pick:
               print("✅ No new reels. Exiting.")
               exit(0)
-
-          match = re.search(r'/reel/([^/?]+)', next_reel['url'])
-          shortcode = match.group(1) if match else "unknown"
-          username = next_reel.get('username', 'unknown')
-
-          # Generate ultra-short script (14s = ~35 words)
-          print("🤖 Generating AI Script...")
-          client = OpenAI(api_key=os.environ['GROQ_API_KEY'], base_url='https://api.groq.com/openai/v1')
-          prompt = f"Write a 14-second YouTube Shorts script (MAX 35 words). Start with a BOLD HOOK in all caps. One actionable AI tip. End with 'Save this'. No fluff."
           
-          response = client.chat.completions.create(
+          sc = re.search(r'/reel/([^/?]+)', pick['url']).group(1)
+          user = pick.get('username', 'unknown')
+          
+          # Generate 14s script
+          client = OpenAI(api_key=os.environ['GROQ_API_KEY'], base_url='https://api.groq.com/openai/v1')
+          resp = client.chat.completions.create(
               model="llama-3.3-70b-versatile",
-              messages=[
-                  {"role": "system", "content": "YouTube Shorts expert. Ultra-concise, high-impact."},
-                  {"role": "user", "content": prompt}
-              ],
-              max_tokens=100,
-              temperature=0.8
+              messages=[{"role":"system","content":"YouTube Shorts expert. Max 35 words. Bold hook. One tip. CTA."},
+                        {"role":"user","content":f"Write a 14s script inspired by @{user}"}],
+              max_tokens=100
           )
-          script = response.choices[0].message.content.strip()
-
+          script = resp.choices[0].message.content.strip()
+          
           # Create pipeline_data.json
-          pipeline = {
-              "reel_url": next_reel['url'],
-              "shortcode": shortcode,
-              "username": username,
-              "script_text": script,
-              "youtube_title": f"AI Hack You Need #shorts",
-              "youtube_description": f"Quick tip from @{username}. #ai #tech",
-              "youtube_tags": ["AI", "Shorts", "Tech"]
-          }
           with open('pipeline_data.json', 'w') as f:
-              json.dump(pipeline, f, indent=2)
-
+              json.dump({
+                  "reel_url": pick['url'], "shortcode": sc, "username": user,
+                  "script_text": script,
+                  "youtube_title": f"AI Hack #shorts",
+                  "youtube_description": f"Tip from @{user}. #ai",
+                  "youtube_tags": ["AI","Shorts"]
+              }, f, indent=2)
+          
           # Mark as in_progress
-          entry = {
-              "url": next_reel['url'],
-              "username": username,
-              "status": "in_progress",
-              "started_at": datetime.now(timezone.utc).isoformat()
-          }
-          queue_data.setdefault('processed', []).append(entry)
+          data.setdefault('processed', []).append({"url": pick['url'], "username": user, "status": "in_progress", "started_at": datetime.now(timezone.utc).isoformat()})
           with open('reel_queue.json', 'w') as f:
-              json.dump(queue_data, f, indent=2)
-
-          print("✅ pipeline_data.json ready")
-          PYTHON_EOF
+              json.dump(data, f, indent=2)
+          print(f"✅ Queued: {pick['url']}")
+          EOF
 
       # 5. Commit changes
       - name: Commit Updates
@@ -113,111 +89,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f reel_queue.json pipeline_data.json
-          if git diff-index --quiet HEAD --; then
-            echo "ℹ️ No changes to commit."
-          else
-            git commit -m "Auto: Queued reel [skip ci]"
-            git push
-          fi
+          git diff-index --quiet HEAD -- || git commit -m "Auto: queued reel [skip ci]" && git push || true
 
-        # 6. 🔥 PUSH NOTEBOOK TO KAGGLE (DEBUG-HEAVY, BULLETPROOF)
+      # 6. 🔥 SIMPLE PUSH TO KAGGLE (Your Pattern)
       - name: Push Notebook to Kaggle
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-          KERNEL_ID: "${{ secrets.KAGGLE_USERNAME }}/content-factory-engine"
         run: |
-          set -e  # Exit on any error
+          # Setup auth
+          mkdir -p ~/.kaggle
+          printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
           
-          echo "🔐 Setting up Kaggle authentication..."
+          # Push notebook (this is it - simple!)
+          kaggle kernels push -p .
           
-          # DEBUG: Show secret lengths (sanitized)
-          echo "📏 KAGGLE_USERNAME length: ${#KAGGLE_USERNAME}"
-          echo "📏 KAGGLE_KEY length: ${#KAGGLE_KEY}"
-          
-          # Validate secrets aren't empty
-          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_KEY" ]; then
-            echo "❌ ERROR: Kaggle secrets are empty. Check GitHub Settings → Secrets."
-            exit 1
-          fi
-          
-          # Create kaggle.json with PROPER escaping (handles special chars)
-          KAGGLE_DIR="$HOME/.kaggle"
-          mkdir -p "$KAGGLE_DIR"
-          
-          # ✅ Use python to create JSON (avoids shell escaping issues)
-          python3 -c "
-          import json, os
-          creds = {'username': os.environ['KAGGLE_USERNAME'], 'key': os.environ['KAGGLE_KEY']}
-          with open(os.path.expanduser('~/.kaggle/kaggle.json'), 'w') as f:
-              json.dump(creds, f)
-          "
-          chmod 600 "$KAGGLE_DIR/kaggle.json"
-          
-          # DEBUG: Show file exists and is valid JSON
-          echo "📄 Verifying kaggle.json..."
-          if [ ! -f "$KAGGLE_DIR/kaggle.json" ]; then
-            echo "❌ ERROR: kaggle.json not found at $KAGGLE_DIR/kaggle.json"
-            exit 1
-          fi
-          python3 -c "
-          import json, os
-          f = os.path.expanduser('~/.kaggle/kaggle.json')
-          d = json.load(open(f))
-          print(f'✅ Valid JSON: username={d[\"username\"]}, key_len={len(d[\"key\"])}')
-          "
-          
-          # Install/upgrade Kaggle CLI to latest version
-          echo "📦 Installing latest Kaggle CLI..."
-          pip install --upgrade -q kaggle
-          kaggle --version
-          
-          # TEST AUTH with a lightweight, reliable command
-          echo "🧪 Testing authentication..."
-          AUTH_TEST=$(kaggle kernels list -m 1 --csv 2>&1)
-          if echo "$AUTH_TEST" | grep -q "401\|Unauthorized"; then
-            echo "❌ Auth failed (401). Your KAGGLE_KEY is invalid."
-            echo "💡 Fix: Go to https://www.kaggle.com/settings → API → Create New Token"
-            echo "💡 Then update GitHub Secrets → KAGGLE_KEY with the NEW key value"
-            exit 1
-          elif echo "$AUTH_TEST" | head -1 | grep -q .; then
-            echo "✅ Authentication successful!"
-          else
-            echo "⚠️ Auth test returned empty. Proceeding cautiously..."
-          fi
-          
-          # Verify kernel-metadata.json exists and has correct id
-          echo "📄 Checking kernel-metadata.json..."
-          if [ ! -f "kernel-metadata.json" ]; then
-            echo "❌ ERROR: kernel-metadata.json not found in repo root"
-            exit 1
-          fi
-          META_ID=$(python3 -c "import json; print(json.load(open('kernel-metadata.json'))['id'])")
-          echo "🎯 Kernel ID from metadata: $META_ID"
-          if [ "$META_ID" != "$KERNEL_ID" ]; then
-            echo "⚠️ WARNING: Metadata ID ($META_ID) != Expected ($KERNEL_ID)"
-            echo "💡 Ensure kernel-metadata.json 'id' matches: YOUR_USERNAME/content-factory-engine"
-          fi
-          
-          # PUSH to Kaggle
-          echo "🚀 Pushing notebook to Kaggle..."
-          PUSH_OUTPUT=$(kaggle kernels push -p . 2>&1) || true
-          echo "$PUSH_OUTPUT"
-          
-          if echo "$PUSH_OUTPUT" | grep -q "401\|Unauthorized"; then
-            echo "❌ Push failed (401). This usually means:"
-            echo "   1. The notebook doesn't exist yet on Kaggle (create it manually first)"
-            echo "   2. Your KAGGLE_KEY is invalid or expired"
-            echo "   3. Kernel ID mismatch in kernel-metadata.json"
-            exit 1
-          elif echo "$PUSH_OUTPUT" | grep -q "successfully"; then
-            echo "✅ Push successful!"
-          else
-            echo "⚠️ Push output unclear. Check Kaggle manually."
-          fi
-          
-          echo "📅 Kaggle will auto-run on its schedule (check notebook settings)"
-          echo "🔗 Monitor: https://www.kaggle.com/$KERNEL_ID"
+          echo "✅ Pushed to Kaggle. Notebook will run on its schedule."
+          echo "🔗 Monitor: https://www.kaggle.com/$KAGGLE_USERNAME/content-factory-engine"
 # name: Content Factory Orchestrator (Duplicate-Proof)
 
 # on:
