@@ -125,57 +125,105 @@ jobs:
             git push
           fi
 
-            # 6. Push, Trigger & Stream Kaggle Logs Live to GitHub
+                  # 6. Push, Trigger & Stream Kaggle Logs (FIXED AUTH)
       - name: Push, Trigger & Stream Kaggle Logs
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           KERNEL_SLUG: "content-factory-engine"
         run: |
-          # Setup Kaggle CLI
+          echo "🔐 Setting up Kaggle authentication..."
+          
+          # DEBUG: Show secret lengths (not values) to verify they're set
+          echo "📏 KAGGLE_USERNAME length: ${#KAGGLE_USERNAME}"
+          echo "📏 KAGGLE_KEY length: ${#KAGGLE_KEY}"
+          
+          # Validate secrets are not empty
+          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_KEY" ]; then
+            echo "❌ ERROR: Kaggle secrets are empty. Check GitHub Settings → Secrets."
+            exit 1
+          fi
+          
+          # Create kaggle.json with PROPER JSON escaping
           mkdir -p ~/.kaggle
-          echo "{\"username\":\"$KAGGLE_USERNAME\",\"key\":\"$KAGGLE_KEY\"}" > ~/.kaggle/kaggle.json
+          cat > ~/.kaggle/kaggle.json << EOF
+          {"username":"$KAGGLE_USERNAME","key":"$KAGGLE_KEY"}
+          EOF
           chmod 600 ~/.kaggle/kaggle.json
           
-          echo "🚀 Pushing code to Kaggle..."
-          kaggle kernels push -p .
+          # Verify the file was created correctly
+          echo "📄 kaggle.json contents (sanitized):"
+          cat ~/.kaggle/kaggle.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'username: {d[\"username\"]}, key: {d[\"key\"][:10]}...')"
           
+          # Install/upgrade Kaggle CLI to latest version
+          echo "📦 Ensuring latest Kaggle CLI..."
+          pip install --upgrade -q kaggle
+          
+          # Test authentication BEFORE pushing
+          echo "🧪 Testing Kaggle authentication..."
+          if ! kaggle competitions list -s 1 --csv 2>/dev/null | head -1 > /dev/null; then
+            echo "❌ Authentication test failed. Check your KAGGLE_KEY secret."
+            echo "💡 Tip: Get a fresh key from https://www.kaggle.com/settings → API → Create New Token"
+            exit 1
+          fi
+          echo "✅ Authentication test passed!"
+          
+          # Push code to Kaggle
+          echo "🚀 Pushing code to Kaggle..."
+          if ! kaggle kernels push -p . 2>&1 | tee push_output.log; then
+            echo "❌ Push failed. Checking output:"
+            cat push_output.log
+            exit 1
+          fi
+          echo "✅ Push successful!"
+          
+          # Trigger execution via API
           echo "🔥 Triggering execution..."
-          curl -s -X POST \
+          TRIGGER_RESP=$(curl -s -w "\n%{http_code}" -X POST \
             -u "$KAGGLE_USERNAME:$KAGGLE_KEY" \
             "https://www.kaggle.com/api/v1/kernels/execute" \
             -H "Content-Type: application/json" \
-            -d "{\"kernel_slug\":\"$KERNEL_SLUG\"}" > /dev/null 2>&1
+            -d "{\"kernel_slug\":\"$KERNEL_SLUG\"}" 2>&1)
           
-          echo "⏳ Waiting for Kaggle queue to start (~90s)..."
+          HTTP_CODE=$(echo "$TRIGGER_RESP" | tail -1)
+          BODY=$(echo "$TRIGGER_RESP" | sed '$d')
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "✅ Execution triggered (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️ Trigger response: HTTP $HTTP_CODE"
+            echo "Body: $BODY"
+            echo "💡 Notebook may still run via schedule or manual trigger"
+          fi
+          
+          # Wait for queue
+          echo "⏳ Waiting for Kaggle to allocate resources (~90s)..."
           sleep 90
           
-          # 🔄 POLLING & LOG STREAMING LOOP
-          TIMEOUT=1800  # 30 minutes max
-          INTERVAL=30   # Check every 30 seconds
+          # 🔄 POLLING & LOG STREAMING
+          TIMEOUT=1800
+          INTERVAL=30
           ELAPSED=0
           LAST_LOG_LINE=0
           
-          echo "::group::📜 KAGGLE LIVE LOGS (Updates every 30s)"
+          echo "::group::📜 KAGGLE LIVE LOGS"
           while [ $ELAPSED -lt $TIMEOUT ]; do
-            # Check status
-            STATUS_OUTPUT=$(kaggle kernels status $KAGGLE_USERNAME/$KERNEL_SLUG 2>/dev/null)
-            STATUS=$(echo "$STATUS_OUTPUT" | grep -oi "running\|complete\|error\|queued" | tail -1)
+            STATUS_OUTPUT=$(kaggle kernels status $KAGGLE_USERNAME/$KERNEL_SLUG 2>/dev/null || echo "unknown")
+            STATUS=$(echo "$STATUS_OUTPUT" | grep -oi "running\|complete\|error\|queued\|unknown" | tail -1)
             
-            echo "📊 [$((ELAPSED/60))m ${ELAPSED}s] Kaggle Status: $STATUS"
+            echo "📊 [$((ELAPSED/60))m ${ELAPSED}s] Status: $STATUS"
             
             if [ "$STATUS" = "complete" ]; then
-              echo "✅ Kaggle execution finished successfully!"
+              echo "✅ Execution finished!"
               break
             elif [ "$STATUS" = "error" ]; then
-              echo "❌ Kaggle execution failed!"
-              # Dump final logs for debugging
+              echo "❌ Execution failed. Fetching error logs..."
               kaggle kernels output $KAGGLE_USERNAME/$KERNEL_SLUG -p /tmp 2>/dev/null
               [ -f /tmp/output.txt ] && cat /tmp/output.txt
               exit 1
             fi
             
-            # Fetch & stream ONLY new log lines
+            # Stream new log lines only
             kaggle kernels output $KAGGLE_USERNAME/$KERNEL_SLUG -p /tmp 2>/dev/null
             if [ -f /tmp/output.txt ]; then
               TOTAL_LINES=$(wc -l < /tmp/output.txt)
@@ -191,7 +239,7 @@ jobs:
           echo "::endgroup::"
           
           if [ "$STATUS" != "complete" ]; then
-            echo "⚠️ Timeout reached. Check Kaggle manually if needed."
+            echo "⚠️ Timeout or incomplete. Final logs:"
             kaggle kernels output $KAGGLE_USERNAME/$KERNEL_SLUG -p /tmp 2>/dev/null
             [ -f /tmp/output.txt ] && cat /tmp/output.txt
           fi
