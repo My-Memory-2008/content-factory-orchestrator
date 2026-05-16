@@ -103,9 +103,7 @@ jobs:
           echo "{\"id\": \"muhammadasjad2008/content-factory-engine\", \"title\": \"Content Factory Engine\", \"code_file\": \"content-factory-engine.ipynb\", \"language\": \"python\", \"kernel_type\": \"notebook\", \"is_private\": \"true\", \"enable_gpu\": \"true\", \"enable_internet\": \"true\", \"dataset_sources\": [], \"competition_sources\": [], \"kernel_sources\": []}" > kernel-metadata.json
           export KAGGLE_USERNAME="$KAGGLE_USERNAME"
           export KAGGLE_KEY="$KAGGLE_KEY"
-          echo "🚀 Pushing pipeline modifications to Kaggle Server..."
           kaggle kernels push -p .
-          echo "✅ Handshake complete! Kaggle GPU engine is spinning up."
 # name: Content Factory Orchestrator
 
 # on:
