@@ -125,124 +125,38 @@ jobs:
             git push
           fi
 
-                  # 6. Push, Trigger & Stream Kaggle Logs (FIXED AUTH)
-      - name: Push, Trigger & Stream Kaggle Logs
+                  # 6. Push to Kaggle (FIXED: New Auth Method)
+      - name: Push to Kaggle
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-          KERNEL_SLUG: "content-factory-engine"
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: |
-          echo "🔐 Setting up Kaggle authentication..."
+          echo "🔐 Setting up NEW Kaggle authentication..."
           
-          # DEBUG: Show secret lengths (not values) to verify they're set
-          echo "📏 KAGGLE_USERNAME length: ${#KAGGLE_USERNAME}"
-          echo "📏 KAGGLE_KEY length: ${#KAGGLE_KEY}"
-          
-          # Validate secrets are not empty
-          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_KEY" ]; then
-            echo "❌ ERROR: Kaggle secrets are empty. Check GitHub Settings → Secrets."
-            exit 1
-          fi
-          
-          # Create kaggle.json with PROPER JSON escaping
+          # NEW METHOD: Write token to access_token (NOT kaggle.json)
           mkdir -p ~/.kaggle
-          cat > ~/.kaggle/kaggle.json << EOF
-          {"username":"$KAGGLE_USERNAME","key":"$KAGGLE_KEY"}
-          EOF
-          chmod 600 ~/.kaggle/kaggle.json
+          echo -n "$KAGGLE_API_TOKEN" > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
           
-          # Verify the file was created correctly
-          echo "📄 kaggle.json contents (sanitized):"
-          cat ~/.kaggle/kaggle.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'username: {d[\"username\"]}, key: {d[\"key\"][:10]}...')"
+          # Verify
+          echo "📄 Token file created:"
+          cat ~/.kaggle/access_token | head -c 20; echo "..."
           
-          # Install/upgrade Kaggle CLI to latest version
-          echo "📦 Ensuring latest Kaggle CLI..."
+          # Install CLI
           pip install --upgrade -q kaggle
           
-          # Test authentication BEFORE pushing
-          echo "🧪 Testing Kaggle authentication..."
-          if ! kaggle competitions list -s 1 --csv 2>/dev/null | head -1 > /dev/null; then
-            echo "❌ Authentication test failed. Check your KAGGLE_KEY secret."
-            echo "💡 Tip: Get a fresh key from https://www.kaggle.com/settings → API → Create New Token"
-            exit 1
-          fi
-          echo "✅ Authentication test passed!"
-          
-          # Push code to Kaggle
-          echo "🚀 Pushing code to Kaggle..."
-          if ! kaggle kernels push -p . 2>&1 | tee push_output.log; then
-            echo "❌ Push failed. Checking output:"
-            cat push_output.log
-            exit 1
-          fi
-          echo "✅ Push successful!"
-          
-          # Trigger execution via API
-          echo "🔥 Triggering execution..."
-          TRIGGER_RESP=$(curl -s -w "\n%{http_code}" -X POST \
-            -u "$KAGGLE_USERNAME:$KAGGLE_KEY" \
-            "https://www.kaggle.com/api/v1/kernels/execute" \
-            -H "Content-Type: application/json" \
-            -d "{\"kernel_slug\":\"$KERNEL_SLUG\"}" 2>&1)
-          
-          HTTP_CODE=$(echo "$TRIGGER_RESP" | tail -1)
-          BODY=$(echo "$TRIGGER_RESP" | sed '$d')
-          
-          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
-            echo "✅ Execution triggered (HTTP $HTTP_CODE)"
+          # Test auth
+          echo "🧪 Testing authentication..."
+          if kaggle kernels list -m 1 --csv 2>/dev/null | head -1 > /dev/null; then
+            echo "✅ Authentication successful!"
           else
-            echo "⚠️ Trigger response: HTTP $HTTP_CODE"
-            echo "Body: $BODY"
-            echo "💡 Notebook may still run via schedule or manual trigger"
+            echo "❌ Auth failed. Check your KAGGLE_API_TOKEN secret."
+            exit 1
           fi
           
-          # Wait for queue
-          echo "⏳ Waiting for Kaggle to allocate resources (~90s)..."
-          sleep 90
-          
-          # 🔄 POLLING & LOG STREAMING
-          TIMEOUT=1800
-          INTERVAL=30
-          ELAPSED=0
-          LAST_LOG_LINE=0
-          
-          echo "::group::📜 KAGGLE LIVE LOGS"
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS_OUTPUT=$(kaggle kernels status $KAGGLE_USERNAME/$KERNEL_SLUG 2>/dev/null || echo "unknown")
-            STATUS=$(echo "$STATUS_OUTPUT" | grep -oi "running\|complete\|error\|queued\|unknown" | tail -1)
-            
-            echo "📊 [$((ELAPSED/60))m ${ELAPSED}s] Status: $STATUS"
-            
-            if [ "$STATUS" = "complete" ]; then
-              echo "✅ Execution finished!"
-              break
-            elif [ "$STATUS" = "error" ]; then
-              echo "❌ Execution failed. Fetching error logs..."
-              kaggle kernels output $KAGGLE_USERNAME/$KERNEL_SLUG -p /tmp 2>/dev/null
-              [ -f /tmp/output.txt ] && cat /tmp/output.txt
-              exit 1
-            fi
-            
-            # Stream new log lines only
-            kaggle kernels output $KAGGLE_USERNAME/$KERNEL_SLUG -p /tmp 2>/dev/null
-            if [ -f /tmp/output.txt ]; then
-              TOTAL_LINES=$(wc -l < /tmp/output.txt)
-              if [ "$TOTAL_LINES" -gt "$LAST_LOG_LINE" ]; then
-                tail -n +$((LAST_LOG_LINE + 1)) /tmp/output.txt
-                LAST_LOG_LINE=$TOTAL_LINES
-              fi
-            fi
-            
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-          echo "::endgroup::"
-          
-          if [ "$STATUS" != "complete" ]; then
-            echo "⚠️ Timeout or incomplete. Final logs:"
-            kaggle kernels output $KAGGLE_USERNAME/$KERNEL_SLUG -p /tmp 2>/dev/null
-            [ -f /tmp/output.txt ] && cat /tmp/output.txt
-          fi
+          # Push
+          echo "🚀 Pushing to Kaggle..."
+          kaggle kernels push -p .
+          echo "✅ Push complete!"
       # 7. Final log
       - name: Final Status
         run: |
