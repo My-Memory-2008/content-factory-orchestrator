@@ -117,6 +117,25 @@ jobs:
           echo "✅ Pushed. Kaggle will auto-run within 60 seconds."
           echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
 
+
+
+                # Fallback: Explicitly trigger execution via Kaggle API
+      - name: Force Trigger Execution
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          # Wait for push to register
+          sleep 30
+          
+          # Trigger via API (uses same auth)
+          curl -s -X POST \
+            -u "$KAGGLE_USERNAME:$KAGGLE_KEY" \
+            "https://www.kaggle.com/api/v1/kernels/execute" \
+            -H "Content-Type: application/json" \
+            -d '{"kernel_slug":"content-factory-engine"}' > /dev/null 2>&1 || true
+          
+          echo "✅ Execution trigger sent."
 # name: Content Factory Orchestrator
 
 # on:
