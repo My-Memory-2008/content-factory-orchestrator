@@ -1,38 +1,34 @@
-name: Content Factory Orchestrator (Kaggle Deployer Action)
+name: Content Factory Data Pipeline
 
 on:
   schedule:
     - cron: '0 9,17 * * *'  # 9 AM & 5 PM UTC
-  workflow_dispatch:         # Manual one-click trigger
+  workflow_dispatch:         # Manual trigger
 
 jobs:
-  automate:
+  prepare-data:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      # 1. Checkout repo
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup Python (for queue processing)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 3. Install dependencies
       - name: Install Dependencies
         run: pip install requests openai
 
-      # 4. Process queue → generate pipeline_data.json
       - name: Process Queue & Generate Script
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           python3 << 'EOF'
-          import os, json, re, requests
+          import os, json, re
           from datetime import datetime, timezone
           from openai import OpenAI
           
@@ -84,58 +80,18 @@ jobs:
           print(f"✅ Queued: {pick['url']}")
           EOF
 
-      # 5. Commit changes
-      - name: Commit Updates
+      - name: Commit & Push Data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f reel_queue.json pipeline_data.json
           git diff-index --quiet HEAD -- || git commit -m "Auto: queued reel [skip ci]" && git push || true
 
-
-
-            # 6. 🔥 PUSH & TRIGGER KAGGLE (Guaranteed Working)
-      - name: Push & Trigger Kaggle Notebook
-        env:
-          KAGGLE_CONFIG: ${{ secrets.KAGGLE_CONFIG }}
+      - name: Final Status
         run: |
-          # Install CLI
-          pip install -q kaggle
-          
-          # Write credentials safely (avoids all shell escaping issues)
-          mkdir -p ~/.kaggle
-          echo "$KAGGLE_CONFIG" > ~/.kaggle/kaggle.json
-          chmod 600 ~/.kaggle/kaggle.json
-          
-          # Verify file is valid JSON
-          python3 -c "import json; json.load(open('~/.kaggle/kaggle.json'))" || { echo "❌ Invalid JSON in KAGGLE_CONFIG"; exit 1; }
-          
-          # Push notebook (triggers execution if "Run on push" is enabled)
-          echo "🚀 Pushing to Kaggle..."
-          kaggle kernels push -p .
-          
-          echo "✅ Pushed. Kaggle will auto-run within 60 seconds."
+          echo "✅ Data prepared & committed."
+          echo "⏳ Kaggle will auto-sync & run within 1-3 minutes."
           echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
-
-
-
-                # Fallback: Explicitly trigger execution via Kaggle API
-      - name: Force Trigger Execution
-        env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-        run: |
-          # Wait for push to register
-          sleep 30
-          
-          # Trigger via API (uses same auth)
-          curl -s -X POST \
-            -u "$KAGGLE_USERNAME:$KAGGLE_KEY" \
-            "https://www.kaggle.com/api/v1/kernels/execute" \
-            -H "Content-Type: application/json" \
-            -d '{"kernel_slug":"content-factory-engine"}' > /dev/null 2>&1 || true
-          
-          echo "✅ Execution trigger sent."
 # name: Content Factory Orchestrator
 
 # on:
