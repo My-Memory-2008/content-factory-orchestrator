@@ -1,3 +1,5 @@
+
+
 name: Content Factory Orchestrator
 
 on:
@@ -116,29 +118,210 @@ jobs:
             git push
           fi
 
-      # 🔥 THIS IS THE EXACT CODE YOU PROVIDED - WITH CRITICAL FIXES
+      - name: Generate Kaggle Metadata File
+        run: |
+          cat << 'EOF' > kernel-metadata.json
+          {
+            "id": "muhammadasjad2008/content-factory-engine",
+            "title": "Content Factory Engine",
+            "code_file": "notebook.ipynb",
+            "language": "python",
+            "kernel_type": "notebook",
+            "is_private": "true",
+            "enable_gpu": "false",
+            "enable_tpu": "false",
+            "enable_internet": "true",
+            "keywords": [],
+            "dataset_sources": [],
+            "kernel_sources": [],
+            "competition_sources": []
+          }
+          EOF
+          echo "📝 Created kernel-metadata.json safely inside workflow runner."
+
+      - name: Create Dummy Notebook File
+        run: |
+          if [ ! -f notebook.ipynb ]; then
+            cat << 'EOF' > notebook.ipynb
+          {
+           "cells": [
+            {
+             "cell_type": "code",
+             "execution_count": null,
+             "metadata": {},
+             "outputs": [],
+             "source": [
+              "# Auto-generated notebook template\n",
+              "print('Executing pipeline...')"
+             ]
+            }
+           ],
+           "metadata": {},
+           "nbformat": 4,
+           "nbformat_minor": 2
+          }
+          EOF
+            echo "📓 Created notebook.ipynb placeholder for API push compatibility."
+          fi
+
       - name: Push and Run Kaggle Notebook
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          # Install CLI
-          pip install kaggle
-          
-          # Setup auth - USE printf TO AVOID ESCAPING ISSUES
           mkdir -p ~/.kaggle
           printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > ~/.kaggle/kaggle.json
           chmod 600 ~/.kaggle/kaggle.json
           
-          # DEBUG: Show what we're sending (sanitized)
-          echo "🔐 Auth setup complete. Key length: ${#KAGGLE_KEY}"
+          echo "🔐 Auth credentials saved."
+          echo "🚀 Triggering remote execution on Kaggle..."
           
-          # Push to Kaggle - PATH IS "." BECAUSE FILES ARE IN REPO ROOT
-          echo "🚀 Pushing notebook to Kaggle from: $(pwd)"
           kaggle kernels push -p .
+          echo "✅ Pushed and running: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
+
+
+
+# name: Content Factory Orchestrator
+
+# on:
+#   schedule:
+#     - cron: '0 9,17 * * *'
+#   workflow_dispatch:
+
+# jobs:
+#   process-queue:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.10'
+
+#       - name: Install Dependencies
+#         run: pip install requests openai kaggle
+
+#       - name: Process Queue & Generate Script
+#         env:
+#           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+#         run: |
+#           python3 << 'PYTHON_EOF'
+#           import os, json, requests, re
+#           from datetime import datetime, timezone
+#           from openai import OpenAI
+
+#           print("🧠 Starting Queue Processor...")
+
+#           with open('reel_queue.json', 'r') as f:
+#               queue_data = json.load(f)
+
+#           queue = queue_data.get('queue', [])
+#           processed_urls = {item['url'] for item in queue_data.get('processed', [])}
           
-          echo "✅ Pushed to Kaggle. If 'Run on push' is enabled, execution starts automatically."
-          echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
+#           print(f"📊 Queue Status: {len(queue)} in line, {len(processed_urls)} done.")
+
+#           next_reel = None
+#           for i, reel in enumerate(queue):
+#               url = reel.get('url', '').strip()
+#               if 'instagram.com/reel/' not in url:
+#                   continue
+#               if url in processed_urls:
+#                   print(f"⏭️ Skipped (Duplicate): {url}")
+#                   continue
+#               next_reel = reel
+#               print(f"🎯 SELECTED NEW REEL: {url}")
+#               break
+
+#           if not next_reel:
+#               print("✅ No new reels to process (or all duplicates). Exiting.")
+#               exit(0)
+
+#           match = re.search(r'/reel/([^/?]+)', next_reel['url'])
+#           shortcode = match.group(1) if match else "unknown"
+#           username = next_reel.get('username', 'unknown')
+
+#           print("🤖 Generating AI Script...")
+#           client = OpenAI(api_key=os.environ['GROQ_API_KEY'], base_url='https://api.groq.com/openai/v1')
+#           prompt = f"Write a 60-second YouTube Shorts script about the content from this reel by @{username}. Educational tone. Strong hook. #shorts"
+          
+#           response = client.chat.completions.create(
+#               model="llama-3.3-70b-versatile",
+#               messages=[
+#                   {"role": "system", "content": "You are an expert YouTube content creator."},
+#                   {"role": "user", "content": prompt}
+#               ],
+#               max_tokens=200,
+#               temperature=0.8
+#           )
+#           script = response.choices[0].message.content.strip()
+
+#           pipeline = {
+#               "reel_url": next_reel['url'],
+#               "shortcode": shortcode,
+#               "username": username,
+#               "script_text": script,
+#               "youtube_title": f"AI Tip You Need To Know #shorts",
+#               "youtube_description": f"Analysis of @{username}'s content. #ai #tech",
+#               "youtube_tags": ["AI", "Tech", "Shorts"]
+#           }
+
+#           with open('pipeline_data.json', 'w') as f:
+#               json.dump(pipeline, f, indent=2)
+
+#           entry = {
+#               "url": next_reel['url'],
+#               "username": username,
+#               "status": "in_progress",
+#               "started_at": datetime.now(timezone.utc).isoformat()
+#           }
+#           queue_data.setdefault('processed', []).append(entry)
+          
+#           with open('reel_queue.json', 'w') as f:
+#               json.dump(queue_data, f, indent=2)
+
+#           print("✅ Files ready for Kaggle trigger.")
+#           PYTHON_EOF
+
+#       - name: Commit Updates
+#         run: |
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@users.noreply.github.com"
+#           git add -f reel_queue.json pipeline_data.json
+#           if git diff-index --quiet HEAD --; then
+#             echo "ℹ️ No changes to commit."
+#           else
+#             git commit -m "Auto: Picked next reel [skip ci]"
+#             git push
+#           fi
+
+#       # 🔥 THIS IS THE EXACT CODE YOU PROVIDED - WITH CRITICAL FIXES
+#       - name: Push and Run Kaggle Notebook
+#         env:
+#           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+#           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+#         run: |
+#           # Install CLI
+#           pip install kaggle
+          
+#           # Setup auth - USE printf TO AVOID ESCAPING ISSUES
+#           mkdir -p ~/.kaggle
+#           printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > ~/.kaggle/kaggle.json
+#           chmod 600 ~/.kaggle/kaggle.json
+          
+#           # DEBUG: Show what we're sending (sanitized)
+#           echo "🔐 Auth setup complete. Key length: ${#KAGGLE_KEY}"
+          
+#           # Push to Kaggle - PATH IS "." BECAUSE FILES ARE IN REPO ROOT
+#           echo "🚀 Pushing notebook to Kaggle from: $(pwd)"
+#           kaggle kernels push -p .
+          
+#           echo "✅ Pushed to Kaggle. If 'Run on push' is enabled, execution starts automatically."
+#           echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
 
 # name: Content Factory Orchestrator (Duplicate-Proof)
 
