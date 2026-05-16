@@ -95,8 +95,30 @@ jobs:
 
           EOF
           
+          # 6. Trigger Kaggle Execution (With environment variables fixed)
+      - name: Trigger Kaggle GPU Notebook Execution
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          # Construct the metadata file configuration dynamically in the workspace root
+          cat << 'EOF' > kernel-metadata.json
+          {
+            "id": "muhammadasjad2008/content-factory-engine",
+            "title": "Content Factory Engine",
+            "code_file": "content-factory-engine.ipynb",
+            "language": "python",
+            "kernel_type": "notebook",
+            "is_private": "true",
+            "enable_gpu": "true",
+            "enable_internet": "true",
+            "dataset_sources": [],
+            "competition_sources": [],
+            "kernel_sources": []
+          }
+          EOF
+          
           # Force the Kaggle CLI to read values straight out of global memory tokens
-          # This completely bypasses file authorization bugs (401 errors)
           export KAGGLE_USERNAME="$KAGGLE_USERNAME"
           export KAGGLE_KEY="$KAGGLE_KEY"
           
