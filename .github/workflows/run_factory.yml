@@ -1,4 +1,4 @@
-name: Content Factory Orchestrator (Official CLI)
+name: Content Factory Orchestrator (Kaggle Deployer Action)
 
 on:
   schedule:
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup Python
+      # 2. Setup Python (for queue processing)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -24,7 +24,7 @@ jobs:
 
       # 3. Install dependencies
       - name: Install Dependencies
-        run: pip install requests openai kaggle
+        run: pip install requests openai
 
       # 4. Process queue → generate pipeline_data.json
       - name: Process Queue & Generate Script
@@ -92,38 +92,26 @@ jobs:
           git add -f reel_queue.json pipeline_data.json
           git diff-index --quiet HEAD -- || git commit -m "Auto: queued reel [skip ci]" && git push || true
 
-      # 6. 🔥 PUSH TO KAGGLE (Official CLI - Working Method)
-      - name: Push to Kaggle
-        env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-        run: |
-          # Create kaggle.json with Python (avoids shell escaping issues)
-          python3 -c "
-          import json, os
-          creds = {'username': os.environ['KAGGLE_USERNAME'], 'key': os.environ['KAGGLE_KEY']}
-          os.makedirs(os.path.expanduser('~/.kaggle'), exist_ok=True)
-          with open(os.path.expanduser('~/.kaggle/kaggle.json'), 'w') as f:
-              json.dump(creds, f)
-          "
-          chmod 600 ~/.kaggle/kaggle.json
+      # 6. 🔥 DEPLOY TO KAGGLE (Using jonaswrobel/kaggle-notebook-deployer)
+      - name: Deploy Notebook to Kaggle
+        uses: jonaswrobel/kaggle-notebook-deployer@v1
+        with:
+          # Authentication
+          kaggle-username: ${{ secrets.KAGGLE_USERNAME }}
+          kaggle-key: ${{ secrets.KAGGLE_KEY }}
           
-          # Verify auth works
-          echo "🧪 Testing Kaggle auth..."
-          if kaggle kernels list -m 1 --csv 2>&1 | grep -q .; then
-            echo "✅ Auth successful"
-          else
-            echo "❌ Auth failed. Check KAGGLE_KEY secret."
-            exit 1
-          fi
+          # Notebook & Metadata
+          notebook-path: ./content-factory-engine.ipynb
+          metadata-path: ./kernel-metadata.json
           
-          # Push notebook (path = current directory = repo root)
-          echo "🚀 Pushing to Kaggle..."
-          kaggle kernels push -p .
+          # Execution Settings
+          enable-gpu: true
+          enable-internet: true
+          trigger-execution: true  # Auto-run after push
           
-          echo "✅ Pushed to Kaggle."
-          echo "🔗 Notebook: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
-          echo "💡 Enable 'Run on push' in Kaggle settings for auto-execution."
+          # Optional: Timeout & Verbosity
+          timeout-minutes: 30
+          verbose: true
 
 # name: Content Factory Orchestrator
 
