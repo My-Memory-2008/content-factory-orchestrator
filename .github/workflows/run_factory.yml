@@ -95,7 +95,7 @@ jobs:
 
           EOF
           
-         - name: Trigger Kaggle GPU Notebook Execution
+      - name: Trigger Kaggle GPU Notebook Execution
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
