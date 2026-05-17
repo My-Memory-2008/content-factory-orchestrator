@@ -1,5 +1,22 @@
-!apt-get update -qq && apt-get install -y -qq ffmpeg > /dev/null
-!pip install -q requests torch transformers scipy accelerate google-api-python-client google-auth-oauthlib google-auth-httplib2 instaloader
+# %% [code]
+import subprocess
+import sys
+subprocess.run("apt-get update -qq && apt-get install -y -qq ffmpeg > /dev/null", shell=True, check=True)
+
+packages=[
+    "requests",
+    "torch",
+    "transformers",
+    "scipy",
+    "accelerate",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "google-auth-httplib2",
+    "instaloader"
+]
+
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q"] + packages)
+
 print("✅ Dependencies installed. Ready for main script.")
 
 #!/usr/bin/env python3
@@ -169,3 +186,4 @@ except Exception as e:
     print(f"⚠️ Ledger warning: {e}")
 
 print("\n🏆 PIPELINE COMPLETE!")
+
