@@ -1,3 +1,4 @@
+
 name: Content Factory Orchestrator (Python API Trigger)
 
 on:
@@ -24,7 +25,7 @@ jobs:
 
       # 3. Install dependencies
       - name: Install Dependencies
-        run: pip install requests openai
+        run: pip install requests openai kaggle
 
       # 4. Process queue → generate pipeline_data.json
       - name: Process Queue & Generate Script
@@ -89,16 +90,32 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f reel_queue.json pipeline_data.json trigger.py
+          git add -f reel_queue.json pipeline_data.json kaggle_deploy/ trigger.py
           git diff-index --quiet HEAD -- || git commit -m "Auto: queued reel [skip ci]" && git push || true
-          echo "✅ Data committed. Kaggle sync will detect update within ~60s."
+          echo "✅ Data committed. GitHub-Kaggle sync will detect update within ~60s."
 
-      # 6. 🔥 TRIGGER KAGGLE VIA PYTHON API (Your Idea, Corrected)
+      # 6. 🔥 TRIGGER KAGGLE VIA OFFICIAL PYTHON API
       - name: Trigger Kaggle Execution via Python API
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_PUSH_FOLDER: "./kaggle_deploy"
+          KAGGLE_KERNEL_ID: "muhammadasjad2008/content-factory-engine"
+          KAGGLE_WAIT_MINUTES: "0"  # 0 = fire-and-forget; set to 30 to wait for completion
+          KAGGLE_SYNC_WAIT_SECONDS: "50"
         run: python3 trigger.py
+
+      # 7. Final Status
+      - name: Final Status
+        run: |
+          echo "========================================="
+          echo "✅ ONE-CLICK AUTOMATION COMPLETE"
+          echo "📁 pipeline_data.json committed"
+          echo "🔥 Kaggle execution triggered via Python API"
+          echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
+          echo "========================================="
+
+
 
         
 # name: Content Factory Orchestrator
