@@ -33,7 +33,7 @@ print("[2/3] Writing kernel control properties file...")
 meta_payload = {
     "id": "muhammadasjad2008/content-factory-engine",
     "title": "Content Factory Engine",
-    "code_file": "summa.py",
+    "code_file": "content-factory-engine.py",
     "language": "python",
     "kernel_type": "script",
     "is_private": "true",
@@ -61,7 +61,7 @@ try:
     
     # Execute the push function directly through universal standard attributes
     print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
-    api.kernels_push(os.getcwd())
+    api.kernels_push(".")
     
     print("🚀 SUCCESS! The trigger payload cleared gates safely via native code lines.")
     print("🔗 Monitor progress here: https://kaggle.com")
