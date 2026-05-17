@@ -1,62 +1,60 @@
 import os
 import json
-import requests
 
-# 1. Pull credentials out of GitHub action runner environments
+# 1. Fetch credentials safely from the execution environment
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME")
 KAGGLE_KEY = os.environ.get("KAGGLE_KEY")
 
-# Ensure fields don't accidentally contain whitespaces or newline tags
-if KAGGLE_USERNAME: KAGGLE_USERNAME = KAGGLE_USERNAME.strip()
-if KAGGLE_KEY: KAGGLE_KEY = KAGGLE_KEY.strip()
+if not KAGGLE_USERNAME or not KAGGLE_KEY:
+    print("❌ Error: Missing KAGGLE_USERNAME or KAGGLE_KEY environment variables!")
+    exit(1)
 
-# Your precise lowercase user/slug identifier path
-KERNEL_SLUG = "muhammadasjad2008/content-factory-engine"
+# Trim out any invisible newline or whitespace gaps
+KAGGLE_USERNAME = KAGGLE_USERNAME.strip()
+KAGGLE_KEY = KAGGLE_KEY.strip()
 
-# 2. Read the local execution chassis notebook script safely
-if not os.path.exists("summa.py"):
-    raise FileNotFoundError("❌ Critical Error: 'notebook.py' is missing from your repository root!")
+print("[1/3] Generating secure native token file...")
 
-with open("summa.py", "r", encoding="utf-8") as f:
-    code_content = f.read()
+# 2. Re-create the secure credentials folder structure required by Kaggle
+home_dir = os.path.expanduser("~")
+kaggle_folder = os.path.join(home_dir, ".kaggle")
+os.makedirs(kaggle_folder, exist_ok=True)
 
-# 3. Formulate the explicit payload parameters required by Kaggle's v1 REST engine
-payload = {
-    "id": 0,
-    "slug": KERNEL_SLUG,
-    "newTitle": "Content Factory Engine",
-    "textCode": code_content,
+token_path = os.path.join(kaggle_folder, "kaggle.json")
+with open(token_path, "w") as f:
+    json.dump({"username": KAGGLE_USERNAME, "key": KAGGLE_KEY}, f)
+
+# Lock down file system permissions so the client accepts it safely
+os.chmod(token_path, 0o600)
+print("✅ Token file created and locked down.")
+
+# 3. Create the kernel-metadata.json file safely within Python
+print("[2/3] Writing kernel control properties file...")
+meta_payload = {
+    "id": "muhammadasjad2008/content-factory-engine",
+    "title": "Content Factory Engine",
+    "code_file": "summa.py",
     "language": "python",
-    "kernelType": "notebook",
-    "isPrivate": True,
-    "enableGpu": True,
-    "enableInternet": True,
-    "datasetSources": [],
-    "competitionSources": [],
+    "kernel_type": "script",
+    "is_private": "true",
+    "enable_gpu": "true",
+    "enable_internet": "true",
+    "dataset_sources": [],
+    "competition_sources": [],
     "kernel_sources": []
 }
 
-# 4. Fire the direct network POST payload over the cloud gateway
-url = "https://kaggle.com"
-auth = (KAGGLE_USERNAME, KAGGLE_KEY)
+with open("kernel-metadata.json", "w") as f:
+    json.dump(meta_payload, f, indent=2)
+print("✅ kernel-metadata.json created.")
 
-print(f"📡 Dispatching payload directly to Kaggle REST endpoint: {url}...")
-response = requests.post(url, auth=auth, json=payload)
+# 4. Fire the official Kaggle API client trigger via safe system sub-shell lines
+print("[3/3] Launching official Kaggle push trigger protocol...")
+exit_code = os.system("kaggle kernels push -p .")
 
-# 5. Safe Handshake Verification
-print(f"📡 Response Status Received: HTTP {response.status_code}")
-
-if response.status_code == 200:
-    try:
-        data = response.json()
-        print(f"✅ SUCCESS! Kaggle GPU Engine Active. Executing Version: {data.get('versionNumber')}")
-    except Exception as json_err:
-        print("⚠️ Response returned HTTP 200 but payload body could not parse as JSON:")
-        print(response.text)
+if exit_code == 0:
+    print("🚀 SUCCESS! The trigger payload cleared gates safely.")
+    print("🔗 Monitor progress here: https://kaggle.com")
 else:
-    print(f"❌ Handshake Denied by Kaggle Backend Server (HTTP {response.status_code})")
-    print("📋 Diagnostic Server Output:")
-    print("-" * 50)
-    print(response.text) # Prints the actual raw HTML error description from Kaggle
-    print("-" * 50)
-    exit(1) # Fail the GitHub workflow cleanly with explicit reasons listed
+    print(f"❌ Critical Error: Kaggle CLI push failed with exit status code: {exit_code}")
+    exit(1)
