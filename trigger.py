@@ -1,66 +1,83 @@
 #!/usr/bin/env python3
-# trigger.py - Direct Kaggle API execution trigger
-import os, sys, time, requests
+# trigger.py - Trigger Kaggle notebook execution via official Python API
+import os, sys, time
+from kaggle.api.kaggle_api_extended import KaggleApi
 
-def trigger_kaggle_execution():
-    # 1. Load credentials from GitHub Actions environment
-    username = os.environ.get("KAGGLE_USERNAME")
-    key = os.environ.get("KAGGLE_KEY")
+def trigger_kaggle_execution(folder_path: str, kernel_id: str, max_wait_minutes: int = 30):
+    """
+    Push notebook config to Kaggle and optionally wait for completion.
     
-    if not username or not key:
-        print("❌ ERROR: KAGGLE_USERNAME or KAGGLE_KEY not set in environment")
-        return False
-    
-    # Target notebook (must match your Kaggle URL exactly)
-    kernel_slug = "content-factory-engine"  # Just the slug, not full path
-    
-    # 2. Correct API endpoint for triggering execution
-    url = "https://www.kaggle.com/api/v1/kernels/execute"
-    
-    # 3. Correct payload structure for execution trigger
-    payload = {
-        "user_name": username,
-        "kernel_slug": kernel_slug
-    }
-    
-    # 4. Make the API call with basic auth
-    print(f"📡 Triggering execution for {username}/{kernel_slug}...")
+    Args:
+        folder_path: Path to folder containing kernel-metadata.json + code file
+        kernel_id: "username/kernel-slug" format
+        max_wait_minutes: Max time to wait for execution (0 = fire-and-forget)
+    """
+    print(f"🔐 Initializing Kaggle API client...")
     
     try:
-        response = requests.post(
-            url,
-            auth=(username, key),
-            json=payload,
-            timeout=30,
-            headers={"Content-Type": "application/json"}
-        )
+        # Initialize and authenticate
+        api = KaggleApi()
+        api.authenticate()  # Reads ~/.kaggle/kaggle.json or env vars
+        print("✅ Authentication successful")
         
-        # 5. Handle response
-        if response.status_code in [200, 202]:
-            print(f"✅ Execution triggered successfully! (HTTP {response.status_code})")
-            if response.text:
-                print(f"📄 Response: {response.text[:200]}")
-            return True
-        elif response.status_code == 404:
-            print("⚠️ API returned 404 (known Kaggle quirk for free-tier triggers)")
-            print("💡 Notebook will likely auto-run via 'Run on push' within 60s")
-            return True  # Not a hard failure
-        else:
-            print(f"❌ Failed: HTTP {response.status_code}")
-            print(f"📄 Response: {response.text}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Network error: {e}")
+    except Exception as e:
+        print(f"❌ Authentication failed: {e}")
+        print("💡 Ensure KAGGLE_USERNAME and KAGGLE_KEY are set in environment")
+        print("💡 Or create ~/.kaggle/kaggle.json with valid credentials")
         return False
+    
+    try:
+        # Push configuration (this TRIGGERS execution on existing notebooks)
+        print(f"📤 Pushing configuration from '{folder_path}'...")
+        response = api.kernels_push(folder_path)
+        
+        print("✅ Push successful!")
+        print(f"🔗 Remote URL: {response.get('url', 'N/A')}")
+        print(f"📊 Initial status: {response.get('status', 'N/A')}")
+        
+    except Exception as e:
+        print(f"❌ Push failed: {e}")
+        return False
+    
+    # Optional: Wait for execution to complete
+    if max_wait_minutes > 0:
+        print(f"⏳ Monitoring execution (timeout: {max_wait_minutes} mins)...")
+        start_time = time.time()
+        timeout_seconds = max_wait_minutes * 60
+        
+        while time.time() - start_time < timeout_seconds:
+            try:
+                status_info = api.kernels_status(kernel_id)
+                status = status_info.get("status", "unknown")
+                print(f"📊 [{int((time.time()-start_time)/60)}m] Status: {status}")
+                
+                if status in ["complete", "error", "cancelled"]:
+                    print(f"✅ Execution finished with status: {status}")
+                    return status == "complete"
+                    
+            except Exception as e:
+                print(f"⚠️ Status check failed: {e}")
+                
+            time.sleep(30)  # Poll every 30 seconds
+        
+        print(f"⚠️ Timeout reached. Execution may still be running.")
+        return True  # Not a hard failure
+    
+    return True
 
 if __name__ == "__main__":
-    # Wait for GitHub-Kaggle sync to register the new version
-    print("⏳ Waiting 50s for Kaggle-GitHub sync to register new version...")
-    time.sleep(50)
+    # Configuration
+    FOLDER_PATH = os.environ.get("KAGGLE_PUSH_FOLDER", "./kaggle_deploy")
+    KERNEL_ID = os.environ.get("KAGGLE_KERNEL_ID", "muhammadasjad2008/content-factory-engine")
+    WAIT_MINUTES = int(os.environ.get("KAGGLE_WAIT_MINUTES", "0"))  # 0 = fire-and-forget
+    
+    # Wait for GitHub-Kaggle sync to register the new pipeline_data.json
+    sync_wait = int(os.environ.get("KAGGLE_SYNC_WAIT_SECONDS", "50"))
+    print(f"⏳ Waiting {sync_wait}s for GitHub-Kaggle sync to register new data...")
+    time.sleep(sync_wait)
     
     # Trigger execution
-    success = trigger_kaggle_execution()
+    success = trigger_kaggle_execution(FOLDER_PATH, KERNEL_ID, WAIT_MINUTES)
     
     # Exit with proper code for GitHub Actions
     sys.exit(0 if success else 1)
