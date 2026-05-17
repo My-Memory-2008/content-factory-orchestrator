@@ -14,7 +14,7 @@ if KAGGLE_KEY: KAGGLE_KEY = KAGGLE_KEY.strip()
 KERNEL_SLUG = "muhammadasjad2008/content-factory-engine"
 
 # 2. Read the local execution chassis notebook script safely
-if not os.path.exists("notebook.py"):
+if not os.path.exists("summa.py"):
     raise FileNotFoundError("❌ Critical Error: 'notebook.py' is missing from your repository root!")
 
 with open("summa.py", "r", encoding="utf-8") as f:
