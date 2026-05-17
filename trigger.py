@@ -11,7 +11,7 @@ KAGGLE_KEY = os.environ.get("KAGGLE_KEY")
 KERNEL_SLUG = "muhammadasjad2008/content-factory-engine"
 
 # 2. Read the script file you want to execute (notebook.py)
-with open("notebook.py", "r") as f:
+with open("summa.py", "r") as f:
     code_content = f.read()
 
 # 3. Formulate the explicit payload structure required by Kaggle v1 REST endpoints
@@ -19,6 +19,7 @@ payload = {
     "id": "muhammadasjad2008",
     "slug": "content-factory-engine",
     "newTitle": "Content Factory Engine",
+    "textCode": code_content,
     "language": "python",
     "kernelType": "notebook",
     "isPrivate": True,
