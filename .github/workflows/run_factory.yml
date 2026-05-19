@@ -583,7 +583,7 @@
 #           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
 #         run: python3 trigger.py
 
-name: Content Factory Orchestrator (Original Script Mode)
+name: Content Factory Orchestrator (Original Script + Duplicate-Proof)
 
 on:
   schedule:
@@ -607,31 +607,42 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 3. Install lightweight dependencies (no openai needed)
+      # 3. Install lightweight dependencies (NO openai/groq needed)
       - name: Install Dependencies
         run: pip install requests
 
-      # 4. Run the Queue Logic (Pick Reel → Create pipeline_data.json → Track)
+      # 4. Run the Queue Logic (Pick Reel → Check Tracker → Create pipeline_data.json → Update Tracker)
       - name: Process Queue & Create Pipeline Data
         run: |
           python3 << 'PYTHON_EOF'
           import os, json, re
           from datetime import datetime, timezone
 
-          print("🧠 Starting Queue Processor (Original Script Mode)...")
+          print("🧠 Starting Queue Processor (Original Script + Tracker Mode)...")
+
+          # File paths
+          QUEUE_FILE = 'reel_queue.json'
+          PIPELINE_FILE = 'pipeline_data.json'
+          TRACKER_FILE = 'sent_to_pipeline.txt'  # Tracks URLs already sent to pipeline
 
           # Load Queue
-          with open('reel_queue.json', 'r') as f:
+          with open(QUEUE_FILE, 'r') as f:
               queue_data = json.load(f)
 
           queue = queue_data.get('queue', [])
-          processed_urls = {item['url'] for item in queue_data.get('processed', [])}
+          processed_in_queue = {item['url'] for item in queue_data.get('processed', [])}
           
-          print(f"📊 Queue Status: {len(queue)} in line, {len(processed_urls)} done.")
+          # Load tracker: URLs already sent to pipeline_data.json
+          sent_to_pipeline = set()
+          if os.path.exists(TRACKER_FILE):
+              with open(TRACKER_FILE, 'r') as f:
+                  sent_to_pipeline = set(line.strip() for line in f if line.strip())
+
+          print(f"📊 Queue: {len(queue)} entries | Processed in queue: {len(processed_in_queue)} | Already sent to pipeline: {len(sent_to_pipeline)}")
 
           next_reel = None
 
-          # Find first valid, unprocessed reel
+          # Find first valid, unprocessed, AND not-yet-sent reel
           for i, reel in enumerate(queue):
               url = reel.get('url', '').strip()
               
@@ -639,18 +650,18 @@ jobs:
               if 'instagram.com/reel/' not in url:
                   continue
               
-              # Duplicate check
-              if url in processed_urls:
-                  print(f"⏭️ Skipped (Duplicate): {url}")
+              # Skip if already processed in queue OR already sent to pipeline
+              if url in processed_in_queue or url in sent_to_pipeline:
+                  print(f"⏭️ Skipped (Already handled): {url}")
                   continue
               
-              # Found a fresh reel!
+              # Found a fresh reel ready for pipeline!
               next_reel = reel
-              print(f"🎯 SELECTED NEW REEL: {url}")
+              print(f"🎯 SELECTED NEW REEL FOR PIPELINE: {url}")
               break
 
           if not next_reel:
-              print("✅ No new reels to process (or all duplicates). Exiting.")
+              print("✅ No new reels to process (all duplicates or already sent). Exiting.")
               exit(0)
 
           # Extract metadata
@@ -659,24 +670,30 @@ jobs:
           username = next_reel.get('username', 'unknown')
 
           # ✅ NO AI SCRIPT GENERATION - Using original video content
-          print("📝 Using original video script/captions (no AI generation)")
+          print("📝 Using original video content (no AI script generation)")
 
           # Create pipeline_data.json (instruction file for Kaggle)
           pipeline = {
               "reel_url": next_reel['url'],
               "shortcode": shortcode,
               "username": username,
-              "script_text": "",  # Empty - Kaggle will extract from original video or use placeholder
+              "script_text": "",  # Empty - Kaggle will use original video content
               "youtube_title": f"AI Tip You Need To Know #shorts",
               "youtube_description": f"Analysis of @{username}'s content. #ai #tech",
               "youtube_tags": ["AI", "Tech", "Shorts"],
-              "use_original_script": True  # Flag for Kaggle to know to use original content
+              "use_original_script": True  # Flag for Kaggle
           }
 
-          with open('pipeline_data.json', 'w') as f:
+          with open(PIPELINE_FILE, 'w') as f:
               json.dump(pipeline, f, indent=2)
+          print(f"✅ Created {PIPELINE_FILE}")
 
-          # Mark as "in_progress" in Queue
+          # 🔥 UPDATE TRACKER: Mark this URL as sent to pipeline
+          with open(TRACKER_FILE, 'a') as f:
+              f.write(f"{next_reel['url']}\n")
+          print(f"✅ Updated tracker: {TRACKER_FILE}")
+
+          # Mark as "in_progress" in Queue (for queue management)
           entry = {
               "url": next_reel['url'],
               "username": username,
@@ -685,22 +702,23 @@ jobs:
           }
           queue_data.setdefault('processed', []).append(entry)
           
-          with open('reel_queue.json', 'w') as f:
+          with open(QUEUE_FILE, 'w') as f:
               json.dump(queue_data, f, indent=2)
+          print(f"✅ Updated {QUEUE_FILE}")
 
-          print("✅ pipeline_data.json ready for Kaggle trigger.")
+          print("✅ All files ready for Kaggle trigger.")
           PYTHON_EOF
 
-      # 5. Commit changes back to GitHub
+      # 5. Commit ALL changes back to GitHub
       - name: Commit Updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f reel_queue.json pipeline_data.json
+          git add -f reel_queue.json pipeline_data.json sent_to_pipeline.txt
           if git diff-index --quiet HEAD --; then
             echo "ℹ️ No changes to commit."
           else
-            git commit -m "Auto: Picked next reel (original script) [skip ci]"
+            git commit -m "Auto: Sent reel to pipeline [skip ci]"
             git push
           fi
 
@@ -710,7 +728,3 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: python3 trigger.py
-
-
-
-
