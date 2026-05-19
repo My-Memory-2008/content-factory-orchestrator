@@ -7,7 +7,14 @@
       "added_at": "2026-05-19T15:57:44.692117+00:00"
     }
   ],
-  "processed": [],
+  "processed": [
+    {
+      "url": "https://www.instagram.com/trywithmark/reel/DYfE-ZSypC8/",
+      "username": "trywithmark",
+      "status": "in_progress",
+      "started_at": "2026-05-19T16:11:17.318594+00:00"
+    }
+  ],
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
