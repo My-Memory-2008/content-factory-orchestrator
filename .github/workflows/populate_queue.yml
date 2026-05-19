@@ -2,7 +2,7 @@ name: Populate reel_queue.json from TXT
 
 on:
   schedule:
-    - cron: '30 3,11 * * *'  # 9 AM & 5 PM UTC
+    - cron: '25 3,11 * * *'  # 9 AM & 5 PM UTC
   workflow_dispatch:         # Manual trigger
 
 jobs:
