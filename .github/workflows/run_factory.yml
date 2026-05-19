@@ -520,18 +520,44 @@ jobs:
 
           
 
-          # Create pipeline_data.json (The instruction file for Kaggle)
+                   # ✅ FIXED: Create pipeline_data.json with error handling & proper encoding
+          print("📝 Creating pipeline_data.json...")
+          
           pipeline = {
               "reel_url": next_reel['url'],
               "shortcode": shortcode,
               "username": username,
+              "script_text": "",  # Empty since using original video content
               "youtube_title": f"AI Tip You Need To Know #shorts",
               "youtube_description": f"Analysis of @{username}'s content. #ai #tech",
-              "youtube_tags": ["AI", "Tech", "Shorts"]
+              "youtube_tags": ["AI", "Tech", "Shorts"],
+              "use_original_script": True,  # Flag for Kaggle
+              "created_at": datetime.now(timezone.utc).isoformat()
           }
 
-          with open('pipeline_data.json', 'w') as f:
-              json.dump(pipeline, f, indent=2)
+          try:
+              # Write with explicit encoding and flush
+              with open('pipeline_data.json', 'w', encoding='utf-8') as f:
+                  json.dump(pipeline, f, indent=2, ensure_ascii=False)
+                  f.flush()  # Force write to disk
+                  os.fsync(f.fileno())  # Ensure data is physically written
+              
+              # Verify file was created and has content
+              if os.path.exists('pipeline_data.json') and os.path.getsize('pipeline_data.json') > 0:
+                  print(f"✅ pipeline_data.json created successfully ({os.path.getsize('pipeline_data.json')} bytes)")
+                  # Optional: Print first 200 chars for debugging
+                  with open('pipeline_data.json', 'r', encoding='utf-8') as f:
+                      preview = f.read(200)
+                      print(f"📄 Preview: {preview}...")
+              else:
+                  print("❌ ERROR: pipeline_data.json is empty or missing after write")
+                  exit(1)
+                  
+          except Exception as e:
+              print(f"❌ FAILED to write pipeline_data.json: {e}")
+              import traceback
+              traceback.print_exc()
+              exit(1)
 
           # Mark as "in_progress" in Queue to prevent race conditions
           entry = {
