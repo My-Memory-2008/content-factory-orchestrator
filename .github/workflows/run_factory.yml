@@ -443,7 +443,7 @@ name: Content Factory Orchestrator (Duplicate-Proof)
 
 on:
   schedule:
-    - cron: '0 9,17 * * *'  # Runs at 9 AM & 5 PM UTC
+    - cron: '30 3,11 * * *'  # Runs at 9 AM & 5 PM UTC
   workflow_dispatch:         # Allows manual trigger
 
 jobs:
