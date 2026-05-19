@@ -486,7 +486,7 @@ jobs:
           
           pick = None
           for r in queue:
-              if r['url'] not in processed:
+              if 'instagram.com/' in r['url']:
                   pick = r
                   break
           
