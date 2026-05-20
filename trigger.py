@@ -51,6 +51,9 @@ meta_payload = {
     "is_private": "true",
     "enable_gpu": "true",
     "enable_internet": "true",
+     "dataset_sources": [
+        "muhammadasjad2008/cat-reactions-vault" # 👈 Paste your exact lowercase Kaggle dataset slug here
+    ],
     "dataset_sources": [],
     "competition_sources": [],
     "kernel_sources": []
