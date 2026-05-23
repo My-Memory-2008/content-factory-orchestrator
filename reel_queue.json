@@ -1,10 +1,10 @@
 {
   "queue": [
     {
-      "url": "https://www.instagram.com/trywithmark/reel/DXmYOR3EmFy/",
+      "url": "https://www.instagram.com/trywithmark/reel/DXhOKELjFKk/",
       "username": "trywithmark",
       "notes": "Auto-added from reels_source.txt",
-      "added_at": "2026-05-23T06:21:26.638875+00:00"
+      "added_at": "2026-05-23T12:10:32.433937+00:00"
     }
   ],
   "processed": [
@@ -78,7 +78,7 @@
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
-    "last_run": "2026-05-23T06:21:26.638971+00:00",
+    "last_run": "2026-05-23T12:10:32.434020+00:00",
     "next_scheduled": null
   }
 }
