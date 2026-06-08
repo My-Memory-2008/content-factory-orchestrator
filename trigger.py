@@ -50,9 +50,8 @@ meta_payload = {
     "kernel_type": "script",
     "is_private": "true",
     "enable_gpu": "true",
-    "accelerator": "gpu",
-    "gpu_type": "T4",
     "enable_internet": "true",
+    "accelerator": "nvidia-tesla-t4-x2",
      "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault" # 👈 Paste your exact lowercase Kaggle dataset slug here
     ],
