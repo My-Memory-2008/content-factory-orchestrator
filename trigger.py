@@ -233,7 +233,7 @@ meta_payload = {
     "language": "python",
     "kernel_type": "script",
     "is_private": "true",
-    "enable_gpu": true,
+    "enable_gpu": "true",
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
