@@ -178,9 +178,8 @@
 #     exit(1)
 
 
-
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE PRODUCTION SAVE VERSION OPERATOR (FRAME-AWARE MATRICES)
+# PHASE B: PLAYWRIGHT KAGGLE PRODUCTION SAVE VERSION OPERATOR (FIXED DESKTOP TRAVERSAL)
 # ==========================================
 print("🧠 Initializing Playwright Production Save Version Operator Engine...")
 
@@ -275,18 +274,17 @@ with sync_playwright() as p:
         
         page.screenshot(path="/tmp/kaggle_workspace_ready.png")
         
-        # 🔥 THE DEEP FRAME INTERCEPTOR:
-        # If Kaggle loads the editor panels inside an internal application iframe node, 
-        # we lock onto that canvas layer directly to expose the real buttons!
-        editor_frame_locator = page.frame_locator('iframe[src*="kaggle"]').or_(page.frame_locator('#interactive-editor-iframe'))
-        
-        # Determine if we are operating in a frame or root window environment natively
-        if page.locator('[data-testid="save-version-button"]').count() > 0:
-            print("⚓ Operating on root window architecture.")
-            target_scope = page
-        else:
-            print("⚓ Hidden iframe architecture intercepted. Switching locator focus inside deep layer context...")
-            target_scope = editor_frame_locator
+        # 🔥 THE DUAL-SPACE TRAVERSAL HANDSHAKE:
+        # We scan all frames inside the window workspace. If a valid selector element
+        # is found inside a nested container page lane, we target it automatically!
+        target_scope = page
+        if page.locator('[data-testid="save-version-button"]').count() == 0:
+            print("⚓ Hidden iframe architecture intercepted. Dynamically searching interior contexts...")
+            for frame in page.frames:
+                if "kaggle" in frame.url or frame.name == "interactive-editor-iframe" or frame.locator('[data-testid="save-version-button"]').count() > 0:
+                    print(f"✅ Active target workspace frame locked: {frame.url[:45]}")
+                    target_scope = frame
+                    break
 
         # --- 3. INTERACTIVE SCRIPT FILE NAVIGATOR ---
         print(f"📡 Scanning sidebar elements for script path target: '{TARGET_SCRIPT_FILE_NAME}'...")
@@ -301,7 +299,6 @@ with sync_playwright() as p:
         
         # --- 4. THE INTERACTIVE SAVE VERSION PROTOCOL (PRODUCTION DATA-TESTID MAP) ---
         print("🎯 Locating the 'Save Version' workspace button...")
-        
         save_version_trigger = (
             target_scope.locator('[data-testid="save-version-button"]')
             .or_(target_scope.locator('button:has-text("Save Version")'))
@@ -384,4 +381,3 @@ if not automation_success:
     print("🎉 🎉 SUCCESS! Direct fallback code file payload synchronized successfully.")
 
 print("🏁 Production pipeline deployment session closed green.")
-
