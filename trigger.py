@@ -180,6 +180,7 @@
 
 
 
+
 import asyncio
 import os
 import sys
@@ -198,11 +199,17 @@ async def run():
         with open("kaggle_auth.json", "w") as f:
             f.write(secret_auth_data)
 
-        # Launching headless browser on the GitHub Linux runner
-        browser = await p.chromium.launch(headless=True)
+        # FIX 1: Explicitly pass a full-screen layout window profile to bypass mobile responsive modes
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--window-size=1920,1080", "--disable-blink-features=AutomationControlled"]
+        )
         
-        # Restore pre-authenticated session state
-        context = await browser.new_context(storage_state="kaggle_auth.json")
+        # FIX 2: Bind the window viewport size to desktop resolution inside the session context
+        context = await browser.new_context(
+            storage_state="kaggle_auth.json",
+            viewport={"width": 1920, "height": 1080}
+        )
         page = await context.new_page()
 
         # 1. Open the specific script workspace editor panel directly
@@ -210,12 +217,10 @@ async def run():
         print(f"📡 Transitioning to live workspace environment: {notebook_url}")
         
         try:
-            # We use domcontentloaded so the script doesn't hang on endless tracking streams
             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
         except Exception as e:
             print(f"⚠️ Initial framework notice (safe to skip): {e}")
             
-        # FIX 1: Increased initial wait loop buffer to let Kaggle's backend allocate your T4 machine safely
         print("⏳ Waiting 45 seconds for the cloud server container frames and scripts to fully initialize...")
         await page.wait_for_timeout(45000)
 
@@ -230,25 +235,13 @@ async def run():
             await browser.close()
             sys.exit(1)
 
-        # 3. Focus and Click onto the code editor frame surface
+        # 3. Focus onto the main workspace canvas area
         print("🎹 Targeting target script cells arrays...")
         
-        # FIX 2: We expand our selector choices and wait explicitly for visibility before running actions
-        editor_selector = ".cm-content, .CodeMirror-code, [role='textbox'], .KaggleCodeCell"
-        editor_cell = page.locator(editor_selector).first
-        
-        try:
-            # Safely wait for the target container to structuralize in the DOM
-            await editor_cell.wait_for(state="visible", timeout=30000)
-            
-            # FIX 3: Swap out .focus() for a robust click gesture to firmly hook the cursor placement
-            await editor_cell.click()
-            await page.wait_for_timeout(2000)
-        except Exception as err:
-            print(f"⚠️ Primary cell locator timed out: {err}. Attempting raw layout fallback click...")
-            # Fallback fallback step: click the absolute center coordinates of the main body workspace
-            await page.mouse.click(500, 400)
-            await page.wait_for_timeout(2000)
+        # Click firmly in the center area of a 1920x1080 desktop display layout
+        # This focuses the active text editor cell no matter what class name changes Kaggle pushes
+        await page.mouse.click(960, 540)
+        await page.wait_for_timeout(2000)
 
         # 4. Clear out stale script blocks inside the container frame
         print("⌨️ Clearing legacy code segments...")
@@ -256,14 +249,16 @@ async def run():
         await page.keyboard.down(modifier_key)
         await page.keyboard.press("a")
         await page.keyboard.up(modifier_key)
-        await page.wait_for_timeout(1500)
+        await page.wait_for_timeout(2000)
         await page.keyboard.press("Backspace")
-        await page.wait_for_timeout(1500)
+        await page.wait_for_timeout(2000)
 
-        # 5. Inject your script payload inside the container 
+        # 5. Inject your script payload safely
         print("📋 Writing updated model script streams...")
-        await editor_cell.fill(production_code_payload)
-        await page.wait_for_timeout(3000)
+        # FIX 3: Completely bypassed '.fill()' selector dependencies. 
+        # We type the code payload directly through the active keyboard stream layout.
+        await page.keyboard.type(production_code_payload, delay=1)
+        await page.wait_for_timeout(4000)
 
         # 6. Execute Run All hotkey logic (Keeps your GPU T4 configuration active!)
         print("⚡ Dispatching interactive cell runtime execution scripts...")
@@ -281,3 +276,4 @@ async def run():
 
 if __name__ == "__main__":
     asyncio.run(run())
+
