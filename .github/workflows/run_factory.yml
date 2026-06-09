@@ -544,23 +544,23 @@ jobs:
             git push
           fi
 
-      # 6. Trigger Kaggle (Using Kaggle CLI)
-      # - name: Trigger Kaggle Notebook
-      #   env:
-      #     KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-      #     KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-      #   run: python3 trigger.py
-
-      - name: Execute Kaggle T4x2 Push Trigger
-        # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
-        # This explicitly passes your encrypted secrets into the runtime container
-        # so that Playwright can read your session cookie!
+       # 6. Trigger Kaggle (Using Kaggle CLI)
+      - name: Trigger Kaggle Notebook
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-          KAGGLE_WEB_COOKIE: ${{ secrets.KAGGLE_WEB_COOKIE }}
-        run: |
-          python trigger.py
+        run: python3 trigger.py
+
+      # - name: Execute Kaggle T4x2 Push Trigger
+      #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
+      #   # This explicitly passes your encrypted secrets into the runtime container
+      #   # so that Playwright can read your session cookie!
+      #   env:
+      #     KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      #     KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      #     KAGGLE_WEB_COOKIE: ${{ secrets.KAGGLE_WEB_COOKIE }}
+      #   run: |
+      #     python trigger.py
 
 
 
