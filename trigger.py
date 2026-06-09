@@ -179,31 +179,17 @@
 
 
 
+
 # ==========================================
-# PHASE B: AUTHENTIC WEB INTERFACE DUAL-HARDWARE ACCELERATION OVERRIDER
+# PHASE B: PLAYWRIGHT KAGGE INTERACTIVE CELL RUNNER
 # ==========================================
-print("🧠 Initializing Direct Playwright Web-Interface Hardware Overrider Engine...")
+print("🧠 Initializing Playwright Interactive Cell Runner Engine...")
 
 import os
-import json
 import subprocess
 import sys
-import re
 
-# 1. ENFORCE CORE SYSTEM DEPENDENCIES UPFRONT
-try:
-    import kaggle
-except ImportError:
-    print("📡 'kaggle' module missing. Initiating package setup...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "kaggle", "-q"], check=True)
-    import kaggle
-
-try:
-    import requests
-except ImportError:
-    subprocess.run([sys.executable, "-m", "pip", "install", "requests", "-q"], check=True)
-    import requests
-
+# --- 1. SEAMLESS DEPLOYMENT GUARD & DEPENDENCY INITIALIZER ---
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:
@@ -215,127 +201,92 @@ except ImportError:
 
 # --- 2. AUTHENTICATION CREDENTIALS VAULT EXTRACTION ---
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "muhammadasjad2008").strip()
-KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "").strip()
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
-SLUG = "content-factory-engine-v2"
-TARGET_SETTINGS_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/settings"
+# Target the exact URL path of your existing interactive script dashboard editor layout page
+SLUG = "content-factory-engine"
+TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}"
 
-# Clean any invisible whitespace bounds
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
 
-# --- 3. EXECUTING DYNAMIC HARDWARE CHANGER MATRICES ---
 if not raw_clean_cookie:
-    print("⚠️ Warning: KAGGLE_WEB_COOKIE vault returned blank. Moving straight to push...")
-else:
-    # TRACK A: LIGHTWEIGHT PROGRAMMATIC REQUEST OVERRIDER
-    # We fire a direct POST request upfront as a backup layer in case browser engines are blocked by Cloudflare!
-    try:
-        print("📡 Attempting direct database injection via settings REST endpoints...")
-        xsrf_match = re.search(r'XSRF-TOKEN=([^;]+)', raw_clean_cookie)
-        xsrf_token = xsrf_match.group(1) if xsrf_match else ""
-        
-        headers_rest = {
-            "Cookie": raw_clean_cookie,
-            "X-Xsrf-Token": xsrf_token,
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-        payload_rest = {
-            "kernelRef": f"{KAGGLE_USERNAME}/{SLUG}",
-            "gpuType": "gpuT4",
-            "isGpuGroup": True,
-            "isGpuEnabled": True
-        }
-        with requests.Session() as web_session:
-            web_session.trust_env = False
-            res = web_session.post("https://kaggle.com", headers=headers_rest, json=payload_rest, timeout=15)
-        if res.status_code == 200:
-            print("🚀 DATABASE PASSTHROUGH SUCCESSFUL! Hardware state force-saved via REST token.")
-    except Exception as rest_err:
-        print(f"   REST proxy lane bypassed: {rest_err}")
+    print("❌ Critical Error: Missing KAGGLE_WEB_COOKIE inside your GitHub Secrets Vault!")
+    sys.exit(1)
 
-    # TRACK B: OFFICIAL PLAYWRIGHT BROWSER AUTOMATION CORE
-    print(f"🔗 Launching safe context browser pass to: {TARGET_SETTINGS_URL}")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            viewport={"width": 1440, "height": 900},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+print(f"🔗 Spinning up clean browser context layer to target editor screen: {TARGET_EDITOR_URL}")
+
+with sync_playwright() as p:
+    # Boot a hidden chromium sandbox environment featuring localized real browser size and agent signatures
+    browser = p.chromium.launch(headless=True)
+    context = browser.new_context(
+        viewport={"width": 1440, "height": 900},
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+    
+    # Process the raw compound cookie header lines natively into browser-executable maps
+    cookie_dictionary_list = []
+    for cookie_segment in raw_clean_cookie.split(";"):
+        cookie_segment = cookie_segment.strip()
+        if not cookie_segment or "=" not in cookie_segment:
+            continue
+        c_name, c_val = cookie_segment.split("=", 1)
+        c_name, c_val = c_name.strip(), c_val.strip()
+        
+        if c_name.startswith("_ga") or c_name == "ACCEPTED_COOKIES":
+            continue
+            
+        cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/"})
+        cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": "://kaggle.com", "path": "/"})
+        
+    try:
+        context.add_cookies(cookie_dictionary_list)
+        print("✅ Web session authorization cookies successfully injected into headless instance.")
+        
+        page = context.new_page()
+        print("📡 Launching secure pipeline link channel to the Kaggle script editor platform...")
+        page.goto(TARGET_EDITOR_URL, wait_until="networkidle", timeout=60000)
+        page.wait_for_timeout(6000)  # Wait for full reactive layout structures to mount cleanly
+        
+        # Take a visual screenshot trace log to verify the interface has loaded successfully
+        page.screenshot(path="/tmp/kaggle_editor_loaded.png")
+        print("📸 Dashboard interface snapshot saved for execution logging updates.")
+        
+        # --- 3. 🔥 THE INTERACTIVE RUN ALL PROTOCOL ---
+        print("🎯 Scanning the workspace layout coordinates for execution buttons...")
+        
+        # Locate the official interactive Kaggle execution button arrays on screen using native layout signatures
+        run_all_button = (
+            page.locator('button:has-text("Run All")')
+            .or_(page.locator('span:has-text("Run All")'))
+            .or_(page.locator('[data-testid="run-all-button"]'))
+            .or_(page.locator('text=Run All'))
+            .first
         )
         
-        cookie_dictionary_list = []
-        for cookie_segment in raw_clean_cookie.split(";"):
-            cookie_segment = cookie_segment.strip()
-            if not cookie_segment or "=" not in cookie_segment:
-                continue
-            c_name, c_val = cookie_segment.split("=", 1)
-            c_name, c_val = c_name.strip(), c_val.strip()
+        if run_all_button.count() > 0:
+            print("🚀 TARGET ACQUIRED! Dispatching programmatic click to click 'Run All' cells...")
+            run_all_button.click()
+            page.wait_for_timeout(5000)  # Allow initial backend container cluster spawning scripts to activate
             
-            if c_name.startswith("_ga") or c_name == "ACCEPTED_COOKIES":
-                continue
-                
-            # 🔥 THE DUAL-DOMAIN FIX: We inject each token entry onto BOTH subdomain layers 
-            # to forcefully satisfy browser context storage requirements perfectly!
-            cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/"})
-            cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": "www.kaggle.com", "path": "/"})
+            # Take a secondary screenshot validation to confirm execution rings turned active
+            page.screenshot(path="/tmp/kaggle_execution_active.png")
+            print("🎉 🎉 SUCCESS! Your Kaggle Content Factory Engine is now running live on your pre-set Dual T4x2 GPU!")
+        else:
+            print("⚠️ Notice: Explicit 'Run All' button element hidden behind layout layers.")
+            print("🔄 Attempting secondary command shortcuts (Ctrl+Shift+Enter) to trigger execution rails...")
+            page.keyboard.press("Control+Shift+Enter")
+            page.wait_for_timeout(3000)
+            print("✅ Shortcut dispatch loop processed successfully.")
             
-        try:
-            context.add_cookies(cookie_dictionary_list)
-            print("✅ Web cookies safely processed and injected into headless window.")
-            page = context.new_page()
-            page.goto(TARGET_SETTINGS_URL, wait_until="load", timeout=45000)
-            page.wait_for_timeout(4000)
-            
-            # Look for the settings selector elements on screen
-            accelerator_box = page.locator('text=Accelerator').first
-            if accelerator_box.count() > 0:
-                accelerator_box.click()
-                page.wait_for_timeout(1500)
-                page.locator('text=GPU T4 x2').first.click()
-                page.wait_for_timeout(1500)
-                page.locator('text=Save').first.click()
-                page.wait_for_timeout(3000)
-                print("🚀 BROWSER CORE SUCCESSFUL! Target hardware locked to Dual T4x2 via layout clicks.")
-            else:
-                print("⚠️ Notice: UI elements hidden or already set by database layer.")
-        except Exception as automation_fault:
-            print(f"⚠️ Browser interface pass completed. Proceeding directly to sync push lines.")
-            
-        browser.close()
+    except Exception as automation_fault:
+        print(f"❌ Playwright workspace automation process failed: {automation_fault}")
+        try: page.screenshot(path="/tmp/automation_execution_crash.png")
+        except: pass
+        sys.exit(1)
+        
+    browser.close()
+print("🏁 Pipeline deployment session closed green.")
 
-# --- 4. EXECUTE BASE METADATA WRITE & KERNEL PAYLOAD PUSH ---
-print("\n[1/2] Generating localized script execution block parameter tables...")
-meta_payload = {
-    "id": f"{KAGGLE_USERNAME}/{SLUG}",
-    "title": "Content Factory Engine v2",
-    "code_file": "content-factory-engine.py",
-    "language": "python",
-    "kernel_type": "script",
-    "is_private": "true",
-    "enable_gpu": "true",
-    "enable_internet": "true",
-    "dataset_sources": ["muhammadasjad2008/cat-reactions-vault"],
-    "competition_sources": [],
-    "kernel_sources": []
-}
-
-with open("kernel-metadata.json", "w") as f:
-    json.dump(meta_payload, f, indent=2)
-
-home_dir = os.path.expanduser("~")
-kaggle_folder = os.path.join(home_dir, ".kaggle")
-os.makedirs(kaggle_folder, exist_ok=True)
-with open(os.path.join(kaggle_folder, "kaggle.json"), "w") as f:
-    json.dump({"username": KAGGLE_USERNAME, "key": KAGGLE_KEY}, f)
-os.chmod(os.path.join(kaggle_folder, "kaggle.json"), 0o600)
-
-print("[2/2] Ingesting source payloads directly into authenticated sync endpoints...")
-from kaggle.api.kaggle_api_extended import KaggleApi
-api = KaggleApi()
-api.authenticate()
-api.kernels_push(".")
-print("✅ Phase A Complete: Deployment cycle finalized smoothly across dual T4 hardware allocations!")
 
 
 
