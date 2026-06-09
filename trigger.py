@@ -188,7 +188,6 @@ import sys
 try:
      import kaggle
 except ImportError:
-     
      print("-> 'kaggle' module missing. Initiating force-install sequence...")
      subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
      subprocess.check_call([sys.executable, "-m", "pip", "install", "kaggle"])
@@ -226,8 +225,7 @@ print("✅ Token file created and locked down.")
 # 3. Create the kernel-metadata.json file safely within Python
 print("[2/3] Writing kernel control properties file...")
 
-# 🔥 FIX 1: Swapped out 'enable_gpu' for the dedicated 'gpu_type' 
-# and 'is_gpu_group' schemas to target the dual T4x2 node.
+# Restored the official standard schema to prevent silent fallback to CPU
 meta_payload = {
     "id": "muhammadasjad2008/content-factory-engine",
     "title": "Content Factory Engine",
@@ -235,8 +233,7 @@ meta_payload = {
     "language": "python",
     "kernel_type": "script",
     "is_private": "true",
-    "gpu_type": "t4",
-    "is_gpu_group": True,
+    "enable_gpu": true,
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
@@ -249,20 +246,20 @@ with open("kernel-metadata.json", "w") as f:
     json.dump(meta_payload, f, indent=2)
 print("✅ kernel-metadata.json created.")
 
-# 4. CALL THE CORRECT UNIVERSAL KERNELS_PUSH METHOD
+# 4. CALL THE CORRECT UNIVERSAL KERNELS_PUSH METHOD WITH TERMINAL PARAMETERS
 print("[3/3] Launching official Kaggle push trigger protocol...")
 
 try:
     print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
     
-    # 🔥 FIX 2: Bypassing the native 'api.kernels_push' function 
-    # to execute a CLI subprocess. This forces Kaggle's server to accept the T4 config.
+    # Passing --accelerator NvidiaTeslaT4 forces the backend to spin up the T4x2 array
     subprocess.run([
         "kaggle", "kernels", "push", 
-        "-p", "."
+        "-p", ".",
+        "--accelerator", "NvidiaTeslaT4"
     ], check=True)
     
-    print("🚀 SUCCESS! The trigger payload cleared gates safely.")
+    print("🚀 SUCCESS! The trigger payload cleared gates safely via terminal commands.")
     print("🔗 Monitor progress here: https://kaggle.com")
 
 except subprocess.CalledProcessError as e:
