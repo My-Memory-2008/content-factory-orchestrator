@@ -144,7 +144,7 @@ meta_payload = {
     "is_private": "true",
     "enable_gpu": "true",
     "gpuType": "gpuT4",
-    "isGpuGroup": True,
+    "isGpuGroup": "true",
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
