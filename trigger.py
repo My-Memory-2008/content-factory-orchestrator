@@ -178,12 +178,16 @@
 #     exit(1)
 
 
+
+
+
+
 import os
 import json
 import subprocess
 import sys
 
-# 1. Standard, safe installation using standard PyPI package name
+# 1. Ensure standard Kaggle package is present
 try:
      import kaggle
 except ImportError:
@@ -220,9 +224,8 @@ print("✅ Token file created and locked down.")
 
 print("[2/3] Writing kernel control properties file...")
 
-# 4. 🔥 THE EXACT WORKING BACKEND METADATA SCHEMA:
-# We map 'gpuType' and 'isGpuGroup' inside the JSON dictionary.
-# This forces the API parser to instantly assign the dual T4x2 nodes.
+# 4. Standard, clean API metadata schema. 
+# 'enable_gpu': True will now automatically run on your saved T4x2 environment!
 meta_payload = {
     "id": "muhammadasjad2008/content-factory-engine",
     "title": "Content Factory Engine",
@@ -231,8 +234,6 @@ meta_payload = {
     "kernel_type": "script",
     "is_private": True,
     "enable_gpu": True,
-    "gpuType": "T4",
-    "isGpuGroup": True,
     "enable_internet": True,
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
@@ -247,11 +248,9 @@ print("✅ kernel-metadata.json created.")
 
 print("[3/3] Launching official Kaggle push trigger protocol...")
 
-# 5. Clean, standard terminal command without broken arguments
+# 5. Execute standard push command
 try:
-    print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
-    
-    # We run the basic push. The metadata payload file tells Kaggle to use T4x2.
+    print("📡 Uploading files to your pre-configured T4 x2 workspace...")
     subprocess.run([
         "kaggle", "kernels", "push", 
         "-p", "."
@@ -266,3 +265,4 @@ except subprocess.CalledProcessError as e:
 except Exception as e:
     print(f"❌ Unexpected Error: {e}")
     exit(1)
+
