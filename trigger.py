@@ -178,206 +178,217 @@
 #     exit(1)
 
 
-# ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE PRODUCTION SAVE VERSION OPERATOR (FIXED DESKTOP TRAVERSAL)
-# ==========================================
-print("🧠 Initializing Playwright Production Save Version Operator Engine...")
 
-import os
-import subprocess
-import sys
-import json
-import re
-import base64
 
-# --- 1. SEAMLESS DEPLOYMENT GUARD & DEPENDENCY INITIALIZER ---
+"""
+kaggle_playwright_push.py
+─────────────────────────
+Logs into Kaggle and runs the existing kernel at:
+  https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/
+
+Requirements
+────────────
+    pip install playwright
+    playwright install chromium
+
+Env vars
+────────
+    KAGGLE_USERNAME  – your Kaggle email or username
+    KAGGLE_PASSWORD  – your Kaggle password
+    HEADLESS         – "false" to watch the browser (default: "true")
+"""
+
+import asyncio, os, sys, time
+
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 except ImportError:
-    print("📡 Playwright framework missing. Initiating automatic setup pass...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "pip", "--upgrade", "-q"], check=True)
-    subprocess.run([sys.executable, "-m", "pip", "install", "playwright", "-q"], check=True)
-    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-    from playwright.sync_api import sync_playwright
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+    subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
-try:
-    import kaggle
-except ImportError:
-    subprocess.run([sys.executable, "-m", "pip", "install", "kaggle", "-q"], check=True)
-    import kaggle
+USERNAME = os.environ.get("KAGGLE_USERNAME", "").strip()
+PASSWORD = os.environ.get("KAGGLE_PASSWORD", "").strip()
+HEADLESS = os.environ.get("HEADLESS", "true").lower() != "false"
+KERNEL_URL = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
 
-# --- 2. AUTHENTICATION CREDENTIALS VAULT EXTRACTION ---
-KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "").strip()
-KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
+def log(icon, msg):
+    icons = {"ok": "✅", "fail": "❌", "info": "📡", "wait": "⏳"}
+    print(f"{icons.get(icon, '  ')} {msg}")
 
-# Decodes your public profile name inside RAM to prevent GitHub Actions '***' obfuscation drops completely
-KAGGLE_USERNAME = base64.b64decode(b'bXVoYW1tYWRhc2phZDIwMDg=').decode('utf-8')
-SLUG = "content-factory-engine"
 
-TARGET_EDITOR_URL = f"https://kaggle.com/{KAGGLE_USERNAME}/{SLUG}/edit"
-TARGET_SCRIPT_FILE_NAME = "content-factory-engine.py"
+async def login(page):
+    log("info", "Navigating to Kaggle login…")
+    await page.goto("https://www.kaggle.com/account/login", wait_until="domcontentloaded")
 
-raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
+    # Dismiss cookie banner if present
+    try:
+        btn = await page.wait_for_selector("button[data-testid='accept-all-cookies']", timeout=5_000)
+        await btn.click()
+    except PWTimeout:
+        pass
 
-if not raw_clean_cookie:
-    print("❌ Critical Error: Missing KAGGLE_WEB_COOKIE inside your GitHub Secrets Vault!")
+    await page.fill("input[name='username']", USERNAME)
+    await page.fill("input[name='password']", PASSWORD)
+    await page.click("button[type='submit']")
+
+    try:
+        await page.wait_for_url(lambda u: "/login" not in u, timeout=25_000)
+    except PWTimeout:
+        log("fail", "Login failed — check KAGGLE_USERNAME / KAGGLE_PASSWORD")
+        await page.screenshot(path="login_failed.png", full_page=True)
+        sys.exit(1)
+
+    log("ok", f"Logged in as {USERNAME}")
+
+
+async def open_kernel(page):
+    log("info", f"Opening kernel editor…")
+    await page.goto(KERNEL_URL, wait_until="domcontentloaded")
+    # Give the editor time to fully hydrate
+    await page.wait_for_load_state("networkidle", timeout=40_000)
+    log("ok", "Kernel editor loaded")
+
+
+async def run_all(page):
+    """
+    Click the Run All button. Kaggle exposes this as:
+      • A toolbar button  (▶▶ icon, aria-label contains "Run All")
+      • Or via the Run menu
+    We try multiple selectors as the UI sometimes changes.
+    """
+    log("info", "Triggering Run All…")
+
+    selectors = [
+        # Toolbar run-all button
+        "button[aria-label*='Run All']",
+        "button[data-testid='run-all-button']",
+        "button[title*='Run All']",
+        # Toolbar play button that opens a dropdown
+        "button[aria-label*='Run']",
+        # Run menu item
+        "[role='menuitem']:has-text('Run All')",
+    ]
+
+    for sel in selectors:
+        try:
+            btn = await page.wait_for_selector(sel, timeout=8_000)
+            if btn:
+                await btn.click()
+                log("ok", f"Clicked: {sel}")
+                # If this opened a dropdown, look for "Run All" inside it
+                try:
+                    run_item = await page.wait_for_selector(
+                        "[role='menuitem']:has-text('Run All'), button:has-text('Run All')",
+                        timeout=3_000,
+                    )
+                    await run_item.click()
+                    log("ok", "Selected 'Run All' from dropdown")
+                except PWTimeout:
+                    pass  # wasn't a dropdown, direct click was enough
+                return
+        except PWTimeout:
+            continue
+
+    # Last-resort: keyboard shortcut (Shift+Enter runs cell, no universal Run All shortcut on Kaggle)
+    # Instead try the Run menu in the top nav
+    try:
+        run_menu = await page.wait_for_selector("button:has-text('Run'), [data-testid='run-menu']", timeout=6_000)
+        await run_menu.click()
+        run_all_item = await page.wait_for_selector("[role='menuitem']:has-text('Run All')", timeout=4_000)
+        await run_all_item.click()
+        log("ok", "Triggered Run All via menu")
+        return
+    except PWTimeout:
+        pass
+
+    log("fail", "Could not find Run All button — saving screenshot for inspection")
+    await page.screenshot(path="run_all_failed.png", full_page=True)
     sys.exit(1)
 
-print(f"🔗 Spinning up clean browser context layer to target editor screen: {TARGET_EDITOR_URL}")
 
-automation_success = False
+async def poll_status(page, timeout_minutes=45):
+    """
+    Poll the kernel run status badge until it's Complete or Error.
+    Kaggle shows statuses like: Queued → Running → Complete / Error
+    """
+    log("wait", f"Polling run status (max {timeout_minutes} min)…")
+    deadline = time.time() + timeout_minutes * 60
+    last = ""
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    
-    # Large format viewport deployment overrides compact tablet/mobile menu generation states
-    context = browser.new_context(
-        viewport={"width": 1920, "height": 1080},
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    )
-    
-    cookie_dictionary_list = []
-    whitelisted_keys = ["XSRF-TOKEN", "ka_sessionid", "__Host-KAGGLEID", "CSRF-TOKEN"]
-    
-    for cookie_segment in raw_clean_cookie.split(";"):
-        cookie_segment = cookie_segment.strip()
-        if not cookie_segment or "=" not in cookie_segment:
-            continue
-        c_name, c_val = cookie_segment.split("=", 1)
-        c_name, c_val = c_name.strip(), c_val.strip()
-        
-        if c_name in whitelisted_keys:
-            if c_name.startswith("__Host-"):
-                cookie_dictionary_list.append({
-                    "name": c_name, "value": c_val, "domain": "kaggle.com", "path": "/", "secure": True           
-                })
-            else:
-                cookie_dictionary_list.append({
-                    "name": c_name, "value": c_val, "domain": "://kaggle.com", "path": "/", "secure": True
-                })
-                cookie_dictionary_list.append({
-                    "name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/", "secure": True
-                })
-        
-    try:
-        for single_cookie in cookie_dictionary_list:
-            try: context.add_cookies([single_cookie])
-            except: pass
-        print("✅ Web session authorization cookies successfully processed and injected.")
-        
-        page = context.new_page()
-        print("📡 Establishing stable data stream connection to your Kaggle control dashboard...")
-        page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
-        
-        print("⏳ Waiting for editor canvas components to mount fully...")
-        page.wait_for_timeout(45000)  
-        
-        page.screenshot(path="/tmp/kaggle_workspace_ready.png")
-        
-        # 🔥 THE DUAL-SPACE TRAVERSAL HANDSHAKE:
-        # We scan all frames inside the window workspace. If a valid selector element
-        # is found inside a nested container page lane, we target it automatically!
-        target_scope = page
-        if page.locator('[data-testid="save-version-button"]').count() == 0:
-            print("⚓ Hidden iframe architecture intercepted. Dynamically searching interior contexts...")
-            for frame in page.frames:
-                if "kaggle" in frame.url or frame.name == "interactive-editor-iframe" or frame.locator('[data-testid="save-version-button"]').count() > 0:
-                    print(f"✅ Active target workspace frame locked: {frame.url[:45]}")
-                    target_scope = frame
-                    break
+    while time.time() < deadline:
+        # Try several known status indicator selectors
+        for sel in [
+            "[data-testid='run-status']",
+            ".run-status-badge",
+            "span[class*='RunStatus']",
+            "div[class*='run-status']",
+            # Kaggle sometimes shows it in a progress bar label
+            "[aria-label*='Running']",
+            "[aria-label*='Complete']",
+            "[aria-label*='Error']",
+        ]:
+            try:
+                el = await page.wait_for_selector(sel, timeout=3_000)
+                text = (await el.inner_text()).strip()
+                if text and text != last:
+                    log("info", f"Status → {text}")
+                    last = text
+                if any(w in text for w in ("Complete", "Success", "Finished")):
+                    log("ok", f"Run completed! View: {page.url}")
+                    return True
+                if any(w in text for w in ("Error", "Failed", "Cancelled")):
+                    log("fail", f"Run ended with: {text}")
+                    return False
+                break
+            except PWTimeout:
+                continue
 
-        # --- 3. INTERACTIVE SCRIPT FILE NAVIGATOR ---
-        print(f"📡 Scanning sidebar elements for script path target: '{TARGET_SCRIPT_FILE_NAME}'...")
-        script_file_tab = (
-            target_scope.locator(f'text={TARGET_SCRIPT_FILE_NAME}')
-            .or_(target_scope.locator(f'span:has-text("{TARGET_SCRIPT_FILE_NAME}")'))
-            .first
+        await asyncio.sleep(15)
+
+    log("fail", f"Timed out after {timeout_minutes} minutes")
+    return False
+
+
+async def main():
+    if not USERNAME or not PASSWORD:
+        log("fail", "Set KAGGLE_USERNAME and KAGGLE_PASSWORD environment variables")
+        sys.exit(1)
+
+    print("=" * 55)
+    print("  Kaggle Playwright Runner  |  no API keys needed")
+    print("=" * 55)
+
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(
+            headless=HEADLESS,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
-        if script_file_tab.count() > 0:
-            script_file_tab.click()
-            page.wait_for_timeout(4000)
-        
-        # --- 4. THE INTERACTIVE SAVE VERSION PROTOCOL (PRODUCTION DATA-TESTID MAP) ---
-        print("🎯 Locating the 'Save Version' workspace button...")
-        save_version_trigger = (
-            target_scope.locator('[data-testid="save-version-button"]')
-            .or_(target_scope.locator('button:has-text("Save Version")'))
-            .or_(target_scope.locator('span:has-text("Save Version")'))
-            .or_(target_scope.locator('[aria-label="Save Version"]'))
-            .first
+        ctx = await browser.new_context(
+            viewport={"width": 1440, "height": 900},
+            user_agent=(
+                "Mozilla/5.0 (X11; Linux x86_64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
         )
-        
-        if save_version_trigger.count() > 0:
-            print("🚀 TARGET ACQUIRED! Opening Save Version popup menu overlay...")
-            save_version_trigger.click()
-            page.wait_for_timeout(5000)
-            
-            page.screenshot(path="/tmp/save_version_modal_open.png")
-            
-            # --- 5. VERIFY 'SAVE & RUN ALL (COMMIT)' IS ENGAGED ---
-            print("🔬 Verifying 'Save & Run All (Commit)' option selection state...")
-            commit_option = (
-                target_scope.locator('[data-testid="save-options-commit-radio"]')
-                .or_(target_scope.locator('text=Save & Run All (Commit)'))
-                .or_(target_scope.locator('label:has-text("Save & Run All")'))
-                .first
-            )
-            if commit_option.count() > 0:
-                commit_option.click()
-                page.wait_for_timeout(1500)
-            
-            # --- 6. EXECUTE FINAL PANEL CONFIRMATION SAVE CLICK ---
-            print("💾 Dispatching final confirmation payload to Kaggle server registries...")
-            final_save_btn = (
-                target_scope.locator('[data-testid="save-version-submit-button"]')
-                .or_(target_scope.locator('div[role="dialog"] button:has-text("Save")'))
-                .or_(target_scope.locator('button:has-text("Save")'))
-                .last
-            )
-            
-            final_save_btn.click()
-            page.wait_for_timeout(8000)
-            print("🎉 🎉 SUCCESS! Your Kaggle Script has been forcefully committed via browser triggers!")
-            automation_success = True
-        else:
-            print("⚠️ Notice: Browser layout selector was hidden during this window pass.")
-            page.screenshot(path="/tmp/save_version_hidden_debug.png")
-            
-    except Exception as automation_fault:
-        print(f"⚠️ Playwright interface pass skipped: {automation_fault}")
-        
-    browser.close()
+        page = await ctx.new_page()
 
-# --- 7. BULLETPROOF INFINITE-SHIELD FALLBACK LAYER ---
-if not automation_success:
-    print("\n🔄 INFINITE SHIELD ENGAGED: Executing direct endpoint background payload push fallback...")
-    meta_payload = {
-        "id": f"{KAGGLE_USERNAME}/{SLUG}",
-        "title": "Content Factory Engine",
-        "code_file": "content-factory-engine.py",
-        "language": "python",
-        "kernel_type": "script",
-        "is_private": "true",
-        "enable_gpu": "true",
-        "enable_internet": "true",
-        "dataset_sources": ["muhammadasjad2008/cat-reactions-vault"],
-        "competition_sources": [],
-        "kernel_sources": []
-    }
-    with open("kernel-metadata.json", "w") as f:
-        json.dump(meta_payload, f, indent=2)
+        try:
+            await login(page)
+            await open_kernel(page)
+            await run_all(page)
+            success = await poll_status(page)
+            sys.exit(0 if success else 1)
+        except Exception as e:
+            log("fail", f"Unexpected error: {e}")
+            await page.screenshot(path="debug.png", full_page=True)
+            log("info", "Saved debug.png for inspection")
+            raise
+        finally:
+            await browser.close()
 
-    home_dir = os.path.expanduser("~")
-    kaggle_folder = os.path.join(home_dir, ".kaggle")
-    os.makedirs(kaggle_folder, exist_ok=True)
-    with open(os.path.join(kaggle_folder, "kaggle.json"), "w") as f:
-        json.dump({"username": KAGGLE_USERNAME, "key": KAGGLE_KEY}, f)
-    os.chmod(os.path.join(kaggle_folder, "kaggle.json"), 0o600)
 
-    from kaggle.api.kaggle_api_extended import KaggleApi
-    api = KaggleApi()
-    api.authenticate()
-    api.kernels_push(".")
-    print("🎉 🎉 SUCCESS! Direct fallback code file payload synchronized successfully.")
-
-print("🏁 Production pipeline deployment session closed green.")
+if __name__ == "__main__":
+    asyncio.run(main())
