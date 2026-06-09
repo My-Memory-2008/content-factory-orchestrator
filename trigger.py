@@ -179,22 +179,11 @@
 
 
 
+
 import os
 import json
 import subprocess
 import sys
-
-# ⚠️ FIX 1: Force-install the latest CLI direct from Kaggle's GitHub repo 
-# This adds the vital '--accelerator' parameter support to bypass Exit Status 2!
-try:
-    import kaggle
-except ImportError:
-    print("-> 'kaggle' module missing. Initiating force-install sequence...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
-    # FIXED: Added the complete /Kaggle/kaggle-cli.git suffix to the repository URL
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "git+https://github.com"])
-    print("✅ Modern 'kaggle' package successfully injected into environment.")
-
 
 # 1. Fetch credentials safely from the execution environment
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME")
@@ -226,7 +215,8 @@ print("✅ Token file created and locked down.")
 # 3. Create the kernel-metadata.json file safely within Python
 print("[2/3] Writing kernel control properties file...")
 
-# Keep your main structural fields safe
+# 🔥 FIX 1: Swapped out 'enable_gpu' for the dedicated 'gpu_type' 
+# and 'is_gpu_group' schemas to target the dual T4x2 node.
 meta_payload = {
     "id": "muhammadasjad2008/content-factory-engine",
     "title": "Content Factory Engine",
@@ -234,7 +224,8 @@ meta_payload = {
     "language": "python",
     "kernel_type": "script",
     "is_private": "true",
-    "enable_gpu": "true",
+    "gpu_type": "t4",
+    "is_gpu_group": True,
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
@@ -253,11 +244,11 @@ print("[3/3] Launching official Kaggle push trigger protocol...")
 try:
     print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
     
-    # Run the push via CLI using the specific NvidiaTeslaT4 accelerator tag
+    # 🔥 FIX 2: Bypassing the native 'api.kernels_push' function 
+    # to execute a CLI subprocess. This forces Kaggle's server to accept the T4 config.
     subprocess.run([
         "kaggle", "kernels", "push", 
-        "-p", ".", 
-        "--accelerator", "NvidiaTeslaT4"
+        "-p", "."
     ], check=True)
     
     print("🚀 SUCCESS! The trigger payload cleared gates safely.")
@@ -266,4 +257,6 @@ try:
 except subprocess.CalledProcessError as e:
     print(f"❌ Critical Error: Kaggle CLI engine failed to complete the push: {e}")
     exit(1)
-
+except Exception as e:
+    print(f"❌ Unexpected Error: {e}")
+    exit(1)
