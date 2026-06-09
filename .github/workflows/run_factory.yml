@@ -467,6 +467,9 @@ jobs:
       - name: Install Dependencies
         run: |
          pip install requests openai
+         python -m pip install --upgrade pip
+         pip install playwright
+         playwright install chromium --with-deps
          
 
       # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
@@ -551,6 +554,7 @@ jobs:
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
         run: python3 trigger.py
 
       # - name: Execute Kaggle T4x2 Push Trigger
