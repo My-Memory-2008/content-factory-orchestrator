@@ -180,8 +180,6 @@
 
 
 
-
-
 import asyncio
 import os
 import sys
@@ -192,7 +190,6 @@ async def run():
     async with async_playwright() as p:
         print("🚀 Setting up cloud automation browser environment...")
         
-        # Recreate the storage state file directly inside the runner from GitHub Secrets
         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
         if not secret_auth_data:
             print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
@@ -201,10 +198,10 @@ async def run():
         with open("kaggle_auth.json", "w") as f:
             f.write(secret_auth_data)
 
-        # Launching headless browser since it is running on a GitHub virtual server
+        # Launching headless browser on the GitHub Linux runner
         browser = await p.chromium.launch(headless=True)
         
-        # Authenticate instantly without visiting a login page using the saved cookies state
+        # Restore pre-authenticated session state
         context = await browser.new_context(storage_state="kaggle_auth.json")
         page = await context.new_page()
 
@@ -213,12 +210,14 @@ async def run():
         print(f"📡 Transitioning to live workspace environment: {notebook_url}")
         
         try:
-            await page.goto(notebook_url, wait_until="domcontentloaded", timeout=60000)
+            # We use domcontentloaded so the script doesn't hang on endless tracking streams
+            await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
         except Exception as e:
             print(f"⚠️ Initial framework notice (safe to skip): {e}")
             
-        print("⏳ Waiting 25 seconds for the cloud server container frames to initialize...")
-        await page.wait_for_timeout(25000)
+        # FIX 1: Increased initial wait loop buffer to let Kaggle's backend allocate your T4 machine safely
+        print("⏳ Waiting 45 seconds for the cloud server container frames and scripts to fully initialize...")
+        await page.wait_for_timeout(45000)
 
         # 2. Extract localized model file configurations from the repo directory
         script_file_path = "content-factory-engine.py"
@@ -231,25 +230,40 @@ async def run():
             await browser.close()
             sys.exit(1)
 
-        # 3. Focus onto the text container block
+        # 3. Focus and Click onto the code editor frame surface
         print("🎹 Targeting target script cells arrays...")
-        editor_cell = page.locator(".cm-content, .CodeMirror-code, [role='textbox']").first
-        await editor_cell.focus()
-        await page.wait_for_timeout(1000)
+        
+        # FIX 2: We expand our selector choices and wait explicitly for visibility before running actions
+        editor_selector = ".cm-content, .CodeMirror-code, [role='textbox'], .KaggleCodeCell"
+        editor_cell = page.locator(editor_selector).first
+        
+        try:
+            # Safely wait for the target container to structuralize in the DOM
+            await editor_cell.wait_for(state="visible", timeout=30000)
+            
+            # FIX 3: Swap out .focus() for a robust click gesture to firmly hook the cursor placement
+            await editor_cell.click()
+            await page.wait_for_timeout(2000)
+        except Exception as err:
+            print(f"⚠️ Primary cell locator timed out: {err}. Attempting raw layout fallback click...")
+            # Fallback fallback step: click the absolute center coordinates of the main body workspace
+            await page.mouse.click(500, 400)
+            await page.wait_for_timeout(2000)
 
         # 4. Clear out stale script blocks inside the container frame
         print("⌨️ Clearing legacy code segments...")
-        await page.keyboard.down("Control")
+        modifier_key = "Control"
+        await page.keyboard.down(modifier_key)
         await page.keyboard.press("a")
-        await page.keyboard.up("Control")
-        await page.wait_for_timeout(1000)
+        await page.keyboard.up(modifier_key)
+        await page.wait_for_timeout(1500)
         await page.keyboard.press("Backspace")
-        await page.wait_for_timeout(1000)
+        await page.wait_for_timeout(1500)
 
         # 5. Inject your script payload inside the container 
         print("📋 Writing updated model script streams...")
         await editor_cell.fill(production_code_payload)
-        await page.wait_for_timeout(2000)
+        await page.wait_for_timeout(3000)
 
         # 6. Execute Run All hotkey logic (Keeps your GPU T4 configuration active!)
         print("⚡ Dispatching interactive cell runtime execution scripts...")
@@ -260,11 +274,10 @@ async def run():
         await page.keyboard.up("Control")
 
         print("⏳ Ensuring execution handshakes complete safely across remote nodes...")
-        await page.wait_for_timeout(10000)
+        await page.wait_for_timeout(15000)
         
         print("🎉 SUCCESS! GitHub Actions has uploaded your new code to Kaggle on the GPU T4 instance successfully!")
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
-
