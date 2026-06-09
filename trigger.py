@@ -178,8 +178,6 @@
 #     exit(1)
 
 
-
-
 import asyncio
 import os
 import sys
@@ -187,8 +185,9 @@ from playwright.async_api import async_playwright
 
 async def run():
     async with async_playwright() as p:
-        print("🚀 Setting up cloud execution trigger environment...")
+        print("🚀 Setting up cloud execution trigger environment for Kaggle Script mode...")
         
+        # Verify repository secrets token block 
         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
         if not secret_auth_data:
             print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
@@ -197,7 +196,7 @@ async def run():
         with open("kaggle_auth.json", "w") as f:
             f.write(secret_auth_data)
 
-        # Force desktop layout constraints
+        # Force standard desktop dimensions to guarantee editor focus areas are mapped properly
         browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
         context = await browser.new_context(
             storage_state="kaggle_auth.json",
@@ -205,39 +204,53 @@ async def run():
         )
         page = await context.new_page()
 
-        notebook_url = "https://kaggle.com"
-        print(f"📡 Connecting to notebook workspace: {notebook_url}")
+        # Exact path of your script editor panel
+        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
+        print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
         except Exception as e:
-            print(f"⚠️ Navigation status check: {e}")
+            print(f"⚠️ Navigation status context: {e}")
             
-        print("⏳ Waiting 30 seconds for the cloud server to provision your T4 session environment...")
-        await page.wait_for_timeout(30000)
+        print("⏳ Waiting 35 seconds for the cloud server to provision your T4 session environment...")
+        await page.wait_for_timeout(35000)
 
         # ====================================================================
-        # NATIVE INTERACTIVE RUN ALL KEYBOARD BYPASS
+        # SCRIPT MODE MULTI-STEP KEYBOARD RUN METHOD
         # ====================================================================
-        print("🎹 Injecting global execution hotkeys...")
+        print("🎹 Injecting universal code execution commands...")
         
-        # Bring focus onto the main window viewport body
-        await page.focus("body")
+        try:
+            # 1. Focus inside the main text code window editor pane 
+            # Kaggle uses CodeMirror layers for script inputs (.cm-content)
+            await page.locator(".cm-content, [role='textbox'], .CodeMirror-code").first.click(timeout=10000)
+            print("🎯 Focus captured successfully on the main code editor cell.")
+        except Exception:
+            print("⚠️ Code cell frame selector missed. Forcing click onto central layout coordinate grid...")
+            await page.mouse.click(960, 540)
+            
         await page.wait_for_timeout(2000)
         
-        # Execute the absolute universal Kaggle web shortcut for "Run All": Ctrl + Alt + Enter
-        print("⚡ Sending 'Run All' command sequence (Ctrl + Alt + Enter)...")
+        # 2. Select the entire contents of your python script file (Ctrl + A)
+        print("⌨️ Selecting all text inside script editor (Control + A)...")
         await page.keyboard.down("Control")
-        await page.keyboard.down("Alt")
-        await page.keyboard.press("Enter")
-        await page.keyboard.up("Alt")
+        await page.keyboard.press("a")
         await page.keyboard.up("Control")
+        await page.wait_for_timeout(2000)
+        
+        # 3. Trigger execution on the selected text lines (Shift + Enter)
+        print("⚡ Executing entire script file (Shift + Enter)...")
+        await page.keyboard.down("Shift")
+        await page.keyboard.press("Enter")
+        await page.keyboard.up("Shift")
 
         print("⏳ Holding active context stream open to ensure code submission clears remote gates...")
-        await page.wait_for_timeout(20000)
+        await page.wait_for_timeout(25000)
         
-        print("🎉 SUCCESS! The 'Run All' command was dispatched successfully on your GPU T4 x2 instances!")
+        print("🎉 SUCCESS! The text run command sequence has dispatched across your GPU T4 instances.")
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
+
