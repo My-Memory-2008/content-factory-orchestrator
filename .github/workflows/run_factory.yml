@@ -564,6 +564,16 @@ jobs:
           python trigger.py
 
 
+        # Always upload screenshots — even on success — so you can always see what happened
+      - name: Upload debug screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: "*.png"
+          if-no-files-found: ignore
+
+
 
 
 
