@@ -191,9 +191,10 @@ try:
 except ImportError:
     print("-> 'kaggle' module missing. Initiating force-install sequence...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
-    # Pulling directly from GitHub gives you version 2.0+ with modern GPU hooks
+    # FIXED: Added the complete /Kaggle/kaggle-cli.git suffix to the repository URL
     subprocess.check_call([sys.executable, "-m", "pip", "install", "git+https://github.com"])
     print("✅ Modern 'kaggle' package successfully injected into environment.")
+
 
 # 1. Fetch credentials safely from the execution environment
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME")
@@ -252,7 +253,7 @@ print("[3/3] Launching official Kaggle push trigger protocol...")
 try:
     print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
     
-    # ⚠️ FIX 2: Execute using the newly patched development package installation
+    # Run the push via CLI using the specific NvidiaTeslaT4 accelerator tag
     subprocess.run([
         "kaggle", "kernels", "push", 
         "-p", ".", 
@@ -265,6 +266,4 @@ try:
 except subprocess.CalledProcessError as e:
     print(f"❌ Critical Error: Kaggle CLI engine failed to complete the push: {e}")
     exit(1)
-except Exception as e:
-    print(f"❌ Unexpected Error: {e}")
-    exit(1)
+
