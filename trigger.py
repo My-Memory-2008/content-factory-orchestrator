@@ -187,7 +187,8 @@ import sys
 
 try:
      import kaggle
- except ImportError:
+except ImportError:
+     
      print("-> 'kaggle' module missing. Initiating force-install sequence...")
      subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
      subprocess.check_call([sys.executable, "-m", "pip", "install", "kaggle"])
