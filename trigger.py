@@ -193,7 +193,14 @@ Env vars (set as GitHub Secrets)
 
 import asyncio, os, sys, time
 
-from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+try:
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+except ImportError:
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+    subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+ 
 
 KAGGLE_COOKIE = os.environ.get("KAGGLE_COOKIE", "").strip()
 KERNEL_URL    = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
