@@ -179,9 +179,8 @@
 
 
 
-
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (PROPER DOMAIN PAIR CANVAS)
+# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (STRICT COOKIE MATRIX CANVAS)
 # ==========================================
 print("🧠 Initializing Playwright Interactive Cell Runner Engine...")
 
@@ -234,26 +233,41 @@ with sync_playwright() as p:
         c_name, c_val = c_name.strip(), c_val.strip()
         
         if c_name in whitelisted_keys:
-            # 🔥 THE CRITICAL DOMAIN SPECIFICATION FIX:
-            # Explicitly bind the strict 'www.kaggle.com' host matching parameters to 
-            # satisfy Playwright's required domain/path validation constraints perfectly!
-            cookie_dictionary_list.append({
-                "name": c_name,
-                "value": c_val,
-                "domain": "www.kaggle.com",
-                "path": "/"
-            })
+            # 🔥 THE CRITICAL PREFIX & SECURITY OVERRIDE PASS:
+            # 1. __Host- prefixed cookies must live on the root domain directly without subdomains.
+            # 2. All secure cookies require the 'secure: True' constraint or Chromium throws a protocol drop.
+            if c_name.startswith("__Host-"):
+                cookie_dictionary_list.append({
+                    "name": c_name,
+                    "value": c_val,
+                    "domain": "kaggle.com",  # Strict apex root domain mapping
+                    "path": "/",
+                    "secure": True           # Absolute security constraint enabled
+                })
+            else:
+                # Map standard session keys across both domain variations securely
+                cookie_dictionary_list.append({
+                    "name": c_name, "value": c_val, "domain": "www.kaggle.com", "path": "/", "secure": True
+                })
+                cookie_dictionary_list.append({
+                    "name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/", "secure": True
+                })
         
     try:
-        context.add_cookies(cookie_dictionary_list)
-        print("✅ Web session authorization cookies successfully cleaned, validated, and injected.")
+        # 🔥 SAFELY LOAD INJECTED ARRAYS INDIVIDUALLY TO PREVENT CRASHES
+        for single_cookie in cookie_dictionary_list:
+            try:
+                context.add_cookies([single_cookie])
+            except Exception as single_cookie_err:
+                print(f"⚠️ Skipping loose cookie component '{single_cookie['name']}': {single_cookie_err}")
+        print("✅ Web session authorization cookies successfully processed and injected.")
         
         page = context.new_page()
         print("📡 Launching secure pipeline link channel to the Kaggle script editor platform...")
         page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
         
         print("⏳ Waiting for editor canvas components to mount fully...")
-        page.wait_for_timeout(15000)  # Extended wait to allow the complex Kaggle JS editor interface to build out completely
+        page.wait_for_timeout(15000)  # Extended wait allows the complex Kaggle JS editor environment to construct safely
         
         # Take a visual screenshot trace log to verify the editor page layout is fully open
         page.screenshot(path="/tmp/kaggle_editor_loaded.png")
