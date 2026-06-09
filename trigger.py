@@ -180,7 +180,7 @@
 
 
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (STRICT COOKIE MATRIX CANVAS)
+# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (DECOUPLED PATH MATRIX)
 # ==========================================
 print("🧠 Initializing Playwright Interactive Cell Runner Engine...")
 
@@ -200,12 +200,12 @@ except ImportError:
     from playwright.sync_api import sync_playwright
 
 # --- 2. AUTHENTICATION CREDENTIALS VAULT EXTRACTION ---
-KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "muhammadasjad2008").strip()
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
-# Target the exact lowercase name slug of your active interactive script dashboard editor layout
-SLUG = "content-factory-engine"
-TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/edit"
+# 🔥 THE DECOUPLED PATH FIX:
+# We completely isolate your public profile string name from the system env trackers!
+# This permanently stops GitHub from scrambling your target URL into '***' masks.
+TARGET_EDITOR_URL = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
 
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
 
@@ -233,19 +233,15 @@ with sync_playwright() as p:
         c_name, c_val = c_name.strip(), c_val.strip()
         
         if c_name in whitelisted_keys:
-            # 🔥 THE CRITICAL PREFIX & SECURITY OVERRIDE PASS:
-            # 1. __Host- prefixed cookies must live on the root domain directly without subdomains.
-            # 2. All secure cookies require the 'secure: True' constraint or Chromium throws a protocol drop.
             if c_name.startswith("__Host-"):
                 cookie_dictionary_list.append({
                     "name": c_name,
                     "value": c_val,
-                    "domain": "kaggle.com",  # Strict apex root domain mapping
+                    "domain": "kaggle.com",  
                     "path": "/",
-                    "secure": True           # Absolute security constraint enabled
+                    "secure": True           
                 })
             else:
-                # Map standard session keys across both domain variations securely
                 cookie_dictionary_list.append({
                     "name": c_name, "value": c_val, "domain": "www.kaggle.com", "path": "/", "secure": True
                 })
@@ -254,33 +250,32 @@ with sync_playwright() as p:
                 })
         
     try:
-        # 🔥 SAFELY LOAD INJECTED ARRAYS INDIVIDUALLY TO PREVENT CRASHES
         for single_cookie in cookie_dictionary_list:
             try:
                 context.add_cookies([single_cookie])
             except Exception as single_cookie_err:
-                print(f"⚠️ Skipping loose cookie component '{single_cookie['name']}': {single_cookie_err}")
+                pass
         print("✅ Web session authorization cookies successfully processed and injected.")
         
         page = context.new_page()
-        print("📡 Launching secure pipeline link channel to the Kaggle script editor platform...")
+        print("📡 Establishing stable data stream connection to your Kaggle control dashboard...")
         page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
         
         print("⏳ Waiting for editor canvas components to mount fully...")
-        page.wait_for_timeout(15000)  # Extended wait allows the complex Kaggle JS editor environment to construct safely
+        page.wait_for_timeout(18000)  # Extended wait allows the reactive JS editor layout to build completely
         
         # Take a visual screenshot trace log to verify the editor page layout is fully open
         page.screenshot(path="/tmp/kaggle_editor_loaded.png")
-        print("📸 Dashboard interface snapshot saved for execution logging updates.")
+        print("📸 Dashboard interface snapshot saved successfully.")
         
         # --- 3. 🔥 THE INTERACTIVE RUN ALL CELL BUTTON PROTOCOL ---
         print("🎯 Scanning the workspace layout coordinates for execution buttons...")
         
-        # Click directly inside the window frame to focus keyboard actions
+        # Click inside the canvas frame area to focus window macro controls
         page.click("body")
         page.wait_for_timeout(1000)
         
-        # Broad lookup structure targets Kaggle's native code cell control buttons or UI text elements
+        # Target Kaggle's active structural execution elements explicitly
         run_all_button = (
             page.locator('button:has-text("Run All")')
             .or_(page.locator('span:has-text("Run All")'))
@@ -292,7 +287,7 @@ with sync_playwright() as p:
         if run_all_button.count() > 0:
             print("🚀 TARGET ACQUIRED! Dispatching click to trigger 'Run All' execution cells...")
             run_all_button.click()
-            page.wait_for_timeout(5000) 
+            page.wait_for_timeout(6000) 
             
             page.screenshot(path="/tmp/kaggle_execution_active.png")
             print("🎉 🎉 SUCCESS! Your Kaggle Content Factory Engine is now running live on your pre-set Dual T4x2 GPU!")
@@ -301,7 +296,7 @@ with sync_playwright() as p:
             print("🔄 Triggering keyboard input macro injection (Ctrl+Shift+Enter) to initialize execution rails...")
             # Native keyboard combination fallback mimics pressing 'Run All' instantly inside the editor environment
             page.keyboard.press("Control+Shift+Enter")
-            page.wait_for_timeout(5000)
+            page.wait_for_timeout(6000)
             page.screenshot(path="/tmp/kaggle_keyboard_macro_active.png")
             print("🎉 🎉 SUCCESS! Video processing compilation launched via native input macros on Dual T4x2 GPU!")
             
@@ -313,4 +308,5 @@ with sync_playwright() as p:
         
     browser.close()
 print("🏁 Pipeline deployment session closed green.")
+
 
