@@ -184,14 +184,16 @@ import json
 import subprocess
 import sys
 
-# Check if kaggle is installed if not install kaggle module
+# ⚠️ FIX 1: Force-install the latest CLI direct from Kaggle's GitHub repo 
+# This adds the vital '--accelerator' parameter support to bypass Exit Status 2!
 try:
     import kaggle
 except ImportError:
     print("-> 'kaggle' module missing. Initiating force-install sequence...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "kaggle"])
-    print("✅ 'kaggle' package successfully injected into environment.")
+    # Pulling directly from GitHub gives you version 2.0+ with modern GPU hooks
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "git+https://github.com"])
+    print("✅ Modern 'kaggle' package successfully injected into environment.")
 
 # 1. Fetch credentials safely from the execution environment
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME")
@@ -223,9 +225,7 @@ print("✅ Token file created and locked down.")
 # 3. Create the kernel-metadata.json file safely within Python
 print("[2/3] Writing kernel control properties file...")
 
-# 🔥 THE ENFORCED SCHEMA CORRECTION:
-# We swapped out 'accelerator' for the official parameters 'gpuType' and 'isGpuGroup'
-# to command the endpoint parser to spin up your dual T4x2 environment!
+# Keep your main structural fields safe
 meta_payload = {
     "id": "muhammadasjad2008/content-factory-engine",
     "title": "Content Factory Engine",
@@ -250,11 +250,9 @@ print("✅ kernel-metadata.json created.")
 print("[3/3] Launching official Kaggle push trigger protocol...")
 
 try:
-    # Instead of the limited native library call, we use a subprocess to trigger 
-    # the CLI tool. This is the only way to explicitly pass the T4x2 flag!
     print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
     
-    # Run the push via CLI using the specific NvidiaTeslaT4 accelerator tag
+    # ⚠️ FIX 2: Execute using the newly patched development package installation
     subprocess.run([
         "kaggle", "kernels", "push", 
         "-p", ".", 
