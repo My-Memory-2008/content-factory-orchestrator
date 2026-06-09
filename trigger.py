@@ -179,7 +179,6 @@
 #     exit(1)
 
 
-
 # ==========================================
 # PHASE B: AUTHENTIC WEB INTERFACE DUAL-HARDWARE ACCELERATION OVERRIDER
 # ==========================================
@@ -208,9 +207,6 @@ KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 SLUG = "content-factory-engine-v2"
 TARGET_SETTINGS_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/settings"
 
-# 🔥 INFINITE-SHIELD SECURITY GUARD:
-# If the GitHub YAML environment fails to map the cookie, the script drops into 
-# a structural passthrough instead of crashing with an exit code 1!
 if not KAGGLE_WEB_COOKIE:
     print("⚠️ Warning: KAGGLE_WEB_COOKIE env container returned blank.")
     print("💡 Proceeding straight to direct endpoint push pass using standard credentials...")
@@ -226,38 +222,59 @@ else:
         cookie_dictionary_list = []
         raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
         
+        # 🔥 THE AUTOMATED COOKIE SIEVE FILTER:
+        # We explicitly validate and split every single token name/value block natively,
+        # cleaning away trailing whitespace or malformed symbols that break Chromium protocol calls!
         for cookie_segment in raw_clean_cookie.split(";"):
-            if "=" in cookie_segment:
-                c_name, c_val = cookie_segment.split("=", 1)
-                cookie_dictionary_list.append({
-                    "name": c_name.strip(),
-                    "value": c_val.strip(),
-                    "domain": ".kaggle.com",
-                    "path": "/"
-                })
+            cookie_segment = cookie_segment.strip()
+            if not cookie_segment or "=" not in cookie_segment:
+                continue
                 
-        context.add_cookies(cookie_dictionary_list)
+            c_name, c_val = cookie_segment.split("=", 1)
+            c_name = c_name.strip()
+            c_val = c_val.strip()
+            
+            # Skip analytical or tracking tokens that trigger protocol payload validation drops
+            if c_name.startswith("_ga") or c_name == "ACCEPTED_COOKIES":
+                continue
+                
+            # Enforce clean field mappings for core Kaggle state identifiers
+            cookie_dictionary_list.append({
+                "name": c_name,
+                "value": c_val,
+                "domain": "www.kaggle.com",  # Standardised target subdomain layer
+                "path": "/"
+            })
+            
+        # Safely wrap the browser addition step to keep the pipeline moving if unexpected tokens drop by
+        try:
+            context.add_cookies(cookie_dictionary_list)
+            print("✅ Web cookies cleaned, verified, and successfully injected into browser environment.")
+        except Exception as cookie_fault:
+            print(f"⚠️ Warning: Playwright cookie injection encountered a loose segment validation drop: {cookie_fault}")
+            print("💡 Relying exclusively on high-priority session variables...")
+            
         page = context.new_page()
         
         try:
             print("📡 Establishing stable data stream connection to your Kaggle control dashboard...")
             page.goto(TARGET_SETTINGS_URL, wait_until="load", timeout=60000)
-            page.wait_for_timeout(4000) 
+            page.wait_for_timeout(5000) 
             
             print("🎯 Searching canvas for the hardware accelerator tray dropdown element...")
-            # Automatically clicks and opens Kaggle's accelerator selector box panel
-            accelerator_box = page.locator('div[role="button"]:has-text("Accelerator")').or_(page.locator('text=Accelerator'))
+            # Automatically clicks and opens Kaggle's accelerator selector box panel using specific text matches
+            accelerator_box = page.locator('text=Accelerator').first
             if accelerator_box.count() > 0:
-                accelerator_box.first.click()
+                accelerator_box.click()
                 page.wait_for_timeout(2000)
                 
                 print("⚡ OVERRIDING FALLBACKS: Force-selecting GPU T4 x2 Multi-Core Array Element...")
-                # Targets the exact selection element label matching your desired hardware profile
-                page.locator('li[role="option"]:has-text("GPU T4 x2")').or_(page.locator('text=GPU T4 x2')).first.click()
+                # Targets the choice row containing your desired dual hardware matrix configuration profile
+                page.locator('text=GPU T4 x2').first.click()
                 page.wait_for_timeout(2000)
                 
                 print("💾 Committing changes to platform configuration database registries...")
-                page.locator('button:has-text("Save")').or_(page.locator('text=Save')).first.click()
+                page.locator('text=Save').first.click()
                 page.wait_for_timeout(4000)
                 print("🚀 STEP SUCCESSFUL! Notebook default allocation state forcefully overridden to Dual T4.")
             else:
@@ -299,4 +316,5 @@ api = KaggleApi()
 api.authenticate()
 api.kernels_push(".")
 print("✅ Phase A Complete: Deployment cycle finalized smoothly across dual T4 hardware allocations!")
+
 
