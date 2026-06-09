@@ -1,14 +1,17 @@
 {
-  "id": "muhammadasjad2008/content-factory-engine",
-  "title": "Content Factory Engine",
-  "code_file": "summa.py",
-  "language": "python",
-  "kernel_type": "script",
-  "is_private": "true",
-  "enable_gpu": "true",
-  "enable_internet": "true",
-  "accelerator": "nvidia-tesla-t4-x2",
-  "dataset_sources": ["muhammadasjad2008/cat-reactions-vault"],
-  "competition_sources": [],
-  "kernel_sources": []
+    "id": "muhammadasjad2008/content-factory-engine",
+    "title": "Content Factory Engine",
+    "code_file": "content-factory-engine.py",
+    "language": "python",
+    "kernel_type": "script",
+    "is_private": "true",
+    "enable_gpu": "true",
+    "gpuType": "gpuT4",
+    "isGpuGroup": True,
+    "enable_internet": "true",
+    "dataset_sources": [
+        "muhammadasjad2008/cat-reactions-vault"
+    ],
+    "competition_sources": [],
+    "kernel_sources": []
 }
