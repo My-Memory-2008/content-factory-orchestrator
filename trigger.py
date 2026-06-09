@@ -204,7 +204,7 @@ KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "muhammadasjad2008").strip()
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
 # Target the exact lowercase name slug of your active interactive script dashboard editor layout
-SLUG = "content-factory-engine-v2"
+SLUG = "content-factory-engine"
 TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/edit"
 
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
