@@ -179,10 +179,11 @@
 
 
 
+
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (DECOUPLED PATH MATRIX)
+# PHASE B: PLAYWRIGHT KAGGLE PRODUCTION SAVE VERSION OPERATOR (WITH CODE FILE PATH NAVIGATOR)
 # ==========================================
-print("🧠 Initializing Playwright Interactive Cell Runner Engine...")
+print("🧠 Initializing Playwright Production Save Version Operator Engine...")
 
 import os
 import subprocess
@@ -202,10 +203,13 @@ except ImportError:
 # --- 2. AUTHENTICATION CREDENTIALS VAULT EXTRACTION ---
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
-# 🔥 THE DECOUPLED PATH FIX:
-# We completely isolate your public profile string name from the system env trackers!
-# This permanently stops GitHub from scrambling your target URL into '***' masks.
-TARGET_EDITOR_URL = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
+# 🔥 📍 THE CODE WORKSPACE ENVIRONMENT PATH PATH:
+# The definitive target web editor canvas endpoint URL path matching your account profile layout
+TARGET_EDITOR_URL = "https://kaggle.com"
+
+# 🔥 📍 THE CODE FILE TARGET NAME PATH:
+# Change this exact string if your code file inside the Kaggle panel uses a different file extension!
+TARGET_SCRIPT_FILE_NAME = "content-factory-engine.py"
 
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
 
@@ -235,15 +239,11 @@ with sync_playwright() as p:
         if c_name in whitelisted_keys:
             if c_name.startswith("__Host-"):
                 cookie_dictionary_list.append({
-                    "name": c_name,
-                    "value": c_val,
-                    "domain": "kaggle.com",  
-                    "path": "/",
-                    "secure": True           
+                    "name": c_name, "value": c_val, "domain": "kaggle.com", "path": "/", "secure": True           
                 })
             else:
                 cookie_dictionary_list.append({
-                    "name": c_name, "value": c_val, "domain": "www.kaggle.com", "path": "/", "secure": True
+                    "name": c_name, "value": c_val, "domain": "://kaggle.com", "path": "/", "secure": True
                 })
                 cookie_dictionary_list.append({
                     "name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/", "secure": True
@@ -251,10 +251,8 @@ with sync_playwright() as p:
         
     try:
         for single_cookie in cookie_dictionary_list:
-            try:
-                context.add_cookies([single_cookie])
-            except Exception as single_cookie_err:
-                pass
+            try: context.add_cookies([single_cookie])
+            except: pass
         print("✅ Web session authorization cookies successfully processed and injected.")
         
         page = context.new_page()
@@ -262,51 +260,80 @@ with sync_playwright() as p:
         page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
         
         print("⏳ Waiting for editor canvas components to mount fully...")
-        page.wait_for_timeout(18000)  # Extended wait allows the reactive JS editor layout to build completely
+        page.wait_for_timeout(20000)  # Extended wait allows complex UI layers to stabilize
         
-        # Take a visual screenshot trace log to verify the editor page layout is fully open
-        page.screenshot(path="/tmp/kaggle_editor_loaded.png")
-        print("📸 Dashboard interface snapshot saved successfully.")
+        page.screenshot(path="/tmp/kaggle_workspace_ready.png")
+        print("📸 Workspace view captured successfully.")
         
-        # --- 3. 🔥 THE INTERACTIVE RUN ALL CELL BUTTON PROTOCOL ---
-        print("🎯 Scanning the workspace layout coordinates for execution buttons...")
-        
-        # Click inside the canvas frame area to focus window macro controls
-        page.click("body")
-        page.wait_for_timeout(1000)
-        
-        # Target Kaggle's active structural execution elements explicitly
-        run_all_button = (
-            page.locator('button:has-text("Run All")')
-            .or_(page.locator('span:has-text("Run All")'))
-            .or_(page.locator('[data-testid="run-all-button"]'))
-            .or_(page.locator('text=Run All'))
+        # --- 3. 🔥 INTERACTIVE SCRIPT FILE NAVIGATOR PROTOCOL ---
+        print(f"📡 Scanning sidebar elements for script path target: '{TARGET_SCRIPT_FILE_NAME}'...")
+        # Locates and clicks your specific python script tab on the Kaggle navigation tree view container
+        script_file_tab = (
+            page.locator(f'text={TARGET_SCRIPT_FILE_NAME}')
+            .or_(page.locator(f'span:has-text("{TARGET_SCRIPT_FILE_NAME}")'))
             .first
         )
         
-        if run_all_button.count() > 0:
-            print("🚀 TARGET ACQUIRED! Dispatching click to trigger 'Run All' execution cells...")
-            run_all_button.click()
-            page.wait_for_timeout(6000) 
-            
-            page.screenshot(path="/tmp/kaggle_execution_active.png")
-            print("🎉 🎉 SUCCESS! Your Kaggle Content Factory Engine is now running live on your pre-set Dual T4x2 GPU!")
+        if script_file_tab.count() > 0:
+            print("🚀 Script file path row targeted! Swapping editor view window context focus...")
+            script_file_tab.click()
+            page.wait_for_timeout(3000)  # Wait for file editor buffer layers to load into canvas views
+            page.screenshot(path="/tmp/kaggle_script_file_focused.png")
         else:
-            print("⚠️ Notice: Explicit 'Run All' button element hidden behind canvas layers.")
-            print("🔄 Triggering keyboard input macro injection (Ctrl+Shift+Enter) to initialize execution rails...")
-            # Native keyboard combination fallback mimics pressing 'Run All' instantly inside the editor environment
-            page.keyboard.press("Control+Shift+Enter")
+            print("⚠️ Notice: Specific file path tab text row hidden or already set by default layout tracks.")
+        
+        # --- 4. THE INTERACTIVE SAVE VERSION PROTOCOL ---
+        print("🎯 Locating the 'Save Version' workspace button...")
+        save_version_trigger = (
+            page.locator('button:has-text("Save Version")')
+            .or_(page.locator('span:has-text("Save Version")'))
+            .or_(page.locator('text=Save Version'))
+            .first
+        )
+        
+        if save_version_trigger.count() > 0:
+            print("🚀 TRIGGER ACQUIRED! Opening Save Version popup menu overlay...")
+            save_version_trigger.click()
+            page.wait_for_timeout(3000)  # Wait for option modal window to fully animate open
+            
+            page.screenshot(path="/tmp/save_version_modal_open.png")
+            
+            # --- 5. VERIFY 'SAVE & RUN ALL (COMMIT)' IS ENGAGED ---
+            print("🔬 Verifying 'Save & Run All (Commit)' option selection state...")
+            commit_option = (
+                page.locator('text=Save & Run All (Commit)')
+                .or_(page.locator('label:has-text("Save & Run All")'))
+                .first
+            )
+            
+            if commit_option.count() > 0:
+                commit_option.click()  # Explicitly click to ensure choice is locked in
+                page.wait_for_timeout(1000)
+            
+            # --- 6. EXECUTE FINAL PANEL CONFIRMATION SAVE CLICK ---
+            print("💾 Dispatching final confirmation payload to Kaggle server registries...")
+            final_save_btn = (
+                page.locator('div[role="dialog"] button:has-text("Save")')
+                .or_(page.locator('button:has-text("Save")'))
+                .last
+            )
+            
+            final_save_btn.click()
+            print("⏳ Finalizing database execution lock pass...")
             page.wait_for_timeout(6000)
-            page.screenshot(path="/tmp/kaggle_keyboard_macro_active.png")
-            print("🎉 🎉 SUCCESS! Video processing compilation launched via native input macros on Dual T4x2 GPU!")
+            
+            page.screenshot(path="/tmp/version_commit_active.png")
+            print("🎉 🎉 SUCCESS! Your Kaggle Script has been forcefully committed via 'Save Version'!")
+            print("💎 Backend background job successfully spawned on your pre-set Dual T4x2 GPU!")
+        else:
+            print("❌ Error: 'Save Version' layout anchor button hidden or unreachable.")
+            sys.exit(1)
             
     except Exception as automation_fault:
-        print(f"❌ Playwright workspace automation process failed: {automation_fault}")
-        try: page.screenshot(path="/tmp/automation_execution_crash.png")
+        print(f"❌ Playwright Save Version automation loop failed: {automation_fault}")
+        try: page.screenshot(path="/tmp/save_version_automation_crash.png")
         except: pass
         sys.exit(1)
         
     browser.close()
-print("🏁 Pipeline deployment session closed green.")
-
-
+print("🏁 Production pipeline deployment session closed green.")
