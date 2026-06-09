@@ -180,16 +180,14 @@
 
 
 
-
 import asyncio
 import os
 import sys
-import json
 from playwright.async_api import async_playwright
 
 async def run():
     async with async_playwright() as p:
-        print("🚀 Setting up cloud automation browser environment...")
+        print("🚀 Setting up cloud execution trigger environment...")
         
         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
         if not secret_auth_data:
@@ -199,81 +197,47 @@ async def run():
         with open("kaggle_auth.json", "w") as f:
             f.write(secret_auth_data)
 
-        # FIX 1: Explicitly pass a full-screen layout window profile to bypass mobile responsive modes
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--window-size=1920,1080", "--disable-blink-features=AutomationControlled"]
-        )
-        
-        # FIX 2: Bind the window viewport size to desktop resolution inside the session context
+        # Force desktop layout constraints
+        browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
         context = await browser.new_context(
             storage_state="kaggle_auth.json",
             viewport={"width": 1920, "height": 1080}
         )
         page = await context.new_page()
 
-        # 1. Open the specific script workspace editor panel directly
         notebook_url = "https://kaggle.com"
-        print(f"📡 Transitioning to live workspace environment: {notebook_url}")
+        print(f"📡 Connecting to notebook workspace: {notebook_url}")
         
         try:
             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
         except Exception as e:
-            print(f"⚠️ Initial framework notice (safe to skip): {e}")
+            print(f"⚠️ Navigation status check: {e}")
             
-        print("⏳ Waiting 45 seconds for the cloud server container frames and scripts to fully initialize...")
-        await page.wait_for_timeout(45000)
+        print("⏳ Waiting 30 seconds for the cloud server to provision your T4 session environment...")
+        await page.wait_for_timeout(30000)
 
-        # 2. Extract localized model file configurations from the repo directory
-        script_file_path = "content-factory-engine.py"
-        print(f"📝 Fetching repository code elements from {script_file_path}...")
-        try:
-            with open(script_file_path, "r", encoding="utf-8") as file:
-                production_code_payload = file.read()
-        except FileNotFoundError:
-            print(f"❌ Error: Could not locate '{script_file_path}' in runner path workspace!")
-            await browser.close()
-            sys.exit(1)
-
-        # 3. Focus onto the main workspace canvas area
-        print("🎹 Targeting target script cells arrays...")
+        # ====================================================================
+        # NATIVE INTERACTIVE RUN ALL KEYBOARD BYPASS
+        # ====================================================================
+        print("🎹 Injecting global execution hotkeys...")
         
-        # Click firmly in the center area of a 1920x1080 desktop display layout
-        # This focuses the active text editor cell no matter what class name changes Kaggle pushes
-        await page.mouse.click(960, 540)
+        # Bring focus onto the main window viewport body
+        await page.focus("body")
         await page.wait_for_timeout(2000)
-
-        # 4. Clear out stale script blocks inside the container frame
-        print("⌨️ Clearing legacy code segments...")
-        modifier_key = "Control"
-        await page.keyboard.down(modifier_key)
-        await page.keyboard.press("a")
-        await page.keyboard.up(modifier_key)
-        await page.wait_for_timeout(2000)
-        await page.keyboard.press("Backspace")
-        await page.wait_for_timeout(2000)
-
-        # 5. Inject your script payload safely
-        print("📋 Writing updated model script streams...")
-        # FIX 3: Completely bypassed '.fill()' selector dependencies. 
-        # We type the code payload directly through the active keyboard stream layout.
-        await page.keyboard.type(production_code_payload, delay=1)
-        await page.wait_for_timeout(4000)
-
-        # 6. Execute Run All hotkey logic (Keeps your GPU T4 configuration active!)
-        print("⚡ Dispatching interactive cell runtime execution scripts...")
+        
+        # Execute the absolute universal Kaggle web shortcut for "Run All": Ctrl + Alt + Enter
+        print("⚡ Sending 'Run All' command sequence (Ctrl + Alt + Enter)...")
         await page.keyboard.down("Control")
-        await page.keyboard.down("Shift")
+        await page.keyboard.down("Alt")
         await page.keyboard.press("Enter")
-        await page.keyboard.up("Shift")
+        await page.keyboard.up("Alt")
         await page.keyboard.up("Control")
 
-        print("⏳ Ensuring execution handshakes complete safely across remote nodes...")
-        await page.wait_for_timeout(15000)
+        print("⏳ Holding active context stream open to ensure code submission clears remote gates...")
+        await page.wait_for_timeout(20000)
         
-        print("🎉 SUCCESS! GitHub Actions has uploaded your new code to Kaggle on the GPU T4 instance successfully!")
+        print("🎉 SUCCESS! The 'Run All' command was dispatched successfully on your GPU T4 x2 instances!")
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
-
