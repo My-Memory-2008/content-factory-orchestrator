@@ -178,6 +178,89 @@
 #     exit(1)
 
 
+
+
+
+
+
+# import asyncio
+# import os
+# import sys
+# from playwright.async_api import async_playwright
+
+# async def run():
+#     async with async_playwright() as p:
+#         print("🚀 Setting up cloud execution trigger environment for Kaggle Script mode...")
+        
+#         # Verify repository secrets token block 
+#         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
+#         if not secret_auth_data:
+#             print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
+#             sys.exit(1)
+            
+#         with open("kaggle_auth.json", "w") as f:
+#             f.write(secret_auth_data)
+
+#         # Force standard desktop dimensions to guarantee editor focus areas are mapped properly
+#         browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
+#         context = await browser.new_context(
+#             storage_state="kaggle_auth.json",
+#             viewport={"width": 1920, "height": 1080}
+#         )
+#         page = await context.new_page()
+
+#         # Exact path of your script editor panel
+#         notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
+#         print(f"📡 Connecting to script workspace: {notebook_url}")
+        
+#         try:
+#             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
+#         except Exception as e:
+#             print(f"⚠️ Navigation status context: {e}")
+            
+#         print("⏳ Waiting 35 seconds for the cloud server to provision your T4 session environment...")
+#         await page.wait_for_timeout(35000)
+
+#         # ====================================================================
+#         # SCRIPT MODE MULTI-STEP KEYBOARD RUN METHOD
+#         # ====================================================================
+#         print("🎹 Injecting universal code execution commands...")
+        
+#         try:
+#             # 1. Focus inside the main text code window editor pane 
+#             # Kaggle uses CodeMirror layers for script inputs (.cm-content)
+#             await page.locator(".cm-content, [role='textbox'], .CodeMirror-code").first.click(timeout=10000)
+#             print("🎯 Focus captured successfully on the main code editor cell.")
+#         except Exception:
+#             print("⚠️ Code cell frame selector missed. Forcing click onto central layout coordinate grid...")
+#             await page.mouse.click(960, 540)
+            
+#         await page.wait_for_timeout(2000)
+        
+#         # 2. Select the entire contents of your python script file (Ctrl + A)
+#         print("⌨️ Selecting all text inside script editor (Control + A)...")
+#         await page.keyboard.down("Control")
+#         await page.keyboard.press("a")
+#         await page.keyboard.up("Control")
+#         await page.wait_for_timeout(2000)
+        
+#         # 3. Trigger execution on the selected text lines (Shift + Enter)
+#         print("⚡ Executing entire script file (Shift + Enter)...")
+#         await page.keyboard.down("Shift")
+#         await page.keyboard.press("Enter")
+#         await page.keyboard.up("Shift")
+
+#         print("⏳ Holding active context stream open to ensure code submission clears remote gates...")
+#         await page.wait_for_timeout(25000)
+        
+#         print("🎉 SUCCESS! The text run command sequence has dispatched across your GPU T4 instances.")
+#         await browser.close()
+
+# if __name__ == "__main__":
+#     asyncio.run(run())
+
+
+
 import asyncio
 import os
 import sys
@@ -185,7 +268,7 @@ from playwright.async_api import async_playwright
 
 async def run():
     async with async_playwright() as p:
-        print("🚀 Setting up cloud execution trigger environment for Kaggle Script mode...")
+        print("🚀 Setting up logging-enabled cloud execution trigger for Kaggle Script mode...")
         
         # Verify repository secrets token block 
         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
@@ -196,7 +279,7 @@ async def run():
         with open("kaggle_auth.json", "w") as f:
             f.write(secret_auth_data)
 
-        # Force standard desktop dimensions to guarantee editor focus areas are mapped properly
+        # Force standard desktop dimensions to map terminal boxes correctly
         browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
         context = await browser.new_context(
             storage_state="kaggle_auth.json",
@@ -205,7 +288,7 @@ async def run():
         page = await context.new_page()
 
         # Exact path of your script editor panel
-        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
+        notebook_url = "https://kaggle.com"
         print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
@@ -217,40 +300,69 @@ async def run():
         await page.wait_for_timeout(35000)
 
         # ====================================================================
-        # SCRIPT MODE MULTI-STEP KEYBOARD RUN METHOD
+        # STEP 1: EXECUTE THE RUN ALL LOGIC
         # ====================================================================
         print("🎹 Injecting universal code execution commands...")
-        
         try:
-            # 1. Focus inside the main text code window editor pane 
-            # Kaggle uses CodeMirror layers for script inputs (.cm-content)
             await page.locator(".cm-content, [role='textbox'], .CodeMirror-code").first.click(timeout=10000)
             print("🎯 Focus captured successfully on the main code editor cell.")
         except Exception:
-            print("⚠️ Code cell frame selector missed. Forcing click onto central layout coordinate grid...")
+            print("⚠️ Code cell frame selector missed. Forcing click onto central layout grid...")
             await page.mouse.click(960, 540)
             
         await page.wait_for_timeout(2000)
         
-        # 2. Select the entire contents of your python script file (Ctrl + A)
         print("⌨️ Selecting all text inside script editor (Control + A)...")
         await page.keyboard.down("Control")
         await page.keyboard.press("a")
         await page.keyboard.up("Control")
         await page.wait_for_timeout(2000)
         
-        # 3. Trigger execution on the selected text lines (Shift + Enter)
         print("⚡ Executing entire script file (Shift + Enter)...")
         await page.keyboard.down("Shift")
         await page.keyboard.press("Enter")
         await page.keyboard.up("Shift")
+        print("📡 Run command sequence successfully sent over to Kaggle servers.")
+        await page.wait_for_timeout(5000)
 
-        print("⏳ Holding active context stream open to ensure code submission clears remote gates...")
-        await page.wait_for_timeout(25000)
+        # ====================================================================
+        # STEP 2: LIVE STREAM TERMINAL LOGS INTO GITHUB ACTIONS LOGS
+        # ====================================================================
+        print("\n📺 MONITORING LIVE KAGGLE CONSOLE OUTPUT LOGS (Streaming Below):")
+        print("="*80)
         
-        print("🎉 SUCCESS! The text run command sequence has dispatched across your GPU T4 instances.")
+        # Define CSS tracking locators for Kaggle's standard log terminal wrapper rows
+        console_selector = "[data-test-id='console-panel'], .console-output, .KaggleConsole-logs, div[class*='console']"
+        
+        # We loop and pull logs for a safe tracking window (e.g., 5 minutes or 60 loop updates)
+        # Adjust range counts if your machine learning job requires longer execution times
+        printed_lines = set()
+        
+        for iteration in range(60): 
+            try:
+                # Target the text content inside the live console window element layers
+                console_element = page.locator(console_selector)
+                if await console_element.count() > 0:
+                    raw_text = await console_element.first.inner_text()
+                    
+                    # Split lines and print out only newly generated print text blocks
+                    for line in raw_text.split("\n"):
+                        clean_line = line.strip()
+                        # Avoid duplicates and blank spacing logs
+                        if clean_line and clean_line not in printed_lines:
+                            print(f"[Kaggle-T4] {clean_line}")
+                            printed_lines.add(clean_line)
+                            
+            except Exception as log_err:
+                # If console wrapper hasn't broken DOM boundaries yet, wait smoothly
+                pass
+                
+            # Intercept every 5 seconds to provide continuous terminal outputs
+            await asyncio.sleep(5)
+            
+        print("="*80)
+        print("🎉 PIPELINE EXECUTION COMPLETE! Monitoring handler detached securely.")
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
-
