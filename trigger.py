@@ -143,8 +143,7 @@ meta_payload = {
     "kernel_type": "script",
     "is_private": "true",
     "enable_gpu": "true",
-    "gpu_type": "t4",
-    "is_gpu_group": "true",
+    "gpu_group": "dual_t4",
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
