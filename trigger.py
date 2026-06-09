@@ -214,7 +214,7 @@ KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "").strip()
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
 SLUG = "content-factory-engine"
-TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/edit"
+TARGET_EDITOR_URL = f"https://kaggle.com/{KAGGLE_USERNAME}/{SLUG}/edit"
 TARGET_SCRIPT_FILE_NAME = "content-factory-engine.py"
 
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
