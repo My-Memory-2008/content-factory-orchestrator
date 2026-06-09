@@ -551,7 +551,7 @@
 #           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
 #         run: python3 trigger.py
 
-- name: Execute Kaggle T4x2 Push Trigger
+name: Execute Kaggle T4x2 Push Trigger
         # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
         # This explicitly passes your encrypted secrets into the runtime container
         # so that Playwright can read your session cookie!
