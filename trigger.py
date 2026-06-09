@@ -179,6 +179,7 @@
 
 
 
+
 import asyncio, os, sys, time
 
 try:
@@ -223,10 +224,6 @@ async def main():
     cookies = parse_cookies(KAGGLE_COOKIE)
     log("info", f"Parsed {len(cookies)} cookies")
 
-    print("=" * 55, flush=True)
-    print("  Kaggle Runner  |  GitHub Actions  |  cookie auth")
-    print("=" * 55, flush=True)
-
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
             headless=True,
@@ -241,7 +238,6 @@ async def main():
             ),
         )
 
-        # Inject cookies one by one, skip bad ones
         injected = 0
         for cookie in cookies:
             try:
@@ -258,126 +254,106 @@ async def main():
         await page.goto("https://www.kaggle.com", wait_until="domcontentloaded")
         if "/login" in page.url:
             log("fail", "Cookie expired — grab a fresh one and update the GitHub Secret")
+            await page.screenshot(path="debug_login.png")
             sys.exit(1)
         log("ok", "Session valid")
 
         # ── Open kernel ───────────────────────────────────────────────────────
         log("info", "Opening kernel editor…")
         await page.goto(KERNEL_URL, wait_until="domcontentloaded")
-        await page.wait_for_load_state("networkidle", timeout=40_000)
+        # Wait generously for React to fully render
+        await asyncio.sleep(8)
+        await page.screenshot(path="debug_editor.png")
+        log("ok", "Kernel editor loaded — screenshot saved as debug_editor.png")
+
         if "/login" in page.url:
             log("fail", "Redirected to login — cookie may be expired")
             sys.exit(1)
-        log("ok", "Kernel editor loaded")
 
-        # ── Step 1: Click the ▶▶ Run All button (top-left of editor) ─────────
-        log("info", "Clicking Run All (▶▶) button…")
-        run_all_clicked = False
+        # ── Dump ALL buttons on page so we can see what's there ──────────────
+        log("info", "Scanning all buttons on page…")
+        buttons = await page.evaluate("""
+            () => Array.from(document.querySelectorAll('button')).map(b => ({
+                text:      b.innerText.trim().substring(0, 60),
+                ariaLabel: b.getAttribute('aria-label') || '',
+                title:     b.getAttribute('title') || '',
+                testId:    b.getAttribute('data-testid') || '',
+                classes:   b.className.substring(0, 80),
+            }))
+        """)
+        log("info", f"Found {len(buttons)} buttons:")
+        for b in buttons:
+            print(f"    text='{b['text']}' | aria='{b['ariaLabel']}' | title='{b['title']}' | testid='{b['testId']}'", flush=True)
 
-        # From the screenshot: the button has text "Run All" next to ▶▶ icon
-        # Kaggle renders it as a button in the toolbar
+        # ── Try to find Save Version button (shown in your screenshot) ────────
+        log("info", "Looking for Save Version button…")
+        save_version_clicked = False
+
+        # From your screenshot the button says "Save Version" in top-right area
         for sel in [
-            "button:has-text('Run All')",
-            "//button[contains(., 'Run All')]",
-            "button[aria-label='Run All']",
-            "button[data-testid='run-all-button']",
-            "button[title='Run All']",
+            "button:has-text('Save Version')",
+            "button:has-text('Save version')",
+            "button[data-testid='save-version-button']",
+            "button[aria-label='Save Version']",
+            "button[aria-label*='Save']",
+            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'save version')]",
         ]:
             try:
                 by_xpath = sel.startswith("//")
-                if by_xpath:
-                    btn = await page.wait_for_selector(f"xpath={sel}", timeout=10_000)
-                else:
-                    btn = await page.wait_for_selector(sel, timeout=10_000)
+                btn = await page.wait_for_selector(
+                    f"xpath={sel}" if by_xpath else sel, timeout=6_000
+                )
                 await btn.click()
-                log("ok", f"Clicked Run All button ({sel})")
-                run_all_clicked = True
+                log("ok", f"Clicked Save Version ({sel})")
+                save_version_clicked = True
                 break
             except PWTimeout:
                 continue
 
-        if not run_all_clicked:
-            await page.screenshot(path="before_runall.png")
-            log("fail", "Could not find Run All button — screenshot saved")
+        if not save_version_clicked:
+            log("fail", "Could not find Save Version button — check debug_editor.png artifact")
+            await browser.close()
             sys.exit(1)
 
-        # ── Step 2: Wait for "Save version" dialog to appear ─────────────────
-        log("info", "Waiting for Save version dialog…")
-        try:
-            # The dialog has the heading "Save version"
-            await page.wait_for_selector(
-                "text='Save version', h2:has-text('Save version'), [role='dialog']:has-text('Save version')",
-                timeout=15_000,
-            )
-            log("ok", "Save version dialog opened")
-        except PWTimeout:
-            await page.screenshot(path="no_dialog.png")
-            log("fail", "Save version dialog did not appear — screenshot saved")
-            sys.exit(1)
+        # ── Wait for the Save dialog ──────────────────────────────────────────
+        log("info", "Waiting for Save dialog…")
+        await asyncio.sleep(3)
+        await page.screenshot(path="debug_dialog.png")
+        log("info", "Dialog screenshot saved as debug_dialog.png")
 
-        # ── Step 3: Make sure "Save & Run All (Commit)" is selected ──────────
-        # It's already selected by default (shown in screenshot), but let's confirm
-        log("info", "Ensuring 'Save & Run All (Commit)' is selected…")
-        try:
-            # It's a dropdown — check if it already shows the right option
-            dropdown = await page.wait_for_selector(
-                "select, [role='combobox'], [role='listbox']",
-                timeout=5_000,
-            )
-            current = await dropdown.inner_text()
-            if "Save & Run All" not in current and "Commit" not in current:
-                # Try to select the right option
-                try:
-                    await dropdown.select_option(label="Save & Run All (Commit)")
-                    log("ok", "Selected 'Save & Run All (Commit)'")
-                except Exception:
-                    # Click it open and pick the option
-                    await dropdown.click()
-                    await asyncio.sleep(0.5)
-                    opt = await page.wait_for_selector(
-                        "text='Save & Run All (Commit)'", timeout=4_000
-                    )
-                    await opt.click()
-                    log("ok", "Picked 'Save & Run All (Commit)' from dropdown")
-            else:
-                log("ok", "Save & Run All (Commit) already selected")
-        except PWTimeout:
-            log("info", "Could not find version type dropdown — proceeding with default")
-
-        # ── Step 4: Click the final "Save" button in the dialog ──────────────
-        log("info", "Clicking Save button in dialog…")
+        # ── Click the Save button inside the dialog ───────────────────────────
+        log("info", "Clicking Save in dialog…")
         saved = False
 
         for sel in [
-            # The black "Save" button at the bottom-right of the dialog
             "button:has-text('Save')",
             "[role='dialog'] button:has-text('Save')",
-            "button[type='submit']:has-text('Save')",
+            "button[type='submit']",
             "//button[normalize-space(.)='Save']",
+            "//button[contains(@class,'primary') and contains(.,'Save')]",
         ]:
             try:
                 by_xpath = sel.startswith("//")
-                if by_xpath:
-                    btn = await page.wait_for_selector(f"xpath={sel}", timeout=8_000)
-                else:
-                    btn = await page.wait_for_selector(sel, timeout=8_000)
-                # Make sure it's not the Cancel button
-                text = await btn.inner_text()
-                if "Cancel" in text:
+                btn = await page.wait_for_selector(
+                    f"xpath={sel}" if by_xpath else sel, timeout=8_000
+                )
+                text = (await btn.inner_text()).strip()
+                if text.lower() in ("cancel", "close", "dismiss"):
                     continue
                 await btn.click()
-                log("ok", "Clicked Save — kernel queued for execution")
+                log("ok", f"Clicked Save button (text='{text}')")
                 saved = True
                 break
             except PWTimeout:
                 continue
 
         if not saved:
-            await page.screenshot(path="save_failed.png")
-            log("fail", "Could not click Save button — screenshot saved")
+            await page.screenshot(path="debug_save_failed.png")
+            log("fail", "Could not click Save — check debug_save_failed.png artifact")
+            await browser.close()
             sys.exit(1)
 
-        # ── Step 5: Poll run status ───────────────────────────────────────────
+        # ── Poll status ───────────────────────────────────────────────────────
         log("wait", "Polling run status (every 15 s, max 45 min)…")
         deadline = time.time() + 45 * 60
         last = ""
@@ -388,9 +364,6 @@ async def main():
                 ".run-status-badge",
                 "span[class*='RunStatus']",
                 "div[class*='run-status']",
-                "text='Running'",
-                "text='Complete'",
-                "text='Error'",
             ]:
                 try:
                     el   = await page.wait_for_selector(sel, timeout=3_000)
