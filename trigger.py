@@ -185,16 +185,6 @@ import json
 import subprocess
 import sys
 
-try:
-     import kaggle
-except ImportError:
-     print("-> 'kaggle' module missing. Initiating force-install sequence...")
-     subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
-     subprocess.check_call([sys.executable, "-m", "pip", "install", "kaggle"])
-     print("✅ 'kaggle' package successfully injected into environment.")
-     import kaggle
-
-
 # 1. Fetch credentials safely from the execution environment
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME")
 KAGGLE_KEY = os.environ.get("KAGGLE_KEY")
@@ -222,19 +212,18 @@ with open(token_path, "w") as f:
 os.chmod(token_path, 0o600)
 print("✅ Token file created and locked down.")
 
-# 3. Create the kernel-metadata.json file safely within Python
 print("[2/3] Writing kernel control properties file...")
 
-# Restored the official standard schema to prevent silent fallback to CPU
+# 3. Official standard schema (Using standard true boolean, not string "true")
 meta_payload = {
     "id": "muhammadasjad2008/content-factory-engine",
     "title": "Content Factory Engine",
     "code_file": "content-factory-engine.py",
     "language": "python",
     "kernel_type": "script",
-    "is_private": "true",
-    "enable_gpu": "true",
-    "enable_internet": "true",
+    "is_private": True,
+    "enable_gpu": True,
+    "enable_internet": True,
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
     ],
@@ -246,9 +235,9 @@ with open("kernel-metadata.json", "w") as f:
     json.dump(meta_payload, f, indent=2)
 print("✅ kernel-metadata.json created.")
 
-# 4. CALL THE CORRECT UNIVERSAL KERNELS_PUSH METHOD WITH TERMINAL PARAMETERS
 print("[3/3] Launching official Kaggle push trigger protocol...")
 
+# 4. CALL THE CORRECT UNIVERSAL KERNELS_PUSH METHOD WITH TERMINAL PARAMETERS
 try:
     print("📡 Uploading files and initiating Kaggle T4 GPU instance...")
     
