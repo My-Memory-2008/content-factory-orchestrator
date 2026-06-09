@@ -180,11 +180,11 @@
 
 
 
-
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (FIXED PROTOCOL CANVAS)
+# PHASE B: PLAYWRIGHT KAGGLE INTERACTIVE RUNNER (PROPER DOMAIN PAIR CANVAS)
 # ==========================================
 print("🧠 Initializing Playwright Interactive Cell Runner Engine...")
+
 import os
 import subprocess
 import sys
@@ -205,7 +205,7 @@ KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "muhammadasjad2008").strip()
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
 # Target the exact lowercase name slug of your active interactive script dashboard editor layout
-SLUG = "content-factory-engine"
+SLUG = "content-factory-engine-v2"
 TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/edit"
 
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
@@ -234,18 +234,15 @@ with sync_playwright() as p:
         c_name, c_val = c_name.strip(), c_val.strip()
         
         if c_name in whitelisted_keys:
-            # 🔥 THE CRITICAL INTERCEPT FIX:
-            # If a cookie uses the '__Host-' prefix identifier, browser specs dictate that 
-            # its explicit domain property MUST be completely omitted or empty, or it throws a crash!
-            if c_name.startswith("__Host-"):
-                cookie_dictionary_list.append({
-                    "name": c_name,
-                    "value": c_val,
-                    "path": "/"
-                })
-            else:
-                cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": "www.kaggle.com", "path": "/"})
-                cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/"})
+            # 🔥 THE CRITICAL DOMAIN SPECIFICATION FIX:
+            # Explicitly bind the strict 'www.kaggle.com' host matching parameters to 
+            # satisfy Playwright's required domain/path validation constraints perfectly!
+            cookie_dictionary_list.append({
+                "name": c_name,
+                "value": c_val,
+                "domain": "www.kaggle.com",
+                "path": "/"
+            })
         
     try:
         context.add_cookies(cookie_dictionary_list)
@@ -256,7 +253,7 @@ with sync_playwright() as p:
         page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
         
         print("⏳ Waiting for editor canvas components to mount fully...")
-        page.wait_for_timeout(12000)  # Extended wait to allow the complex Kaggle JS editor interface to build out completely
+        page.wait_for_timeout(15000)  # Extended wait to allow the complex Kaggle JS editor interface to build out completely
         
         # Take a visual screenshot trace log to verify the editor page layout is fully open
         page.screenshot(path="/tmp/kaggle_editor_loaded.png")
@@ -290,7 +287,7 @@ with sync_playwright() as p:
             print("🔄 Triggering keyboard input macro injection (Ctrl+Shift+Enter) to initialize execution rails...")
             # Native keyboard combination fallback mimics pressing 'Run All' instantly inside the editor environment
             page.keyboard.press("Control+Shift+Enter")
-            page.wait_for_timeout(4000)
+            page.wait_for_timeout(5000)
             page.screenshot(path="/tmp/kaggle_keyboard_macro_active.png")
             print("🎉 🎉 SUCCESS! Video processing compilation launched via native input macros on Dual T4x2 GPU!")
             
@@ -302,5 +299,4 @@ with sync_playwright() as p:
         
     browser.close()
 print("🏁 Pipeline deployment session closed green.")
-
 
