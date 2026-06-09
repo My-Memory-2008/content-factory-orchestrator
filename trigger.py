@@ -179,7 +179,6 @@
 
 
 
-
 """
 kaggle_runner.py
 ────────────────
@@ -211,17 +210,31 @@ def log(icon, msg):
 
 
 def parse_cookies(raw: str) -> list[dict]:
+    """
+    Playwright's add_cookies only accepts these fields:
+      name, value, domain, path, expires, httpOnly, secure, sameSite
+    Everything else (size, session, hostOnly, storeId, etc.) causes
+    'Invalid cookie fields' — so we build each dict manually with only
+    the allowed keys and safe defaults.
+    """
     cookies = []
     for part in raw.split(";"):
         part = part.strip()
         if "=" not in part:
             continue
         name, _, value = part.partition("=")
+        name  = name.strip()
+        value = value.strip()
+        if not name:
+            continue
         cookies.append({
-            "name":   name.strip(),
-            "value":  value.strip(),
-            "domain": ".kaggle.com",
-            "path":   "/",
+            "name":     name,
+            "value":    value,
+            "domain":   ".kaggle.com",
+            "path":     "/",
+            "secure":   True,
+            "httpOnly": False,
+            "sameSite": "Lax",
         })
     return cookies
 
