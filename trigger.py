@@ -179,9 +179,8 @@
 
 
 
-
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGLE PRODUCTION SAVE VERSION OPERATOR (MAX VIEWPORT)
+# PHASE B: PLAYWRIGHT KAGGLE PRODUCTION SAVE VERSION OPERATOR (FRAME-AWARE MATRICES)
 # ==========================================
 print("🧠 Initializing Playwright Production Save Version Operator Engine...")
 
@@ -271,17 +270,29 @@ with sync_playwright() as p:
         print("📡 Establishing stable data stream connection to your Kaggle control dashboard...")
         page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
         
-        # 🔥 EXTENDED TIMEOUT FIX: Give complex React layout tables extra time to render completely
         print("⏳ Waiting for editor canvas components to mount fully...")
         page.wait_for_timeout(45000)  
         
         page.screenshot(path="/tmp/kaggle_workspace_ready.png")
         
+        # 🔥 THE DEEP FRAME INTERCEPTOR:
+        # If Kaggle loads the editor panels inside an internal application iframe node, 
+        # we lock onto that canvas layer directly to expose the real buttons!
+        editor_frame_locator = page.frame_locator('iframe[src*="kaggle"]').or_(page.frame_locator('#interactive-editor-iframe'))
+        
+        # Determine if we are operating in a frame or root window environment natively
+        if page.locator('[data-testid="save-version-button"]').count() > 0:
+            print("⚓ Operating on root window architecture.")
+            target_scope = page
+        else:
+            print("⚓ Hidden iframe architecture intercepted. Switching locator focus inside deep layer context...")
+            target_scope = editor_frame_locator
+
         # --- 3. INTERACTIVE SCRIPT FILE NAVIGATOR ---
         print(f"📡 Scanning sidebar elements for script path target: '{TARGET_SCRIPT_FILE_NAME}'...")
         script_file_tab = (
-            page.locator(f'text={TARGET_SCRIPT_FILE_NAME}')
-            .or_(page.locator(f'span:has-text("{TARGET_SCRIPT_FILE_NAME}")'))
+            target_scope.locator(f'text={TARGET_SCRIPT_FILE_NAME}')
+            .or_(target_scope.locator(f'span:has-text("{TARGET_SCRIPT_FILE_NAME}")'))
             .first
         )
         if script_file_tab.count() > 0:
@@ -291,12 +302,11 @@ with sync_playwright() as p:
         # --- 4. THE INTERACTIVE SAVE VERSION PROTOCOL (PRODUCTION DATA-TESTID MAP) ---
         print("🎯 Locating the 'Save Version' workspace button...")
         
-        # 🔥 THE ABSOLUTE DOM FIX: Target the explicit data production attributes used by Kaggle!
         save_version_trigger = (
-            page.locator('[data-testid="save-version-button"]')
-            .or_(page.locator('button:has-text("Save Version")'))
-            .or_(page.locator('span:has-text("Save Version")'))
-            .or_(page.locator('[aria-label="Save Version"]'))
+            target_scope.locator('[data-testid="save-version-button"]')
+            .or_(target_scope.locator('button:has-text("Save Version")'))
+            .or_(target_scope.locator('span:has-text("Save Version")'))
+            .or_(target_scope.locator('[aria-label="Save Version"]'))
             .first
         )
         
@@ -310,9 +320,9 @@ with sync_playwright() as p:
             # --- 5. VERIFY 'SAVE & RUN ALL (COMMIT)' IS ENGAGED ---
             print("🔬 Verifying 'Save & Run All (Commit)' option selection state...")
             commit_option = (
-                page.locator('[data-testid="save-options-commit-radio"]')
-                .or_(page.locator('text=Save & Run All (Commit)'))
-                .or_(page.locator('label:has-text("Save & Run All")'))
+                target_scope.locator('[data-testid="save-options-commit-radio"]')
+                .or_(target_scope.locator('text=Save & Run All (Commit)'))
+                .or_(target_scope.locator('label:has-text("Save & Run All")'))
                 .first
             )
             if commit_option.count() > 0:
@@ -322,9 +332,9 @@ with sync_playwright() as p:
             # --- 6. EXECUTE FINAL PANEL CONFIRMATION SAVE CLICK ---
             print("💾 Dispatching final confirmation payload to Kaggle server registries...")
             final_save_btn = (
-                page.locator('[data-testid="save-version-submit-button"]')
-                .or_(page.locator('div[role="dialog"] button:has-text("Save")'))
-                .or_(page.locator('button:has-text("Save")'))
+                target_scope.locator('[data-testid="save-version-submit-button"]')
+                .or_(target_scope.locator('div[role="dialog"] button:has-text("Save")'))
+                .or_(target_scope.locator('button:has-text("Save")'))
                 .last
             )
             
@@ -374,3 +384,4 @@ if not automation_success:
     print("🎉 🎉 SUCCESS! Direct fallback code file payload synchronized successfully.")
 
 print("🏁 Production pipeline deployment session closed green.")
+
