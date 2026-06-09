@@ -178,20 +178,7 @@
 #     exit(1)
 
 
-
-"""
-kaggle_runner.py
-────────────────
-Runs the existing Kaggle kernel using a browser cookie for auth.
-Designed to run inside GitHub Actions (headless Chromium via Playwright).
-
-Env vars (set as GitHub Secrets)
-──────────────────────────────────
-    KAGGLE_COOKIE  – full cookie string copied from your browser
-"""
-
 import asyncio, os, sys, time
-
 try:
     from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 except ImportError:
@@ -211,38 +198,44 @@ def log(icon, msg):
 
 def parse_cookies(raw: str) -> list[dict]:
     """
-    Playwright's add_cookies only accepts these fields:
-      name, value, domain, path, expires, httpOnly, secure, sameSite
-    Everything else (size, session, hostOnly, storeId, etc.) causes
-    'Invalid cookie fields' — so we build each dict manually with only
-    the allowed keys and safe defaults.
+    Parse raw browser Cookie header into Playwright-safe dicts.
+    Only the 4 fields that always work are included: name, value, domain, path.
+    Cookies with empty name/value or control characters are skipped.
     """
     cookies = []
     for part in raw.split(";"):
         part = part.strip()
-        if "=" not in part:
+        if not part or "=" not in part:
             continue
         name, _, value = part.partition("=")
         name  = name.strip()
         value = value.strip()
-        if not name:
+        # Skip empty or clearly broken entries
+        if not name or not value:
+            continue
+        # Skip entries with control chars that Chrome DevTools sometimes includes
+        if any(c in name + value for c in ["\n", "\r", "\x00"]):
             continue
         cookies.append({
-            "name":     name,
-            "value":    value,
-            "domain":   ".kaggle.com",
-            "path":     "/",
-            "secure":   True,
-            "httpOnly": False,
-            "sameSite": "Lax",
+            "name":   name,
+            "value":  value,
+            "domain": ".kaggle.com",
+            "path":   "/",
         })
     return cookies
 
 
 async def main():
     if not KAGGLE_COOKIE:
-        log("fail", "KAGGLE_COOKIE secret is not set in this GitHub Actions environment")
+        log("fail", "KAGGLE_COOKIE secret is not set")
         sys.exit(1)
+
+    cookies = parse_cookies(KAGGLE_COOKIE)
+    if not cookies:
+        log("fail", "No valid cookies parsed from KAGGLE_COOKIE")
+        sys.exit(1)
+
+    log("info", f"Parsed {len(cookies)} cookies")
 
     print("=" * 55, flush=True)
     print("  Kaggle Runner  |  GitHub Actions  |  cookie auth")
@@ -262,10 +255,20 @@ async def main():
             ),
         )
 
-        # ── Inject cookies ────────────────────────────────────────────────────
-        cookies = parse_cookies(KAGGLE_COOKIE)
-        await ctx.add_cookies(cookies)
-        log("ok", f"Injected {len(cookies)} cookies")
+        # ── Inject cookies one by one, skip any that Playwright rejects ──────
+        injected = 0
+        for cookie in cookies:
+            try:
+                await ctx.add_cookies([cookie])
+                injected += 1
+            except Exception as e:
+                log("info", f"Skipped cookie '{cookie['name']}': {e}")
+
+        log("ok", f"Successfully injected {injected}/{len(cookies)} cookies")
+
+        if injected == 0:
+            log("fail", "No cookies could be injected — check KAGGLE_COOKIE value")
+            sys.exit(1)
 
         page = await ctx.new_page()
 
@@ -273,7 +276,7 @@ async def main():
         log("info", "Verifying Kaggle session…")
         await page.goto("https://www.kaggle.com", wait_until="domcontentloaded")
         if "/login" in page.url:
-            log("fail", "Cookie is expired — grab a fresh one from your browser and update the GitHub Secret")
+            log("fail", "Cookie expired — grab a fresh one from your browser and update the GitHub Secret")
             sys.exit(1)
         log("ok", "Session valid")
 
@@ -283,21 +286,20 @@ async def main():
         await page.wait_for_load_state("networkidle", timeout=40_000)
 
         if "/login" in page.url:
-            log("fail", "Redirected to login after opening kernel — cookie may be expired")
+            log("fail", "Redirected to login — cookie may be expired")
             sys.exit(1)
         log("ok", "Kernel editor loaded")
 
         # ── Click Run All ─────────────────────────────────────────────────────
         log("info", "Triggering Run All…")
-        run_all_selectors = [
+        clicked = False
+
+        for sel in [
             "button[aria-label='Run All']",
             "button[data-testid='run-all-button']",
             "button[title='Run All']",
             "button[aria-label*='Run All']",
-        ]
-
-        clicked = False
-        for sel in run_all_selectors:
+        ]:
             try:
                 btn = await page.wait_for_selector(sel, timeout=8_000)
                 await btn.click()
@@ -308,7 +310,6 @@ async def main():
                 continue
 
         if not clicked:
-            # Try via Run menu
             try:
                 menu = await page.wait_for_selector(
                     "button:has-text('Run'), [data-testid='run-menu-button']", timeout=6_000
@@ -328,15 +329,11 @@ async def main():
             log("fail", "Could not find Run All button — screenshot saved as artifact")
             sys.exit(1)
 
-        # Dismiss any confirmation dialog
+        # Dismiss confirmation dialog if it appears
         await asyncio.sleep(1)
-        for confirm_sel in [
-            "button:has-text('Run All')",
-            "button:has-text('Confirm')",
-            "button:has-text('Yes')",
-        ]:
+        for sel in ["button:has-text('Run All')", "button:has-text('Confirm')", "button:has-text('Yes')"]:
             try:
-                c = await page.wait_for_selector(confirm_sel, timeout=3_000)
+                c = await page.wait_for_selector(sel, timeout=3_000)
                 await c.click()
                 log("ok", "Dismissed confirmation dialog")
                 break
