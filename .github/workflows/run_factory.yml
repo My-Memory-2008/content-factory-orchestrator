@@ -439,115 +439,128 @@
 
 
 
-name: Content Factory Orchestrator (Duplicate-Proof)
+# name: Content Factory Orchestrator (Duplicate-Proof)
 
-on:
-  schedule:
-    - cron: '30 3,11 * * *'  # Runs at 9 AM & 5 PM UTC
-  workflow_dispatch:         # Allows manual trigger
+# on:
+#   schedule:
+#     - cron: '30 3,11 * * *'  # Runs at 9 AM & 5 PM UTC
+#   workflow_dispatch:         # Allows manual trigger
 
-jobs:
-  process-queue:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write        # Allows the bot to push files back to repo
+# jobs:
+#   process-queue:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write        # Allows the bot to push files back to repo
 
-    steps:
-      # 1. Checkout your repository
-      - name: Checkout Code
-        uses: actions/checkout@v4
+#     steps:
+#       # 1. Checkout your repository
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
 
-      # 2. Set up Python
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+#       # 2. Set up Python
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.10'
 
-      # 3. Install lightweight dependencies
-      - name: Install Dependencies
-        run: pip install requests openai
+#       # 3. Install lightweight dependencies
+#       - name: Install Dependencies
+#         run: pip install requests openai
 
-      # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
-      #4. Process queue → generate pipeline_data.json
-      - name: Process Queue & Generate Script
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          python3 << 'EOF'
-          import os, json, re
-          from datetime import datetime, timezone
-          from openai import OpenAI
+#       # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
+#       #4. Process queue → generate pipeline_data.json
+#       - name: Process Queue & Generate Script
+#         env:
+#           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+#         run: |
+#           python3 << 'EOF'
+#           import os, json, re
+#           from datetime import datetime, timezone
+#           from openai import OpenAI
           
-          with open('reel_queue.json', 'r') as f:
-              data = json.load(f)
+#           with open('reel_queue.json', 'r') as f:
+#               data = json.load(f)
           
-          queue = data.get('queue', [])
-          processed = {p['url'] for p in data.get('processed', [])}
+#           queue = data.get('queue', [])
+#           processed = {p['url'] for p in data.get('processed', [])}
           
-          pick = None
-          for r in queue:
-              if 'instagram.com/' in r['url']:
-                  pick = r
-                  break
+#           pick = None
+#           for r in queue:
+#               if 'instagram.com/' in r['url']:
+#                   pick = r
+#                   break
           
-          if not pick:
-              print("✅ No new reels. Exiting.")
-              exit(0)
+#           if not pick:
+#               print("✅ No new reels. Exiting.")
+#               exit(0)
 
-          #
-          # sc = re.search(r'/reel/([^/?]+)', pick['url']).group(1)
-          #
+#           #
+#           # sc = re.search(r'/reel/([^/?]+)', pick['url']).group(1)
+#           #
           
-          sc_match = re.search(r'/reel/([^/?]+)', pick['url'])
-          sc = sc_match.group(1) if sc_match else "unknown"
-          user = pick.get('username', 'unknown')
+#           sc_match = re.search(r'/reel/([^/?]+)', pick['url'])
+#           sc = sc_match.group(1) if sc_match else "unknown"
+#           user = pick.get('username', 'unknown')
           
-          client = OpenAI(api_key=os.environ['GROQ_API_KEY'], base_url='https://api.groq.com/openai/v1')
-          resp = client.chat.completions.create(
-              model="llama-3.3-70b-versatile",
-              messages=[
-                  {"role":"system","content":"YouTube Shorts expert. Max 35 words. Bold hook. One tip. CTA."},
-                  {"role":"user","content":f"Write a 14s script inspired by @{user}"}
-              ],
-              max_tokens=100
-          )
-          script = resp.choices[0].message.content.strip()
+#           client = OpenAI(api_key=os.environ['GROQ_API_KEY'], base_url='https://api.groq.com/openai/v1')
+#           resp = client.chat.completions.create(
+#               model="llama-3.3-70b-versatile",
+#               messages=[
+#                   {"role":"system","content":"YouTube Shorts expert. Max 35 words. Bold hook. One tip. CTA."},
+#                   {"role":"user","content":f"Write a 14s script inspired by @{user}"}
+#               ],
+#               max_tokens=100
+#           )
+#           script = resp.choices[0].message.content.strip()
           
-          with open('pipeline_data.json', 'w') as f:
-              json.dump({
-                  "reel_url": pick['url'], "shortcode": sc, "username": user,
-                  "script_text": " ",
-                  "youtube_title": f"AI Hack #shorts",
-                  "youtube_description": f"Tip from @{user}. #ai",
-                  "youtube_tags": ["AI","Shorts"]
-              }, f, indent=2)
+#           with open('pipeline_data.json', 'w') as f:
+#               json.dump({
+#                   "reel_url": pick['url'], "shortcode": sc, "username": user,
+#                   "script_text": " ",
+#                   "youtube_title": f"AI Hack #shorts",
+#                   "youtube_description": f"Tip from @{user}. #ai",
+#                   "youtube_tags": ["AI","Shorts"]
+#               }, f, indent=2)
           
-          data.setdefault('processed', []).append({
-              "url": pick['url'], "username": user,
-              "status": "in_progress", "started_at": datetime.now(timezone.utc).isoformat()
-          })
-          with open('reel_queue.json', 'w') as f:
-              json.dump(data, f, indent=2)
-          print(f"✅ Queued: {pick['url']}")
-          EOF
+#           data.setdefault('processed', []).append({
+#               "url": pick['url'], "username": user,
+#               "status": "in_progress", "started_at": datetime.now(timezone.utc).isoformat()
+#           })
+#           with open('reel_queue.json', 'w') as f:
+#               json.dump(data, f, indent=2)
+#           print(f"✅ Queued: {pick['url']}")
+#           EOF
 
-      # 5. Commit changes back to GitHub
-      - name: Commit Updates
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f reel_queue.json pipeline_data.json
-          if git diff-index --quiet HEAD --; then
-            echo "ℹ️ No changes to commit."
-          else
-            git commit -m "Auto: Picked next reel [skip ci]"
-            git push
-          fi
+#       # 5. Commit changes back to GitHub
+#       - name: Commit Updates
+#         run: |
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@users.noreply.github.com"
+#           git add -f reel_queue.json pipeline_data.json
+#           if git diff-index --quiet HEAD --; then
+#             echo "ℹ️ No changes to commit."
+#           else
+#             git commit -m "Auto: Picked next reel [skip ci]"
+#             git push
+#           fi
 
-      # 6. Trigger Kaggle (Using Kaggle CLI)
-      - name: Trigger Kaggle Notebook
+#       # 6. Trigger Kaggle (Using Kaggle CLI)
+#       - name: Trigger Kaggle Notebook
+#         env:
+#           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+#           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+#         run: python3 trigger.py
+
+- name: Execute Kaggle T4x2 Push Trigger
+        # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
+        # This explicitly passes your encrypted secrets into the runtime container
+        # so that Playwright can read your session cookie!
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-        run: python3 trigger.py
+          KAGGLE_WEB_COOKIE: ${{ secrets.KAGGLE_WEB_COOKIE }}
+        run: |
+          python trigger.py
+
+
 
