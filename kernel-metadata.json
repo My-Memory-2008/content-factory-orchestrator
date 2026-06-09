@@ -6,8 +6,8 @@
     "kernel_type": "script",
     "is_private": "true",
     "enable_gpu": "true",
-    "gpuType": "gpuT4",
-    "isGpuGroup": "true",
+    "gpu_type": "t4",
+    "is_gpu_group": "true",
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
