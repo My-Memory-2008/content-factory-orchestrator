@@ -268,7 +268,7 @@ from playwright.async_api import async_playwright
 
 async def run():
     async with async_playwright() as p:
-        print("🚀 Setting up logging-enabled cloud execution trigger for Kaggle Script mode...")
+        print("🚀 Launching real-time terminal sync handler for Kaggle Script mode...")
         
         # Verify repository secrets token block 
         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
@@ -279,7 +279,7 @@ async def run():
         with open("kaggle_auth.json", "w") as f:
             f.write(secret_auth_data)
 
-        # Force standard desktop dimensions to map terminal boxes correctly
+        # Force a large desktop viewport layout to keep the log window stable
         browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
         context = await browser.new_context(
             storage_state="kaggle_auth.json",
@@ -288,81 +288,111 @@ async def run():
         page = await context.new_page()
 
         # Exact path of your script editor panel
-        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
-        print(f"📡 Connecting to script workspace: {notebook_url}")
+        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
+        print(f"📡 Establishing contact with live workspace: {notebook_url}")
         
         try:
             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
         except Exception as e:
-            print(f"⚠️ Navigation status context: {e}")
+            print(f"⚠️ Navigation status message (safe to ignore): {e}")
             
-        print("⏳ Waiting 35 seconds for the cloud server to provision your T4 session environment...")
-        await page.wait_for_timeout(35000)
+        print("⏳ Waiting 40 seconds for the cloud editor and session frames to fully settle...")
+        await page.wait_for_timeout(40000)
 
         # ====================================================================
-        # STEP 1: EXECUTE THE RUN ALL LOGIC
+        # STEP 1: BRING UP THE LOWER CONSOLE LOG DISPLAY DRAWER
         # ====================================================================
-        print("🎹 Injecting universal code execution commands...")
+        print("🔘 Forcing open the live console log output pane...")
         try:
-            await page.locator(".cm-content, [role='textbox'], .CodeMirror-code").first.click(timeout=10000)
-            print("🎯 Focus captured successfully on the main code editor cell.")
-        except Exception:
-            print("⚠️ Code cell frame selector missed. Forcing click onto central layout grid...")
-            await page.mouse.click(960, 540)
-            
-        await page.wait_for_timeout(2000)
-        
-        print("⌨️ Selecting all text inside script editor (Control + A)...")
-        await page.keyboard.down("Control")
-        await page.keyboard.press("a")
-        await page.keyboard.up("Control")
-        await page.wait_for_timeout(2000)
-        
-        print("⚡ Executing entire script file (Shift + Enter)...")
-        await page.keyboard.down("Shift")
-        await page.keyboard.press("Enter")
-        await page.keyboard.up("Shift")
-        print("📡 Run command sequence successfully sent over to Kaggle servers.")
-        await page.wait_for_timeout(5000)
+            # We look for Kaggle's interactive footer log expansion tab
+            console_toggle = page.locator("button:has-text('Console'), [aria-label='Console'], [data-test-id='console-toggle']").first
+            await console_toggle.click(timeout=15000)
+            print("✅ Live console tray successfully expanded on-screen.")
+        except Exception as err:
+            print(f"ℹ️ Note: Console tab already deployed or skipped: {err}")
+
+        await page.wait_for_timeout(3000)
 
         # ====================================================================
-        # STEP 2: LIVE STREAM TERMINAL LOGS INTO GITHUB ACTIONS LOGS
+        # STEP 2: DISPATCH THE RUN CODE SEQUENCE (Shift + Enter fallback)
         # ====================================================================
-        print("\n📺 MONITORING LIVE KAGGLE CONSOLE OUTPUT LOGS (Streaming Below):")
+        print("🎹 Activating script selection grids...")
+        try:
+            editor_input = page.locator(".cm-content, .CodeMirror-code, textarea").first
+            await editor_input.click(timeout=10000)
+            
+            print("⚡ Triggering script runtime pipeline...")
+            # Click the header Run button
+            run_btn = page.locator("button:has-text('Run'), [aria-label='Run script'], [data-test-id='run-button']").first
+            await run_btn.click(timeout=10000)
+            print("📡 Execution command dispatched safely.")
+        except Exception:
+            print("⚠️ UI element blocked. Deploying target fallback keyboard keys instead...")
+            await page.mouse.click(960, 540)
+            await page.wait_for_timeout(1000)
+            await page.keyboard.down("Control")
+            await page.keyboard.press("a")
+            await page.keyboard.up("Control")
+            await page.wait_for_timeout(1000)
+            await page.keyboard.down("Shift")
+            await page.keyboard.press("Enter")
+            await page.keyboard.up("Shift")
+            print("⌨️ Fallback hotkeys successfully processed.")
+
+        # ====================================================================
+        # STEP 3: LIVE STREAM THE TERMINAL LOGS INTO GITHUB ACTIONS
+        # ====================================================================
+        print("\n📺 STREAMING LIVE KAGGLE ENVIRONMENT RUN LOGS BELOW:")
         print("="*80)
         
-        # Define CSS tracking locators for Kaggle's standard log terminal wrapper rows
-        console_selector = "[data-test-id='console-panel'], .console-output, .KaggleConsole-logs, div[class*='console']"
+        # Comprehensive selector layout targeting text streams within Kaggle's console canvas
+        log_selector = "[data-test-id='console-panel'], .console-output, div[class*='console-logs']"
         
-        # We loop and pull logs for a safe tracking window (e.g., 5 minutes or 60 loop updates)
-        # Adjust range counts if your machine learning job requires longer execution times
         printed_lines = set()
+        empty_checks_count = 0
         
-        for iteration in range(60): 
+        # This wrapper loops continually to capture long training files
+        # It loops up to 180 times (roughly 15 minutes of live print streaming)
+        # Scale the range index larger if your process requires hours to execute!
+        for iteration in range(180): 
             try:
-                # Target the text content inside the live console window element layers
-                console_element = page.locator(console_selector)
-                if await console_element.count() > 0:
-                    raw_text = await console_element.first.inner_text()
+                console_box = page.locator(log_selector).first
+                if await console_box.count() > 0:
+                    # Capture the entire plain text content of the visible log drawer
+                    raw_text_payload = await console_box.inner_text()
                     
-                    # Split lines and print out only newly generated print text blocks
-                    for line in raw_text.split("\n"):
+                    lines = raw_text_payload.split("\n")
+                    new_logs_found = False
+                    
+                    for line in lines:
                         clean_line = line.strip()
-                        # Avoid duplicates and blank spacing logs
+                        # Output line sequence only if it has content and wasn't printed before
                         if clean_line and clean_line not in printed_lines:
                             print(f"[Kaggle-T4] {clean_line}")
                             printed_lines.add(clean_line)
+                            new_logs_found = True
+                            empty_checks_count = 0 # Reset timeout monitor because we found active prints
                             
+                    # Optional: If the job completely wrapped up and nothing prints for a while, exit gracefully
+                    if not new_logs_found and len(printed_lines) > 5:
+                        empty_checks_count += 1
+                        
             except Exception as log_err:
-                # If console wrapper hasn't broken DOM boundaries yet, wait smoothly
+                # Catch temporary DOM refreshing breaks quietly
                 pass
                 
-            # Intercept every 5 seconds to provide continuous terminal outputs
+            # Intercept and refresh code strings every 5 seconds
             await asyncio.sleep(5)
             
+            # Auto-break out of GitHub runner if console outputs remain silent for 3 full minutes (36 checks) after starting
+            if empty_checks_count >= 36:
+                print("\n[System] No new console logs detected for 3 minutes. Code execution completed or moved to background process.")
+                break
+                
         print("="*80)
-        print("🎉 PIPELINE EXECUTION COMPLETE! Monitoring handler detached securely.")
+        print("🎉 SUCCESS! Log sync loop detached safely. Script execution tracking complete.")
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
+
