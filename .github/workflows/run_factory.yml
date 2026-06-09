@@ -559,6 +559,7 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           KAGGLE_WEB_COOKIE: ${{ secrets.KAGGLE_WEB_COOKIE }}
+          KAGGLE_COOKIE: ${{secrets.KAGGLE_COOKIE}}
         run: |
           python trigger.py
 
