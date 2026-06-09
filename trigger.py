@@ -185,6 +185,16 @@ import json
 import subprocess
 import sys
 
+try:
+     import kaggle
+ except ImportError:
+     print("-> 'kaggle' module missing. Initiating force-install sequence...")
+     subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+     subprocess.check_call([sys.executable, "-m", "pip", "install", "kaggle"])
+     print("✅ 'kaggle' package successfully injected into environment.")
+     import kaggle
+
+
 # 1. Fetch credentials safely from the execution environment
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME")
 KAGGLE_KEY = os.environ.get("KAGGLE_KEY")
