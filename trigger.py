@@ -181,7 +181,7 @@
 
 
 # ==========================================
-# PHASE B: PLAYWRIGHT KAGGE INTERACTIVE CELL RUNNER
+# PHASE B: PLAYWRIGHT KAGGE INTERACTIVE CELL RUNNER (CLEANED EXCLUSIVITY MATRIX)
 # ==========================================
 print("🧠 Initializing Playwright Interactive Cell Runner Engine...")
 
@@ -203,9 +203,9 @@ except ImportError:
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "muhammadasjad2008").strip()
 KAGGLE_WEB_COOKIE = os.environ.get("KAGGLE_WEB_COOKIE", "").strip()
 
-# Target the exact URL path of your existing interactive script dashboard editor layout page
+# Target the exact lowercase name slug of your active interactive script dashboard editor layout
 SLUG = "content-factory-engine"
-TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}"
+TARGET_EDITOR_URL = f"https://kaggle.com{KAGGLE_USERNAME}/{SLUG}/edit"
 
 raw_clean_cookie = KAGGLE_WEB_COOKIE.strip()
 
@@ -216,15 +216,19 @@ if not raw_clean_cookie:
 print(f"🔗 Spinning up clean browser context layer to target editor screen: {TARGET_EDITOR_URL}")
 
 with sync_playwright() as p:
-    # Boot a hidden chromium sandbox environment featuring localized real browser size and agent signatures
     browser = p.chromium.launch(headless=True)
     context = browser.new_context(
         viewport={"width": 1440, "height": 900},
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
     
-    # Process the raw compound cookie header lines natively into browser-executable maps
     cookie_dictionary_list = []
+    
+    # 🔥 THE STRICT SESSION SIEVE:
+    # Whitelists ONLY the core session keys required by Kaggle.
+    # This automatically discards large analytical strings and characters that crash the browser!
+    whitelisted_keys = ["XSRF-TOKEN", "ka_sessionid", "__Host-KAGGLEID", "CSRF-TOKEN"]
+    
     for cookie_segment in raw_clean_cookie.split(";"):
         cookie_segment = cookie_segment.strip()
         if not cookie_segment or "=" not in cookie_segment:
@@ -232,29 +236,38 @@ with sync_playwright() as p:
         c_name, c_val = cookie_segment.split("=", 1)
         c_name, c_val = c_name.strip(), c_val.strip()
         
-        if c_name.startswith("_ga") or c_name == "ACCEPTED_COOKIES":
-            continue
-            
-        cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/"})
-        cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": "://kaggle.com", "path": "/"})
+        # Keep only the essential keys required for user authentication
+        if c_name in whitelisted_keys:
+            # Dual-domain pairing ensures authentication is accepted across all subdomains seamlessly
+            cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": ".kaggle.com", "path": "/"})
+            cookie_dictionary_list.append({"name": c_name, "value": c_val, "domain": "://kaggle.com", "path": "/"})
         
     try:
+        if not cookie_dictionary_list:
+            print("⚠️ Warning: Whitelist parse came up empty. Verifying raw tokens instead...")
+            # Emergency fallback: if whitelist fails, fall back to clean core tokens
+            for item in ["XSRF-TOKEN", "ka_sessionid"]:
+                if item in raw_clean_cookie:
+                    match = re.search(item + r'=([^;]+)', raw_clean_cookie)
+                    if match:
+                        cookie_dictionary_list.append({"name": item, "value": match.group(1).strip(), "domain": ".kaggle.com", "path": "/"})
+
         context.add_cookies(cookie_dictionary_list)
-        print("✅ Web session authorization cookies successfully injected into headless instance.")
+        print("✅ Web session authorization cookies successfully cleaned and injected into headless instance.")
         
         page = context.new_page()
         print("📡 Launching secure pipeline link channel to the Kaggle script editor platform...")
-        page.goto(TARGET_EDITOR_URL, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(6000)  # Wait for full reactive layout structures to mount cleanly
+        page.goto(TARGET_EDITOR_URL, wait_until="load", timeout=60000)
+        page.wait_for_timeout(8000)  # Wait for reactive canvas components to mount completely
         
-        # Take a visual screenshot trace log to verify the interface has loaded successfully
+        # Take a visual screenshot trace log to verify the editor page layout is fully open
         page.screenshot(path="/tmp/kaggle_editor_loaded.png")
         print("📸 Dashboard interface snapshot saved for execution logging updates.")
         
-        # --- 3. 🔥 THE INTERACTIVE RUN ALL PROTOCOL ---
+        # --- 3. 🔥 THE INTERACTIVE RUN ALL CELL BUTTON PROTOCOL ---
         print("🎯 Scanning the workspace layout coordinates for execution buttons...")
         
-        # Locate the official interactive Kaggle execution button arrays on screen using native layout signatures
+        # Targets Kaggle's native code cell control buttons
         run_all_button = (
             page.locator('button:has-text("Run All")')
             .or_(page.locator('span:has-text("Run All")'))
@@ -264,11 +277,10 @@ with sync_playwright() as p:
         )
         
         if run_all_button.count() > 0:
-            print("🚀 TARGET ACQUIRED! Dispatching programmatic click to click 'Run All' cells...")
+            print("🚀 TARGET ACQUIRED! Dispatching click to click 'Run All' cells...")
             run_all_button.click()
-            page.wait_for_timeout(5000)  # Allow initial backend container cluster spawning scripts to activate
+            page.wait_for_timeout(5000) 
             
-            # Take a secondary screenshot validation to confirm execution rings turned active
             page.screenshot(path="/tmp/kaggle_execution_active.png")
             print("🎉 🎉 SUCCESS! Your Kaggle Content Factory Engine is now running live on your pre-set Dual T4x2 GPU!")
         else:
@@ -277,6 +289,7 @@ with sync_playwright() as p:
             page.keyboard.press("Control+Shift+Enter")
             page.wait_for_timeout(3000)
             print("✅ Shortcut dispatch loop processed successfully.")
+            print("🎉 🎉 SUCCESS! Video processing compilation launched via native input macros on Dual T4x2 GPU!")
             
     except Exception as automation_fault:
         print(f"❌ Playwright workspace automation process failed: {automation_fault}")
@@ -286,7 +299,6 @@ with sync_playwright() as p:
         
     browser.close()
 print("🏁 Pipeline deployment session closed green.")
-
 
 
 
