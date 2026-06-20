@@ -1,10 +1,10 @@
 {
   "queue": [
     {
-      "url": "https://www.instagram.com/reel/DRH2eSiAApy/",
-      "username": "reel",
+      "url": "https://www.instagram.com/p/DZNSNAaAMB9/",
+      "username": "p",
       "notes": "Auto-added from reels_source.txt",
-      "added_at": "2026-06-20T10:17:14.695475+00:00"
+      "added_at": "2026-06-20T10:59:50.520114+00:00"
     }
   ],
   "processed": [
@@ -852,7 +852,7 @@
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
-    "last_run": "2026-06-20T10:17:14.695676+00:00",
+    "last_run": "2026-06-20T10:59:50.520353+00:00",
     "next_scheduled": null
   }
 }
