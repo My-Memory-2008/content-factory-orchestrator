@@ -323,7 +323,7 @@ async def run():
         """
         
         opened_dialog = await page.evaluate(save_js)
-        await page.wait_for_timeout(3000)
+        await page.wait_for_timeout(10000)
 
         if opened_dialog:
             print("🔘 'Save Version' menu opened. Confirming background run allocation...")
