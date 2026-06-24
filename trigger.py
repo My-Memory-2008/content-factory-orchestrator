@@ -389,94 +389,102 @@
 
 
 
+
 import os
-import time
 import sys
+import time
 from playwright.sync_api import sync_playwright
 
-def run_notebook_via_ui():
-    # Fetch credentials from GitHub env injection
+def run_automated_save_version():
     email = os.getenv("KAGGLE_EMAIL")
     password = os.getenv("KAGGLE_PASSWORD")
+    username = os.getenv("KAGGLE_USERNAME")
     notebook_slug = os.getenv("KAGGLE_NOTEBOOK_SLUG")
-    username = os.getenv("KAGGLE_USERNAME") # Your exact Kaggle username string
 
-    if not email or not password or not notebook_slug:
-        print("❌ Error: Missing vital credential environment variables.")
+    if not all([email, password, username, notebook_slug]):
+        print("❌ Error: Missing vital repository configuration credentials.")
         sys.exit(1)
 
     with sync_playwright() as p:
-        # Launch browser with human-like configurations to prevent bot detection
-        print("🚀 Launching stealth browser context...")
+        print("🚀 Launching residential browser engine context...")
         browser = p.chromium.launch(
-            headless=True,  # Set to False if debugging locally
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--start-maximized"
-            ]
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
         )
         
-        # Mask automation footprint using standard desktop headers
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            viewport={"width": 1920, "height": 1080}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+            locale="en-US"
         )
         page = context.new_page()
 
-        # 1. Navigate to explicit email login page format
-        print("📥 Opening Kaggle Login Window...")
-        page.goto("https://www.kaggle.com/account/login?phase=emailSignIn", wait_until="networkidle")
-        
-        # 2. Mimic slow human-style inputs for credentials
-        print("✍️ Filling authentication credentials...")
-        page.locator('input[name="email"]').wait_for(state="visible", timeout=15000)
-        page.locator('input[name="email"]').type(email, delay=120)
-        time.sleep(1)
-        page.locator('input[name="password"]').type(password, delay=140)
-        time.sleep(1)
-        
-        # Click Sign In and wait for main page dashboard load
-        print("🔑 Submitting login form...")
-        page.locator('button:has-text("Sign In")').click()
-        page.wait_for_url("https://www.kaggle.com/", timeout=30000)
-        print("🔓 Logged in successfully!")
+        # 1. Open direct email login page
+        print("📥 Requesting direct email login page...")
+        direct_url = "https://www.kaggle.com/account/login?phase=emailSignIn&returnUrl=%2F"
+        page.goto(direct_url, wait_until="networkidle", timeout=60000)
+        time.sleep(3) 
 
-        # 3. Direct route to your pre-existing cloud notebook editor
-        notebook_url = f"https://www.kaggle.com/code/{username}/{notebook_slug}/edit"
-        print(f"📂 Navigating straight to cloud notebook editor: {notebook_url}")
-        page.goto(notebook_url, wait_until="networkidle")
-        
-        # Give the heavy Kaggle notebook interactive UI time to initialize elements
-        time.sleep(15) 
-
-        # 4. Trigger UI Clicks to start execution
-        print("⚡ Locating and triggering execution buttons...")
         try:
-            # Locate the top menu bar execution controls
-            run_menu_button = page.locator('button:has-text("Run"), button[aria-label="Run"]')
-            if run_menu_button.is_visible():
-                run_menu_button.click()
-                time.sleep(1)
-                
-            # Direct target selector for the "Run All" sub-menu/button layout on the editor canvas
-            run_all_button = page.locator('button[title="Run All"], [data-test-id="run-all-button"], text="Run All"')
-            run_all_button.wait_for(state="visible", timeout=20000)
-            run_all_button.click()
-            print("🚀 Successfully clicked 'Run All'! Your cloud code is running on GPU T4x2.")
+            # 2. Autofill credentials
+            print("✍️ Filling out credentials...")
+            page.locator('input[name="email"]').wait_for(state="visible", timeout=15000)
+            page.locator('input[name="email"]').fill(email, timeout=5000)
+            page.locator('input[name="password"]').fill(password, timeout=5000)
             
-            # Let script breathe to ensure action registers on backend sockets
-            time.sleep(10)
+            print("🔑 Submitting login...")
+            page.locator('button:has-text("Sign In")').click()
             
-        except Exception as ui_error:
-            print(f"❌ Failed to locate or click the Run UI buttons: {ui_error}")
-            # Take a screenshot to help debug why the click failed in headless state
+            page.wait_for_url("https://kaggle.com", timeout=45000)
+            print("🔓 Logged in successfully.")
+
+        except Exception as login_err:
+            print(f"❌ Authentication failed: {login_err}")
             page.screenshot(path="error_screenshot.png")
-            print("📸 Diagnostic screenshot saved as error_screenshot.png")
+            sys.exit(1)
+
+        # 3. Route to the workspace editor 
+        editor_url = f"https://kaggle.comcode/{username}/{notebook_slug}/edit"
+        print(f"📂 Instantiating cloud editor environment: {editor_url}")
+        page.goto(editor_url, wait_until="networkidle", timeout=60000)
+        time.sleep(25) # Give the complex Jupyter workspace UI plenty of time to fully build
+
+        # 4. Save Version (Commit) Workflow Injection
+        print("⚡ Initiating 'Save Version' sequence...")
+        try:
+            # Click the main "Save Version" button in the top right corner
+            save_version_btn = page.locator('button:has-text("Save Version"), [data-test-id="save-version-button"]')
+            save_version_btn.wait_for(state="visible", timeout=20000)
+            save_version_btn.click()
+            print("👁️ Save options modal opened.")
+            time.sleep(3)
+
+            # Ensure "Save & Run All (Commit)" option is selected/checked
+            # Kaggle defaults to this, but explicitly locating text safeguards against UI updates
+            commit_radio_label = page.locator('label:has-text("Save & Run All (Commit)")')
+            if commit_radio_label.is_visible():
+                commit_radio_label.click()
+                time.sleep(1)
+
+            # Click the blue "Save" button inside the popup modal window
+            modal_save_btn = page.locator('div[role="dialog"] button:has-text("Save"), button[data-test-id="modal-save-button"]')
+            # Fallback locator if custom data attributes change
+            if not modal_save_btn.is_visible():
+                modal_save_btn = page.locator('button:has-text("Save")').last
+                
+            modal_save_btn.wait_for(state="visible", timeout=10000)
+            modal_save_btn.click()
+            
+            print("🎉 Success! 'Save Version' triggered. The backend will run the notebook on GPU T4x2 and shut down automatically.")
+            time.sleep(10) # Safe margin for backend pipeline acknowledgement
+
+        except Exception as ui_error:
+            print(f"❌ Failed to click Save Version elements: {ui_error}")
+            page.screenshot(path="error_screenshot.png")
             sys.exit(1)
 
         context.close()
         browser.close()
 
 if __name__ == "__main__":
-    run_notebook_via_ui()
-w()
+    run_automated_save_version()
