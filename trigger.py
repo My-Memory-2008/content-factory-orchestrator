@@ -388,7 +388,6 @@
 #     asyncio.run(run())
 
 
-
 import asyncio
 import os
 import sys
@@ -406,7 +405,6 @@ async def run_permanent_kaggle_ui_trigger():
     async with async_playwright() as p:
         print("🚀 Booting hyper-resilient desktop browser engine...")
         
-        # Launching with production constraints and user sandbox configurations
         browser = await p.chromium.launch(
             headless=True, 
             args=["--window-size=1920,1080", "--no-sandbox", "--disable-setuid-sandbox"]
@@ -418,51 +416,57 @@ async def run_permanent_kaggle_ui_trigger():
         )
         page = await context.new_page()
 
-        # STEP 1: Go directly to Kaggle home page domain
+        # STEP 1: Connect to Kaggle Home Domain (Optimized load flag)
         print("📡 Connecting to Kaggle primary landing node...")
-        await page.goto("https://kaggle.com/", wait_until="networkidle")
+        await page.goto("https://kaggle.com/", wait_until="domcontentloaded")
 
-        # STEP 2: Click the "Sign In" / "Sign in" button in the top right corner
-        print("🔍 Searching for top-right header 'Sign In' button...")
-        # Uses case-insensitive regex to match "Sign in", "Sign In", or "SIGN IN" safely
-        sign_in_nav = page.locator("a:has-text('Sign In'), button:has-text('Sign In'), a:has-text('Sign in'), button:has-text('Sign in'), [href*='login']").first
-        await sign_in_nav.wait_for(state="visible", timeout=20000)
-        await sign_in_nav.click()
-        print("🔘 Clicked top-right header 'Sign In' button.")
+        # STEP 2: Explicitly click the "Sign In" button visible in your mobile layout image
+        print("🔍 Searching for top header 'Sign In' button variant...")
+        try:
+            # Uses strict text matching for the 'Sign In' button layout seen in your photo
+            sign_in_btn = page.get_by_role("button", name="Sign In").first or page.locator("text=Sign In").first
+            await sign_in_btn.wait_for(state="visible", timeout=15000)
+            await sign_in_btn.click()
+            print("🔘 Clicked the 'Sign In' button successfully.")
+        except Exception as e:
+            print(f"⚠️ Primary locator missed ({e}). Attempting robust backup jump direct to login panel...")
+            await page.goto("https://kaggle.com/login", wait_until="domcontentloaded")
+
         await page.wait_for_timeout(3000)
 
-        # STEP 3: Click the option named "Sign in with email"
-        print("🔍 Searching for the 'Sign in with email' option from the multi-login menu...")
-        email_option = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), :has-text('Sign in with email')").last
-        await email_option.wait_for(state="visible", timeout=20000)
-        await email_option.click()
-        print("🔘 Selected 'Sign in with email' option.")
-        await page.wait_for_timeout(3000)
+        # STEP 3: Click the multi-login menu item option "Sign in with email"
+        print("🔍 Searching for the 'Sign in with email' option from the authentication sub-menu...")
+        try:
+            email_option = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), button:has-text('Email'), :has-text('Sign in with email')").last
+            await email_option.wait_for(state="visible", timeout=15000)
+            await email_option.click()
+            print("🔘 Selected 'Sign in with email' option option successfully.")
+        except Exception as e:
+            print(f"⚠️ Custom toggle missed ({e}). Form might already be displayed.")
+            
+        await page.wait_for_timeout(2000)
 
-        # STEP 4: Enter Username and Password into the text fields
+        # STEP 4: Inject Username and Password Credentials
         print("✍️ Executing native programmatic form login sequence...")
         
-        # Locate the username text input field
         email_input = page.locator("input[type='email'], input[name='email'], input[autocomplete='username'], [placeholder*='Email'], [placeholder*='Username']").first
         await email_input.wait_for(state="visible", timeout=20000)
         await email_input.focus()
         await email_input.fill(USER)
-        await page.wait_for_timeout(1000) # Human-like typing delay
+        await page.wait_for_timeout(1000) 
 
-        # Locate the password text input field
         password_input = page.locator("input[type='password'], input[name='password'], input[autocomplete='current-password']").first
         await password_input.wait_for(state="visible", timeout=20000)
         await password_input.focus()
         await password_input.fill(PASS)
         await page.wait_for_timeout(1200)
 
-        # STEP 5: Click the final Sign In button to submit
+        # STEP 5: Click the final submission Sign In action button
         print("🔘 Dispatching core submit action...")
         submit_btn = page.locator("button[type='submit'], [data-testid='sign-in-button'], button:has-text('Sign In'), button:has-text('Sign in')").last
         await submit_btn.click()
         
         print("⏳ Waiting for credentials authentication context confirmation...")
-        # Await successful redirection confirmation back to home interface
         await page.wait_for_url("https://kaggle.com/", timeout=45000)
         print("🔒 Security clearance verified! Session successfully launched.")
 
@@ -530,3 +534,4 @@ async def run_permanent_kaggle_ui_trigger():
 
 if __name__ == "__main__":
     asyncio.run(run_permanent_kaggle_ui_trigger())
+
