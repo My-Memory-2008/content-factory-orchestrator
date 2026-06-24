@@ -387,23 +387,22 @@
 # if __name__ == "__main__":
 #     asyncio.run(run())
 
-
 import os
 import time
 import sys
+import subprocess
 
-# Configure environment variables before importing kaggle to avoid file structure errors
-os.environ['KAGGLE_USERNAME'] = os.getenv('KAGGLE_USERNAME', '')
-os.environ['KAGGLE_KEY'] = os.getenv('KAGGLE_LEGACY_KEY', '')
+# Set Kaggle environment secrets before anything else
+os.environ['KAGGLE_USERNAME'] = os.getenv('KAGGLE_USERNAME_SECRET', '')
+os.environ['KAGGLE_KEY'] = os.getenv('KAGGLE_KEY_SECRET', '')
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
 def trigger_workflow():
-    # 1. Initialize and authenticate via injected GitHub Secrets
+    # 1. Initialize and authenticate with your permanent secrets
     api = KaggleApi()
     api.authenticate()
 
-    # Get target slug from GitHub Environment parameters
     notebook_slug = os.getenv('KAGGLE_NOTEBOOK_SLUG')
     if not notebook_slug:
         print("❌ Error: KAGGLE_NOTEBOOK_SLUG environment variable is missing.")
@@ -413,11 +412,17 @@ def trigger_workflow():
     print(f"🔄 Triggering Cloud Run for: {kernel_id}...")
 
     try:
-        # 2. Instruct Kaggle to execute the existing cloud notebook as-is
-        api.kernel_run(kernel_id)
-        print("⚡ Signal Sent! Notebook is now executing on Kaggle's backend using GPU T4x2.")
-    except Exception as e:
-        print(f"❌ Failed to trigger kernel: {e}")
+        # 2. FIXED: Trigger the backend execution directly using the Kaggle core CLI command
+        # This tells Kaggle's server to immediately re-run the cloud code as-is using your T4x2 settings
+        result = subprocess.run(
+            ["kaggle", "kernels", "run", kernel_id],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print(f"⚡ Signal Sent! {result.stdout.strip()}")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to trigger kernel: {e.stderr.strip()}")
         sys.exit(1)
 
     # 3. Stream live execution status updates directly to GitHub Actions console logs
@@ -429,17 +434,16 @@ def trigger_workflow():
             print(f"Current Status: [{status.upper()}]")
             
             if status == "complete":
-                print("🎉 Execution finished successfully!")
+                print("🎉 Cloud execution finished successfully!")
                 break
             elif status in ["error", "cancel"]:
-                print(f"❌ Execution stopped with status: {status}")
+                print(f"❌ Execution stopped with cloud status: {status}")
                 sys.exit(1)
                 
         except Exception as e:
             print(f"⚠️ Status check warning: {e}")
             
-        time.sleep(45) # Check status every 45 seconds to stay under rate limits
+        time.sleep(45) # Check status every 45 seconds to monitor progress securely
 
 if __name__ == "__main__":
     trigger_workflow()
-
