@@ -263,6 +263,132 @@
 
 
 
+# import asyncio
+# import os
+# import sys
+# from playwright.async_api import async_playwright
+
+# async def run():
+#     async with async_playwright() as p:
+#         print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
+        
+#         # Verify repository secrets token block 
+#         secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
+#         if not secret_auth_data:
+#             print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
+#             sys.exit(1)
+            
+#         with open("kaggle_auth.json", "w") as f:
+#             f.write(secret_auth_data)
+
+#         # Launching headless browser on desktop resolution
+#         browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
+#         context = await browser.new_context(
+#             storage_state="kaggle_auth.json",
+#             viewport={"width": 1920, "height": 1080}
+#         )
+#         page = await context.new_page()
+
+#         # Exact path of your script editor panel
+#         notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
+#         print(f"📡 Connecting to script workspace: {notebook_url}")
+        
+#         try:
+#             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
+#         except Exception as e:
+#             print(f"⚠️ Navigation status context: {e}")
+            
+#         print("⏳ Waiting 30 seconds for the editor application layout to stabilize...")
+#         await page.wait_for_timeout(30000)
+
+#         # Check if cookie actually logged you in or dropped you onto a guest landing screen
+#         page_content = await page.content()
+#         if "Sign In" in page_content or "login" in page.url:
+#             print("❌ Error: The session token in KAGGLE_AUTH_JSON is expired or rejected by Kaggle!")
+#             await browser.close()
+#             sys.exit(1)
+
+#         # ====================================================================
+#         # JAVASCRIPT INJECTION: TRIGGERING NATIVE KAGGLE CORE SAVE ENGINE
+#         # ====================================================================
+#         print("📋 Injecting JavaScript bypass to trigger background Save Version workflow...")
+        
+#         # This script locates the exact internal state button and forces a production version commit.
+#         # This acts exactly as if you clicked "Save Version" -> "Save & Run All" in the browser!
+#         save_js = """
+#         () => {
+#             // Priority 1: Check for Kaggle's explicit data-testid attribute if available
+#             let saveBtn = document.querySelector('[data-testid="save-version-button"]');
+            
+#             // Priority 2: Scan deep DOM layers if first-level lookup failed
+#             if (!saveBtn) {
+#                 const elements = Array.from(document.querySelectorAll('*'));
+#                 saveBtn = elements.find(el => {
+#                     const text = el.textContent || '';
+#                     // Match full word strings or nested element text blocks
+#                     return el.tagName === 'BUTTON' && text.trim().toLowerCase() === 'save version';
+#                 });
+#             }
+            
+#             // Priority 3: Fallback button text containment query
+#             if (!saveBtn) {
+#                 saveBtn = Array.from(document.querySelectorAll('button')).find(
+#                     b => b.textContent.toLowerCase().includes('save version')
+#                 );
+#             }
+            
+#             if (saveBtn) {
+#                 saveBtn.click();
+#                 return true;
+#             }
+#             return false;
+#         }
+#         """
+        
+#         opened_dialog = await page.evaluate(save_js)
+#         await page.wait_for_timeout(3000)
+
+#         if opened_dialog:
+#             print("🔘 'Save Version' menu opened. Confirming background run allocation...")
+#             try:
+#                 # FIXED: Swapped to a precise locator sequencing prioritizing Kaggle's strict popup button components
+#                 confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], [data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
+#                 await confirm_btn.wait_for(state="visible", timeout=8000)
+#                 await confirm_btn.click()
+#                 print("🚀 Background 'Save & Run All' successfully triggered!")
+#             except Exception as e:
+#                 print(f"⚠️ Confirm button selector missed ({e}). Trying fallback keyboard confirm...")
+#                 await page.keyboard.press("Enter")
+#         else:
+#             print("⚠️ Primary JS button locator missed. Deploying fallback hotkey sequence...")
+#             # Fallback hotkey sequence to open Save Version dialog if UI changed: Ctrl + Shift + S
+#             await page.focus("body")
+#             await page.keyboard.down("Control")
+#             await page.keyboard.down("Shift")
+#             await page.keyboard.press("s")
+#             await page.keyboard.up("Shift")
+#             await page.keyboard.up("Control")
+#             await page.wait_for_timeout(4000)
+#             await page.keyboard.press("Enter")
+#             print("⚡ Hotkey Save Version pipeline dispatched.")
+
+#         print("⏳ Waiting 15 seconds to ensure the backend server locks in the commit token...")
+#         await page.wait_for_timeout(15000)
+        
+#         print("\n" + "="*80)
+#         print("🎉 PIPELINE TRIGGER COMPLETE!")
+#         print("Kaggle is now running your script in a locked background environment on your GPU T4.")
+#         print("The GPU will automatically power off and stop usage the exact second your code finishes.")
+#         print("🔗 Track execution and view live logs here: https://kaggle.com")
+#         print("="*80 + "\n")
+        
+#         await browser.close()
+
+# if __name__ == "__main__":
+#     asyncio.run(run())
+
+
+
 import asyncio
 import os
 import sys
@@ -290,18 +416,19 @@ async def run():
         page = await context.new_page()
 
         # Exact path of your script editor panel
-        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
+        notebook_url = "https://kaggle.com"
         print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
-            await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
+            # Ensuring the complex React app completely finishes background network connections
+            await page.goto(notebook_url, wait_until="networkidle", timeout=90000)
         except Exception as e:
             print(f"⚠️ Navigation status context: {e}")
             
         print("⏳ Waiting 30 seconds for the editor application layout to stabilize...")
         await page.wait_for_timeout(30000)
 
-        # Check if cookie actually logged you in or dropped you onto a guest landing screen
+        # Safety Check: Verify that the cookies successfully bypassed the login wall
         page_content = await page.content()
         if "Sign In" in page_content or "login" in page.url:
             print("❌ Error: The session token in KAGGLE_AUTH_JSON is expired or rejected by Kaggle!")
@@ -309,51 +436,32 @@ async def run():
             sys.exit(1)
 
         # ====================================================================
-        # JAVASCRIPT INJECTION: TRIGGERING NATIVE KAGGLE CORE SAVE ENGINE
+        # NATIVE PLAYWRIGHT ACTION: REPLACING BRITTLE JAVASCRIPT INJECTION
         # ====================================================================
         print("📋 Injecting JavaScript bypass to trigger background Save Version workflow...")
         
-        # This script locates the exact internal state button and forces a production version commit.
-        # This acts exactly as if you clicked "Save Version" -> "Save & Run All" in the browser!
-        save_js = """
-        () => {
-            // Priority 1: Check for Kaggle's explicit data-testid attribute if available
-            let saveBtn = document.querySelector('[data-testid="save-version-button"]');
+        opened_dialog = False
+        try:
+            # Playwright's locator searches deep, through shadow DOMs and text nodes automatically.
+            # It tries to find the 'Save Version' button, handles both title-case variations, and clicks it.
+            save_button = page.locator("button:has-text('Save Version'), button:has-text('Save version'), [data-testid='save-version-button']").first
             
-            // Priority 2: Scan deep DOM layers if first-level lookup failed
-            if (!saveBtn) {
-                const elements = Array.from(document.querySelectorAll('*'));
-                saveBtn = elements.find(el => {
-                    const text = el.textContent || '';
-                    // Match full word strings or nested element text blocks
-                    return el.tagName === 'BUTTON' && text.trim().toLowerCase() === 'save version';
-                });
-            }
-            
-            // Priority 3: Fallback button text containment query
-            if (!saveBtn) {
-                saveBtn = Array.from(document.querySelectorAll('button')).find(
-                    b => b.textContent.toLowerCase().includes('save version')
-                );
-            }
-            
-            if (saveBtn) {
-                saveBtn.click();
-                return true;
-            }
-            return false;
-        }
-        """
-        
-        opened_dialog = await page.evaluate(save_js)
+            # Wait up to 10 seconds for the button to become interactive
+            await save_button.wait_for(state="visible", timeout=10000)
+            await save_button.click()
+            opened_dialog = True
+        except Exception as e:
+            # Captures timeout if the locator times out or element isn't found
+            opened_dialog = False
+
         await page.wait_for_timeout(3000)
 
         if opened_dialog:
             print("🔘 'Save Version' menu opened. Confirming background run allocation...")
             try:
-                # FIXED: Swapped to a precise locator sequencing prioritizing Kaggle's strict popup button components
-                confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], [data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
-                await confirm_btn.wait_for(state="visible", timeout=8000)
+                # Target the final blue confirmation "Save" or "Save & Run All" button inside the modal dialog
+                confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], button:has-text('Save'), button:has-text('Save & Run All')").last
+                await confirm_btn.wait_for(state="visible", timeout=10000)
                 await confirm_btn.click()
                 print("🚀 Background 'Save & Run All' successfully triggered!")
             except Exception as e:
