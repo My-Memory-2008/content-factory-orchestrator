@@ -573,12 +573,7 @@ jobs:
           HTTPS_PROXY: "http://127.0.0.1:7890"
         run: python3 trigger.py
 
-      - name: Archive Diagnostics on Pipeline Exception
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-            name: cloudflare-bypass-error-snapshot
-            path: error_screenshot.png
+      
 
       # - name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
