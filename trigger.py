@@ -388,6 +388,8 @@
 #     asyncio.run(run())
 
 
+
+
 import asyncio
 import os
 import sys
@@ -417,54 +419,49 @@ async def run_permanent_kaggle_ui_trigger():
         )
         page = await context.new_page()
 
-        # STEP 1: Go directly to Kaggle home page domain
-        print("📡 Connecting to Kaggle primary landing node...")
+        # STEP 1: Direct route to explicit authentication terminal node 
+        print("📡 Connecting straight to Kaggle account login terminal page...")
         await page.goto("https://kaggle.com/", wait_until="networkidle")
 
-        # STEP 2: Find the main "Sign In" link/button in the top layout header and click it
-        print("🔍 Searching for top header 'Sign In' locator node...")
-        # Looks for any capitalization variation of 'Sign In' or 'SIGN IN'
-        sign_in_nav = page.locator("a:has-text('Sign In'), button:has-text('Sign In'), a:has-text('Sign in'), button:has-text('Sign in'), :has-text('SIGN IN')").first
-        await sign_in_nav.wait_for(state="visible", timeout=20000)
-        await sign_in_nav.click()
-        await page.wait_for_timeout(2000)
+        # STEP 2: Handle the email block toggle if hidden inside a unified modal
+        try:
+            print("🔘 Activating target credentials entry panel layout...")
+            email_login_toggle = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), button:has-text('Email'), button:has-text('SIGN IN WITH EMAIL')").first
+            # Give a minor 5-second wait check just in case it loaded the bare inputs immediately
+            await email_login_toggle.wait_for(state="visible", timeout=5000)
+            await email_login_toggle.click()
+            await page.wait_for_timeout(1500)
+        except Exception:
+            print("⚠️ Notice: Combined authentication layout panel was already active.")
 
-        # STEP 3: Select the explicit "Sign in with email" operational entry block
-        print("🔘 Locating and opening standard email credentials module panel...")
-        # Captures variations including capitalizations like 'SIGN IN WITH EMAIL'
-        email_login_toggle = page.locator("button:has-text('Sign in with Email'), button:has-text('Use email'), button:has-text('Email'), button:has-text('SIGN IN WITH EMAIL')").first
-        await email_login_toggle.wait_for(state="visible", timeout=20000)
-        await email_login_toggle.click()
-        await page.wait_for_timeout(2000)
-
-        # STEP 4: Enter Username and Password matching capital/case-insensitive structures
+        # STEP 3: Enter Credentials matching capital label inputs
         print("✍️ Executing native programmatic form login sequence...")
         
-        # Matches type, name, username formats, or placeholders with case-insensitivity flags (*=)
+        # Select input associated with uppercase configurations or generic identity rules
         email_input = page.locator("input[type='email'], input[name='email'], input[autocomplete='username'], [placeholder*='Email'], [placeholder*='Username'], [placeholder*='EMAIL'], [placeholder*='USERNAME']").first
         await email_input.wait_for(state="visible", timeout=20000)
         await email_input.focus()
         await email_input.fill(USER)
         await page.wait_for_timeout(1000) 
 
-        # Locate password input container aggressively using case-insensitive placeholder hooks
+        # Locate target password wrapper field
         password_input = page.locator("input[type='password'], input[name='password'], input[autocomplete='current-password'], [placeholder*='Password'], [placeholder*='PASSWORD']").first
         await password_input.wait_for(state="visible", timeout=20000)
         await password_input.focus()
         await password_input.fill(PASS)
         await page.wait_for_timeout(1200)
 
-        # STEP 5: Click the final internal execution sign-in submit trigger
+        # STEP 4: Submit Authentication Form Action
         print("🔘 Dispatching core submit action...")
-        # Prioritizes type="submit" and looks for standard text variations like 'SIGN IN'
         submit_btn = page.locator("button[type='submit'], [data-testid='sign-in-button'], button:has-text('Sign In'), button:has-text('Sign in'), button:has-text('SIGN IN')").last
         await submit_btn.click()
         
         print("⏳ Waiting for credentials authentication context confirmation...")
+        # Await successful redirection confirmation back to home interface
         await page.wait_for_url("https://kaggle.com/", timeout=45000)
         print("🔒 Security clearance verified! Session successfully launched.")
 
-        # Step 6: Navigate straight into your targeted script editor workspace 
+        # Step 5: Navigate straight into your targeted script editor workspace 
         notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
         print(f"📡 Forwarding routing engine to workspace panel: {notebook_url}")
         
@@ -528,5 +525,3 @@ async def run_permanent_kaggle_ui_trigger():
 
 if __name__ == "__main__":
     asyncio.run(run_permanent_kaggle_ui_trigger())
-
-
