@@ -388,156 +388,58 @@
 #     asyncio.run(run())
 
 
-
-import asyncio
 import os
+import time
 import sys
-from playwright.async_api import async_playwright
 
-async def run_permanent_kaggle_ui_trigger():
-    # 1. Load permanent structural variables from GitHub secret arrays
-    USER = os.environ.get("KAGGLE_USERNAME")
-    PASS = os.environ.get("KAGGLE_PASSWORD")
+# Configure environment variables before importing kaggle to avoid file structure errors
+os.environ['KAGGLE_USERNAME'] = os.getenv('KAGGLE_USERNAME', '')
+os.environ['KAGGLE_KEY'] = os.getenv('KAGGLE_LEGACY_KEY', '')
 
-    if not USER or not PASS:
-        print("❌ Error: Missing KAGGLE_USERNAME or KAGGLE_PASSWORD inside GitHub Secrets!")
+from kaggle.api.kaggle_api_extended import KaggleApi
+
+def trigger_github_workflow():
+    # 1. Initialize and authenticate via injected GitHub Secrets
+    api = KaggleApi()
+    api.authenticate()
+
+    # Get target slug from GitHub Environment parameters
+    notebook_slug = "content-factory-engine"
+    if not notebook_slug:
+        print("❌ Error: KAGGLE_NOTEBOOK_SLUG environment variable is missing.")
         sys.exit(1)
 
-    async with async_playwright() as p:
-        print("🚀 Booting hyper-resilient desktop browser engine...")
-        
-        browser = await p.chromium.launch(
-            headless=True, 
-            args=["--window-size=1920,1080", "--no-sandbox", "--disable-setuid-sandbox"]
-        )
-        
-        context = await browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/126.0.0.0 Safari/537.36"
-        )
-        page = await context.new_page()
+    kernel_id = f"{os.environ['KAGGLE_USERNAME']}/{notebook_slug}"
+    print(f"🔄 Triggering Cloud Run for: {kernel_id}...")
 
-        # STEP 1: Connect to Kaggle Home Domain (Optimized load flag)
-        print("📡 Connecting to Kaggle primary landing node...")
-        await page.goto("https://kaggle.com/", wait_until="domcontentloaded")
+    try:
+        # 2. Instruct Kaggle to execute the existing cloud notebook as-is
+        api.kernel_run(kernel_id)
+        print("⚡ Signal Sent! Notebook is now executing on Kaggle's backend using GPU T4x2.")
+    except Exception as e:
+        print(f"❌ Failed to trigger kernel: {e}")
+        sys.exit(1)
 
-        # ====================================================================
-        # FIXED STEP 2: PARTIAL ATTRIBUTE MATCH OPERATOR FOR REDIRECT URLS
-        # ====================================================================
-        print("🔍 Targeting explicit 'Sign In' link structural attribute from inspect data...")
+    # 3. Stream live execution status updates directly to GitHub Actions console logs
+    print("📋 Monitoring live execution status...")
+    while True:
         try:
-            # FIXED: Using '*=' matches any link containing '/account/login' safely bypassing query string failures
-            sign_in_link = page.locator("a[href*='/account/login']").first
+            status_result = api.kernel_status(os.environ['KAGGLE_USERNAME'], notebook_slug)
+            status = status_result.get("status", "unknown")
+            print(f"Current Status: [{status.upper()}]")
             
-            # Wait up to 15 seconds for this specific element tree to appear
-            await sign_in_link.wait_for(state="visible", timeout=15000)
-            await sign_in_link.click()
-            print("🔘 Successfully executed exact structural click on 'Sign In' link node!")
+            if status == "complete":
+                print("🎉 Execution finished successfully!")
+                break
+            elif status in ["error", "cancel"]:
+                print(f"❌ Execution stopped with status: {status}")
+                sys.exit(1)
+                
         except Exception as e:
-            print(f"⚠️ Precise inspect locator missed ({e}). Routing fallback jump direct to terminal...")
-            await page.goto("https://kaggle.com/login", wait_until="domcontentloaded")
-            # FIXED: Ensure the engine synchronizes on fallback navigation shifts before reading next line
-            await page.wait_for_load_state("domcontentloaded")
-
-        await page.wait_for_timeout(3000)
-
-        # STEP 3: Click the multi-login menu item option "Sign in with email"
-        print("🔍 Searching for the 'Sign in with email' option from the authentication sub-menu...")
-        try:
-            email_option = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), button:has-text('Email'), :has-text('Sign in with email')").last
-            await email_option.wait_for(state="visible", timeout=15000)
-            await email_option.click()
-            print("🔘 Selected 'Sign in with email' option successfully.")
-        except Exception as e:
-            print(f"⚠️ Custom toggle missed ({e}). Form might already be displayed.")
+            print(f"⚠️ Status check warning: {e}")
             
-        await page.wait_for_timeout(2000)
-
-        # STEP 4: Inject Username and Password Credentials
-        print("✍️ Executing native programmatic form login sequence...")
-        
-        email_input = page.locator("input[type='email'], input[name='email'], input[autocomplete='username'], [placeholder*='Email'], [placeholder*='Username']").first
-        await email_input.wait_for(state="visible", timeout=20000)
-        await email_input.focus()
-        await email_input.fill(USER)
-        await page.wait_for_timeout(1000) 
-
-        password_input = page.locator("input[type='password'], input[name='password'], input[autocomplete='current-password']").first
-        await password_input.wait_for(state="visible", timeout=20000)
-        await password_input.focus()
-        await password_input.fill(PASS)
-        await page.wait_for_timeout(1200)
-
-        # STEP 5: Click the final submission Sign In action button
-        print("🔘 Dispatching core submit action...")
-        submit_btn = page.locator("button[type='submit'], [data-testid='sign-in-button'], button:has-text('Sign In'), button:has-text('Sign in')").last
-        await submit_btn.click()
-        
-        print("⏳ Waiting for credentials authentication context confirmation...")
-        await page.wait_for_url("https://kaggle.com/", timeout=45000)
-        print("🔒 Security clearance verified! Session successfully launched.")
-
-        # STEP 6: Navigate straight into your targeted script editor workspace 
-        notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
-        print(f"📡 Forwarding routing engine to workspace panel: {notebook_url}")
-        
-        try:
-            await page.goto(notebook_url, wait_until="networkidle", timeout=90000)
-        except Exception as e:
-            print(f"⚠️ App shell network note: {e}")
-            
-        print("⏳ Waiting 30 seconds for the React app shell to stabilize and attach the Dual T4 x2 acceleration arrays...")
-        await page.wait_for_timeout(30000)
-
-        # ====================================================================
-        # NATIVE PLAYWRIGHT ENGINE: TRIGGERING BACKGROUND VERSION COMMIT
-        # ====================================================================
-        print("📋 Accessing workspace controls for Save Version trigger...")
-        opened_dialog = False
-        try:
-            save_button = page.locator("button:has-text('Save Version'), button:has-text('Save version'), [data-testid='save-version-button']").first
-            await save_button.wait_for(state="visible", timeout=15000)
-            await save_button.click()
-            opened_dialog = True
-            print("🔘 'Save Version' interactive configuration menu opened.")
-        except Exception as e:
-            print(f"⚠️ Primary UI targeting failed to parse layout blocks: {e}")
-            opened_dialog = False
-
-        await page.wait_for_timeout(4000)
-
-        if opened_dialog:
-            print("🔘 Locating definitive processing submission confirmations...")
-            try:
-                confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], button:has-text('Save'), button:has-text('Save & Run All')").last
-                await confirm_btn.wait_for(state="visible", timeout=10000)
-                await confirm_btn.click()
-                print("🚀 SUCCESS! Pipeline successfully deployed to background server nodes utilizing Dual T4 x2 acceleration.")
-            except Exception as e:
-                print(f"⚠️ Confirmation locator parsing missed ({e}). Trying fallback keyboard confirm...")
-                await page.keyboard.press("Enter")
-        else:
-            print("⚠️ Deploying alternative hotkey execution sequence pipelines due to layout abstraction...")
-            await page.focus("body")
-            await page.keyboard.down("Control")
-            await page.keyboard.down("Shift")
-            await page.keyboard.press("s")
-            await page.keyboard.up("Shift")
-            await page.keyboard.up("Control")
-            await page.wait_for_timeout(5000)
-            await page.keyboard.press("Enter")
-            print("⚡ Hotkey Save Version pipeline dispatched.")
-
-        print("⏳ Awaiting 15-second tracking handshake confirmation before termination...")
-        await page.wait_for_timeout(15000)
-        
-        print("\n" + "="*80)
-        print("🎉 PIPELINE TRIGGER COMPLETE!")
-        print("Kaggle is now running your script in a locked background environment on your GPU T4x2.")
-        print("The GPU will automatically power off and stop usage the exact second your code finishes.")
-        print("="*80 + "\n")
-        
-        await browser.close()
+        time.sleep(45) # Check status every 45 seconds to stay under rate limits
 
 if __name__ == "__main__":
-    asyncio.run(run_permanent_kaggle_ui_trigger())
+    trigger_workflow()
+
