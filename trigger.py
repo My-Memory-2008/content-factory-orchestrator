@@ -398,7 +398,7 @@ os.environ['KAGGLE_KEY'] = os.getenv('KAGGLE_LEGACY_KEY', '')
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
-def trigger_github_workflow():
+def trigger_workflow():
     # 1. Initialize and authenticate via injected GitHub Secrets
     api = KaggleApi()
     api.authenticate()
