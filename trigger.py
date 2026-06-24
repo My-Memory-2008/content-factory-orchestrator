@@ -387,7 +387,6 @@
 # if __name__ == "__main__":
 #     asyncio.run(run())
 
-
 import asyncio
 import os
 import sys
@@ -416,21 +415,26 @@ async def run_permanent_kaggle_ui_trigger():
         )
         page = await context.new_page()
 
-        # STEP 1: Connect to Kaggle Home Domain (Optimized load flag)
+        # STEP 1: Connect to Kaggle Home Domain
         print("📡 Connecting to Kaggle primary landing node...")
-        await page.goto("https://kaggle.com/", wait_until="domcontentloaded")
+        await page.goto("https://www.kaggle.com/", wait_until="domcontentloaded")
 
-        # STEP 2: Explicitly click the "Sign In" button visible in your mobile layout image
-        print("🔍 Searching for top header 'Sign In' button variant...")
+        # ====================================================================
+        # FIXED STEP 2: TARGETING BASED ON YOUR INSPECT SCREENSHOT
+        # ====================================================================
+        print("🔍 Targeting explicit 'Sign In' link structural attribute from inspect data...")
         try:
-            # Uses strict text matching for the 'Sign In' button layout seen in your photo
-            sign_in_btn = page.get_by_role("button", name="Sign In").first or page.locator("text=Sign In").first
-            await sign_in_btn.wait_for(state="visible", timeout=15000)
-            await sign_in_btn.click()
-            print("🔘 Clicked the 'Sign In' button successfully.")
+            # We locate the exact 'href' string visible inside your copied HTML structure
+            target_href = "/account/login?phase=startSignInTab&returnUrl=%2F"
+            sign_in_link = page.locator(f"a[href='{target_href}']").first
+            
+            # Wait up to 15 seconds for this specific element tree to appear
+            await sign_in_link.wait_for(state="visible", timeout=15000)
+            await sign_in_link.click()
+            print("🔘 Successfully executed exact structural click on 'Sign In' link node!")
         except Exception as e:
-            print(f"⚠️ Primary locator missed ({e}). Attempting robust backup jump direct to login panel...")
-            await page.goto("https://kaggle.com/login", wait_until="domcontentloaded")
+            print(f"⚠️ Precise inspect locator missed ({e}). Routing fallback jump direct to terminal...")
+            await page.goto("https://kaggle.com/", wait_until="domcontentloaded")
 
         await page.wait_for_timeout(3000)
 
@@ -440,7 +444,7 @@ async def run_permanent_kaggle_ui_trigger():
             email_option = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), button:has-text('Email'), :has-text('Sign in with email')").last
             await email_option.wait_for(state="visible", timeout=15000)
             await email_option.click()
-            print("🔘 Selected 'Sign in with email' option option successfully.")
+            print("🔘 Selected 'Sign in with email' option successfully.")
         except Exception as e:
             print(f"⚠️ Custom toggle missed ({e}). Form might already be displayed.")
             
@@ -507,7 +511,7 @@ async def run_permanent_kaggle_ui_trigger():
                 await confirm_btn.click()
                 print("🚀 SUCCESS! Pipeline successfully deployed to background server nodes utilizing Dual T4 x2 acceleration.")
             except Exception as e:
-                print(f"⚠️ Confirmation locator parsing missed ({e}). Invoking fallback hotkey submit...")
+                print(f"⚠️ Confirmation locator parsing missed ({e}). Trying fallback keyboard confirm...")
                 await page.keyboard.press("Enter")
         else:
             print("⚠️ Deploying alternative hotkey execution sequence pipelines due to layout abstraction...")
@@ -534,4 +538,3 @@ async def run_permanent_kaggle_ui_trigger():
 
 if __name__ == "__main__":
     asyncio.run(run_permanent_kaggle_ui_trigger())
-
