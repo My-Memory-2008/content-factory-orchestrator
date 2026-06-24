@@ -387,63 +387,96 @@
 # if __name__ == "__main__":
 #     asyncio.run(run())
 
+
+
 import os
 import time
 import sys
-import subprocess
+from playwright.sync_api import sync_playwright
 
-# Set Kaggle environment secrets before anything else
-os.environ['KAGGLE_USERNAME'] = os.getenv('KAGGLE_USERNAME_SECRET', '')
-os.environ['KAGGLE_KEY'] = os.getenv('KAGGLE_KEY_SECRET', '')
+def run_notebook_via_ui():
+    # Fetch credentials from GitHub env injection
+    email = os.getenv("KAGGLE_EMAIL")
+    password = os.getenv("KAGGLE_PASSWORD")
+    notebook_slug = os.getenv("KAGGLE_NOTEBOOK_SLUG")
+    username = os.getenv("KAGGLE_USERNAME") # Your exact Kaggle username string
 
-from kaggle.api.kaggle_api_extended import KaggleApi
-
-def trigger_workflow():
-    # 1. Initialize and authenticate with your permanent secrets
-    api = KaggleApi()
-    api.authenticate()
-
-    notebook_slug = os.getenv('KAGGLE_NOTEBOOK_SLUG')
-    if not notebook_slug:
-        print("❌ Error: KAGGLE_NOTEBOOK_SLUG environment variable is missing.")
+    if not email or not password or not notebook_slug:
+        print("❌ Error: Missing vital credential environment variables.")
         sys.exit(1)
 
-    kernel_id = f"{os.environ['KAGGLE_USERNAME']}/{notebook_slug}"
-    print(f"🔄 Triggering Cloud Run for: {kernel_id}...")
-
-    try:
-        # 2. FIXED: Trigger the backend execution directly using the Kaggle core CLI command
-        # This tells Kaggle's server to immediately re-run the cloud code as-is using your T4x2 settings
-        result = subprocess.run(
-            ["kaggle", "kernels", "run", kernel_id],
-            capture_output=True,
-            text=True,
-            check=True
+    with sync_playwright() as p:
+        # Launch browser with human-like configurations to prevent bot detection
+        print("🚀 Launching stealth browser context...")
+        browser = p.chromium.launch(
+            headless=True,  # Set to False if debugging locally
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--start-maximized"
+            ]
         )
-        print(f"⚡ Signal Sent! {result.stdout.strip()}")
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to trigger kernel: {e.stderr.strip()}")
-        sys.exit(1)
+        
+        # Mask automation footprint using standard desktop headers
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080}
+        )
+        page = context.new_page()
 
-    # 3. Stream live execution status updates directly to GitHub Actions console logs
-    print("📋 Monitoring live execution status...")
-    while True:
+        # 1. Navigate to explicit email login page format
+        print("📥 Opening Kaggle Login Window...")
+        page.goto("https://www.kaggle.com/account/login?phase=emailSignIn", wait_until="networkidle")
+        
+        # 2. Mimic slow human-style inputs for credentials
+        print("✍️ Filling authentication credentials...")
+        page.locator('input[name="email"]').wait_for(state="visible", timeout=15000)
+        page.locator('input[name="email"]').type(email, delay=120)
+        time.sleep(1)
+        page.locator('input[name="password"]').type(password, delay=140)
+        time.sleep(1)
+        
+        # Click Sign In and wait for main page dashboard load
+        print("🔑 Submitting login form...")
+        page.locator('button:has-text("Sign In")').click()
+        page.wait_for_url("https://www.kaggle.com/", timeout=30000)
+        print("🔓 Logged in successfully!")
+
+        # 3. Direct route to your pre-existing cloud notebook editor
+        notebook_url = f"https://www.kaggle.com/code/{username}/{notebook_slug}/edit"
+        print(f"📂 Navigating straight to cloud notebook editor: {notebook_url}")
+        page.goto(notebook_url, wait_until="networkidle")
+        
+        # Give the heavy Kaggle notebook interactive UI time to initialize elements
+        time.sleep(15) 
+
+        # 4. Trigger UI Clicks to start execution
+        print("⚡ Locating and triggering execution buttons...")
         try:
-            status_result = api.kernel_status(os.environ['KAGGLE_USERNAME'], notebook_slug)
-            status = status_result.get("status", "unknown")
-            print(f"Current Status: [{status.upper()}]")
-            
-            if status == "complete":
-                print("🎉 Cloud execution finished successfully!")
-                break
-            elif status in ["error", "cancel"]:
-                print(f"❌ Execution stopped with cloud status: {status}")
-                sys.exit(1)
+            # Locate the top menu bar execution controls
+            run_menu_button = page.locator('button:has-text("Run"), button[aria-label="Run"]')
+            if run_menu_button.is_visible():
+                run_menu_button.click()
+                time.sleep(1)
                 
-        except Exception as e:
-            print(f"⚠️ Status check warning: {e}")
+            # Direct target selector for the "Run All" sub-menu/button layout on the editor canvas
+            run_all_button = page.locator('button[title="Run All"], [data-test-id="run-all-button"], text="Run All"')
+            run_all_button.wait_for(state="visible", timeout=20000)
+            run_all_button.click()
+            print("🚀 Successfully clicked 'Run All'! Your cloud code is running on GPU T4x2.")
             
-        time.sleep(45) # Check status every 45 seconds to monitor progress securely
+            # Let script breathe to ensure action registers on backend sockets
+            time.sleep(10)
+            
+        except Exception as ui_error:
+            print(f"❌ Failed to locate or click the Run UI buttons: {ui_error}")
+            # Take a screenshot to help debug why the click failed in headless state
+            page.screenshot(path="error_screenshot.png")
+            print("📸 Diagnostic screenshot saved as error_screenshot.png")
+            sys.exit(1)
+
+        context.close()
+        browser.close()
 
 if __name__ == "__main__":
-    trigger_workflow()
+    run_notebook_via_ui()
+w()
