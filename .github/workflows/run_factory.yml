@@ -453,22 +453,29 @@ jobs:
       contents: write        # Allows the bot to push files back to repo
 
     steps:
-      # 1. Checkout your repository
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Check out repository code
+      uses: actions/checkout@v4
 
-      # 2. Set up Python
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python Engine
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      # 3. Install lightweight dependencies
-      - name: Install Dependencies
-        run: |
-         pip install openai
-         python -m pip install --upgrade pip
-         pip install playwright
+    - name: Install System Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install playwright
+
+    - name: Setup Playwright Core Driver
+      run: playwright install chromium --with-deps
+
+    # --- NETWORK MASKING STEP (Bypasses Cloudflare block on GitHub runner IPs) ---
+    - name: Establish Residential Network Routing Tunnel
+      uses: tindy2006/clash-action@v1
+      continue-on-error: true # Prevents script from stopping if proxy configurations fluctuate
+      with:
+        config: '' # Provide your proxy provider profile URL here if applicable
+        
 
       # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
       #4. Process queue → generate pipeline_data.json
@@ -533,35 +540,26 @@ jobs:
       #         json.dump(data, f, indent=2)
       #     print(f"✅ Queued: {pick['url']}")
       #     EOF
+    - name: Install Playwright Chromium Browser Instance
+      run: playwright install chromium --with-deps
 
-      - name: Install Playwright Chromium Browser Instance
-        run: playwright install chromium --with-deps
 
-
-      # --- NETWORK MASKING STEP (Bypasses Cloudflare block on GitHub runner IPs) ---
-      - name: Establish Residential Network Routing Tunnel
-        uses: tindy2006/clash-action@v1
-        continue-on-error: true # Prevents script from stopping if proxy configurations fluctuate
-        with:
-            config: '' # Provide your proxy provider profile URL here if applicable
-
-        
-      # 5. Commit changes back to GitHub
-      # - name: Commit Updates
-      #   run: |
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     git add -f reel_queue.json pipeline_data.json
-      #     if git diff-index --quiet HEAD --; then
-      #       echo "ℹ️ No changes to commit."
-      #     else
-      #       git commit -m "Auto: Picked next reel [skip ci]"
-      #       git push
-      #     fi
-
-       # 6. Trigger Kaggle (Using Kaggle CLI)
-      - name: Trigger Kaggle Notebook
-        env:
+                 # 5. Commit changes back to GitHub
+                 # - name: Commit Updates
+                 #   run: |
+          #     git config user.name "github-actions[bot]"
+          #     git config user.email "github-actions[bot]@users.noreply.github.com"
+          #     git add -f reel_queue.json pipeline_data.json
+          #     if git diff-index --quiet HEAD --; then
+          #       echo "ℹ️ No changes to commit."
+          #     else
+          #       git commit -m "Auto: Picked next reel [skip ci]"
+          #       git push
+          #     fi
+          
+          # 6. Trigger Kaggle (Using Kaggle CLI)
+    - name: Trigger Kaggle Notebook
+      env:
           KAGGLE_EMAIL: ${{ secrets.KAGGLE_EMAIL }} 
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
@@ -572,9 +570,9 @@ jobs:
           # Standard loopback port mapping used by proxy masking environments
           HTTP_PROXY: "http://127.0.0.1:7890"
           HTTPS_PROXY: "http://127.0.0.1:7890"
-        run: python3 trigger.py
+      run: python3 trigger.py
 
-      
+
 
       # - name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
