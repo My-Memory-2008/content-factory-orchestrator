@@ -387,6 +387,8 @@
 # if __name__ == "__main__":
 #     asyncio.run(run())
 
+
+
 import asyncio
 import os
 import sys
@@ -411,22 +413,21 @@ async def run_permanent_kaggle_ui_trigger():
         
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/126.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
 
-        # STEP 1: Connect to Kaggle Home Domain
+        # STEP 1: Connect to Kaggle Home Domain (Optimized load flag)
         print("📡 Connecting to Kaggle primary landing node...")
-        await page.goto("https://www.kaggle.com/", wait_until="domcontentloaded")
+        await page.goto("https://kaggle.com/", wait_until="domcontentloaded")
 
         # ====================================================================
-        # FIXED STEP 2: TARGETING BASED ON YOUR INSPECT SCREENSHOT
+        # FIXED STEP 2: PARTIAL ATTRIBUTE MATCH OPERATOR FOR REDIRECT URLS
         # ====================================================================
         print("🔍 Targeting explicit 'Sign In' link structural attribute from inspect data...")
         try:
-            # We locate the exact 'href' string visible inside your copied HTML structure
-            target_href = "/account/login?phase=startSignInTab&returnUrl=%2F"
-            sign_in_link = page.locator(f"a[href='{target_href}']").first
+            # FIXED: Using '*=' matches any link containing '/account/login' safely bypassing query string failures
+            sign_in_link = page.locator("a[href*='/account/login']").first
             
             # Wait up to 15 seconds for this specific element tree to appear
             await sign_in_link.wait_for(state="visible", timeout=15000)
@@ -434,7 +435,9 @@ async def run_permanent_kaggle_ui_trigger():
             print("🔘 Successfully executed exact structural click on 'Sign In' link node!")
         except Exception as e:
             print(f"⚠️ Precise inspect locator missed ({e}). Routing fallback jump direct to terminal...")
-            await page.goto("https://kaggle.com/", wait_until="domcontentloaded")
+            await page.goto("https://kaggle.com/login", wait_until="domcontentloaded")
+            # FIXED: Ensure the engine synchronizes on fallback navigation shifts before reading next line
+            await page.wait_for_load_state("domcontentloaded")
 
         await page.wait_for_timeout(3000)
 
