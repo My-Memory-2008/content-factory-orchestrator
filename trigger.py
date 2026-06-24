@@ -388,6 +388,8 @@
 #     asyncio.run(run())
 
 
+
+
 import asyncio
 import os
 import sys
@@ -420,30 +422,44 @@ async def run_permanent_kaggle_ui_trigger():
 
         # Step 1: Connect to standard Kaggle email authentication screen
         print("📡 Connecting to Kaggle baseline login node...")
-        await page.goto("https://kaggle.com/", wait_until="networkidle")
+        await page.goto("https://kaggle.com", wait_until="networkidle")
 
+        # ====================================================================
+        # FIXED: EXPLICITLY INTERACT WITH KAGGLE'S NEW HUB LAYOUT
+        # ====================================================================
         try:
-            # Handle layout variation where standard form might hide behind a selection button
-            email_login_toggle = page.locator("button:has-text('Sign in with email'), button:has-text('Use email')").first
-            if await email_login_toggle.is_visible():
-                await email_login_toggle.click()
-                await page.wait_for_timeout(1000)
-        except Exception:
-            pass
+            print("🔘 Locating and opening standard email credentials module panel...")
+            # Targets the 'Sign in with email' button option on the modern interface
+            email_login_toggle = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), button:has-text('Email')").first
+            await email_login_toggle.wait_for(state="visible", timeout=15000)
+            await email_login_toggle.click()
+            # Brief stabilization buffer for React element expansion animations
+            await page.wait_for_timeout(2000)
+        except Exception as e:
+            print(f"⚠️ Notice: Email option expansion button step passed or bypassed ({e})")
 
         print("✍️ Executing native programmatic form login sequence...")
-        # Locating core input slots via explicit structural properties
-        await page.locator("input[name='email'], input[type='email']").first.fill(USER)
-        await page.wait_for_timeout(800) # Natural mimic delay
-        await page.locator("input[name='password'], input[type='password']").first.fill(PASS)
-        await page.wait_for_timeout(1000)
+        # Fixed Locators: Target the input containers after the panel renders
+        email_input = page.locator("input[type='email'], input[name='email'], input[autocomplete='username']").first
+        await email_input.wait_for(state="visible", timeout=15000)
+        
+        # Human-like interaction timing sequence to clear bot heuristics
+        await email_input.focus()
+        await email_input.fill(USER)
+        await page.wait_for_timeout(1000) 
+
+        password_input = page.locator("input[type='password'], input[name='password'], input[autocomplete='current-password']").first
+        await password_input.wait_for(state="visible", timeout=15000)
+        await password_input.focus()
+        await password_input.fill(PASS)
+        await page.wait_for_timeout(1200)
 
         # Click submit and await session redirection
-        submit_btn = page.locator("button[type='submit'], data-testid='sign-in-button'").first
+        submit_btn = page.locator("button[type='submit'], [data-testid='sign-in-button']").last
         await submit_btn.click()
         
         print("⏳ Waiting for credentials authentication context confirmation...")
-        await page.wait_for_url("https://www.kaggle.com/", timeout=30000)
+        await page.wait_for_url("https://kaggle.com/", timeout=45000)
         print("🔒 Security clearance verified! Session successfully launched.")
 
         # Step 2: Navigate straight into your targeted script editor workspace 
@@ -512,5 +528,3 @@ async def run_permanent_kaggle_ui_trigger():
 
 if __name__ == "__main__":
     asyncio.run(run_permanent_kaggle_ui_trigger())
-
-
