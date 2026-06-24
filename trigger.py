@@ -404,7 +404,7 @@ def trigger_github_workflow():
     api.authenticate()
 
     # Get target slug from GitHub Environment parameters
-    notebook_slug = "content-factory-engine"
+    notebook_slug = os.getenv('KAGGLE_NOTEBOOK_SLUG')
     if not notebook_slug:
         print("❌ Error: KAGGLE_NOTEBOOK_SLUG environment variable is missing.")
         sys.exit(1)
