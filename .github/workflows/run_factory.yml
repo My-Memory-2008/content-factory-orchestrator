@@ -468,9 +468,7 @@ jobs:
         run: |
          pip install requests openai
          python -m pip install --upgrade pip
-         pip install playwright
-         playwright install chromium --with-deps
-         
+         pip install kaggle
 
       # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
       #4. Process queue → generate pipeline_data.json
@@ -557,6 +555,7 @@ jobs:
           KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
           KAGGLE_PASSWORD: ${{secrets.KAGGLE_PASSWORD}}
           KAGGLE_LEGACY_KEY: ${{secrets.KAGGLE_LEGACY_KEY}}
+          KAGGLE_NOTEBOOK_SLUG: "content-factory-engine" 
         run: python3 trigger.py
 
       # - name: Execute Kaggle T4x2 Push Trigger
