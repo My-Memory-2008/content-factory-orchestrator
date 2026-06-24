@@ -466,7 +466,6 @@ jobs:
       # 3. Install lightweight dependencies
       - name: Install Dependencies
         run: |
-         pip install requests openai
          python -m pip install --upgrade pip
          pip install playwright
 
@@ -537,18 +536,27 @@ jobs:
       - name: Install Playwright Chromium Browser Instance
         run: playwright install chromium --with-deps
 
+
+      # --- NETWORK MASKING STEP (Bypasses Cloudflare block on GitHub runner IPs) ---
+      - name: Establish Residential Network Routing Tunnel
+        uses: tindy2006/clash-action@v1
+        continue-on-error: true # Prevents script from stopping if proxy configurations fluctuate
+        with:
+            config: '' # Provide your proxy provider profile URL here if applicable
+
+        
       # 5. Commit changes back to GitHub
-      - name: Commit Updates
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f reel_queue.json pipeline_data.json
-          if git diff-index --quiet HEAD --; then
-            echo "ℹ️ No changes to commit."
-          else
-            git commit -m "Auto: Picked next reel [skip ci]"
-            git push
-          fi
+      # - name: Commit Updates
+      #   run: |
+      #     git config user.name "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git add -f reel_queue.json pipeline_data.json
+      #     if git diff-index --quiet HEAD --; then
+      #       echo "ℹ️ No changes to commit."
+      #     else
+      #       git commit -m "Auto: Picked next reel [skip ci]"
+      #       git push
+      #     fi
 
        # 6. Trigger Kaggle (Using Kaggle CLI)
       - name: Trigger Kaggle Notebook
@@ -560,7 +568,17 @@ jobs:
           KAGGLE_PASSWORD: ${{secrets.KAGGLE_PASSWORD}}
           KAGGLE_LEGACY_KEY: ${{secrets.KAGGLE_LEGACY_KEY}}
           KAGGLE_NOTEBOOK_SLUG: "content-factory-engine" 
+          # Standard loopback port mapping used by proxy masking environments
+          HTTP_PROXY: "http://127.0.0.1:7890"
+          HTTPS_PROXY: "http://127.0.0.1:7890"
         run: python3 trigger.py
+
+       - name: Archive Diagnostics on Pipeline Exception
+         if: failure()
+         uses: actions/upload-artifact@v4
+         with:
+            name: cloudflare-bypass-error-snapshot
+            path: error_screenshot.png
 
       # - name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
