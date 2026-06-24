@@ -388,8 +388,6 @@
 #     asyncio.run(run())
 
 
-
-
 import asyncio
 import os
 import sys
@@ -413,56 +411,60 @@ async def run_permanent_kaggle_ui_trigger():
             args=["--window-size=1920,1080", "--no-sandbox", "--disable-setuid-sandbox"]
         )
         
-        # Forging a realistic user context to pass security verification checks without an auth.json
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
 
-        # Step 1: Connect to standard Kaggle email authentication screen
-        print("📡 Connecting to Kaggle baseline login node...")
-        await page.goto("https://kaggle.com", wait_until="networkidle")
+        # STEP 1: Go directly to Kaggle home page domain
+        print("📡 Connecting to Kaggle primary landing node...")
+        await page.goto("https://kaggle.com/", wait_until="networkidle")
 
-        # ====================================================================
-        # FIXED: EXPLICITLY INTERACT WITH KAGGLE'S NEW HUB LAYOUT
-        # ====================================================================
-        try:
-            print("🔘 Locating and opening standard email credentials module panel...")
-            # Targets the 'Sign in with email' button option on the modern interface
-            email_login_toggle = page.locator("button:has-text('Sign in with email'), button:has-text('Use email'), button:has-text('Email')").first
-            await email_login_toggle.wait_for(state="visible", timeout=15000)
-            await email_login_toggle.click()
-            # Brief stabilization buffer for React element expansion animations
-            await page.wait_for_timeout(2000)
-        except Exception as e:
-            print(f"⚠️ Notice: Email option expansion button step passed or bypassed ({e})")
+        # STEP 2: Find the main "Sign In" link/button in the top layout header and click it
+        print("🔍 Searching for top header 'Sign In' locator node...")
+        # Looks for any capitalization variation of 'Sign In' or 'SIGN IN'
+        sign_in_nav = page.locator("a:has-text('Sign In'), button:has-text('Sign In'), a:has-text('Sign in'), button:has-text('Sign in'), :has-text('SIGN IN')").first
+        await sign_in_nav.wait_for(state="visible", timeout=20000)
+        await sign_in_nav.click()
+        await page.wait_for_timeout(2000)
 
+        # STEP 3: Select the explicit "Sign in with email" operational entry block
+        print("🔘 Locating and opening standard email credentials module panel...")
+        # Captures variations including capitalizations like 'SIGN IN WITH EMAIL'
+        email_login_toggle = page.locator("button:has-text('Sign in with Email'), button:has-text('Use email'), button:has-text('Email'), button:has-text('SIGN IN WITH EMAIL')").first
+        await email_login_toggle.wait_for(state="visible", timeout=20000)
+        await email_login_toggle.click()
+        await page.wait_for_timeout(2000)
+
+        # STEP 4: Enter Username and Password matching capital/case-insensitive structures
         print("✍️ Executing native programmatic form login sequence...")
-        # Fixed Locators: Target the input containers after the panel renders
-        email_input = page.locator("input[type='email'], input[name='email'], input[autocomplete='username']").first
-        await email_input.wait_for(state="visible", timeout=15000)
         
-        # Human-like interaction timing sequence to clear bot heuristics
+        # Matches type, name, username formats, or placeholders with case-insensitivity flags (*=)
+        email_input = page.locator("input[type='email'], input[name='email'], input[autocomplete='username'], [placeholder*='Email'], [placeholder*='Username'], [placeholder*='EMAIL'], [placeholder*='USERNAME']").first
+        await email_input.wait_for(state="visible", timeout=20000)
         await email_input.focus()
         await email_input.fill(USER)
         await page.wait_for_timeout(1000) 
 
-        password_input = page.locator("input[type='password'], input[name='password'], input[autocomplete='current-password']").first
-        await password_input.wait_for(state="visible", timeout=15000)
+        # Locate password input container aggressively using case-insensitive placeholder hooks
+        password_input = page.locator("input[type='password'], input[name='password'], input[autocomplete='current-password'], [placeholder*='Password'], [placeholder*='PASSWORD']").first
+        await password_input.wait_for(state="visible", timeout=20000)
         await password_input.focus()
         await password_input.fill(PASS)
         await page.wait_for_timeout(1200)
 
-        # Click submit and await session redirection
-        submit_btn = page.locator("button[type='submit'], [data-testid='sign-in-button']").last
+        # STEP 5: Click the final internal execution sign-in submit trigger
+        print("🔘 Dispatching core submit action...")
+        # Prioritizes type="submit" and looks for standard text variations like 'SIGN IN'
+        submit_btn = page.locator("button[type='submit'], [data-testid='sign-in-button'], button:has-text('Sign In'), button:has-text('Sign in'), button:has-text('SIGN IN')").last
         await submit_btn.click()
         
         print("⏳ Waiting for credentials authentication context confirmation...")
         await page.wait_for_url("https://kaggle.com/", timeout=45000)
         print("🔒 Security clearance verified! Session successfully launched.")
 
-        # Step 2: Navigate straight into your targeted script editor workspace 
+        # Step 6: Navigate straight into your targeted script editor workspace 
         notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
         print(f"📡 Forwarding routing engine to workspace panel: {notebook_url}")
         
@@ -480,8 +482,7 @@ async def run_permanent_kaggle_ui_trigger():
         print("📋 Accessing workspace controls for Save Version trigger...")
         opened_dialog = False
         try:
-            # Native locators pierce straight into React shadow DOM trees automatically
-            save_button = page.locator("button:has-text('Save Version'), button:has-text('Save version'), [data-testid='save-version-button']").first
+            save_button = page.locator("button:has-text('Save Version'), button:has-text('Save version'), [data-testid='save-version-button'], button:has-text('SAVE VERSION')").first
             await save_button.wait_for(state="visible", timeout=15000)
             await save_button.click()
             opened_dialog = True
@@ -495,8 +496,7 @@ async def run_permanent_kaggle_ui_trigger():
         if opened_dialog:
             print("🔘 Locating definitive processing submission confirmations...")
             try:
-                # Target the final blue confirmation submission button inside the popup dialog window
-                confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], button:has-text('Save'), button:has-text('Save & Run All')").last
+                confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], button:has-text('Save'), button:has-text('Save & Run All'), button:has-text('SAVE')").last
                 await confirm_btn.wait_for(state="visible", timeout=10000)
                 await confirm_btn.click()
                 print("🚀 SUCCESS! Pipeline successfully deployed to background server nodes utilizing Dual T4 x2 acceleration.")
@@ -528,3 +528,5 @@ async def run_permanent_kaggle_ui_trigger():
 
 if __name__ == "__main__":
     asyncio.run(run_permanent_kaggle_ui_trigger())
+
+
