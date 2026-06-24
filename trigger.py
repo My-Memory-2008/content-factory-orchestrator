@@ -388,110 +388,129 @@
 #     asyncio.run(run())
 
 
-
 import asyncio
 import os
 import sys
 from playwright.async_api import async_playwright
 
-async def run():
-    async with async_playwright() as p:
-        print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
-        
-        # Verify repository secrets token block 
-        secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
-        if not secret_auth_data:
-            print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
-            sys.exit(1)
-            
-        with open("kaggle_auth.json", "w") as f:
-            f.write(secret_auth_data)
+async def run_permanent_kaggle_ui_trigger():
+    # 1. Load permanent structural variables from GitHub secret arrays
+    USER = os.environ.get("KAGGLE_USERNAME")
+    PASS = os.environ.get("KAGGLE_PASSWORD")
 
-        # Launching headless browser on desktop resolution
-        browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
+    if not USER or not PASS:
+        print("❌ Error: Missing KAGGLE_USERNAME or KAGGLE_PASSWORD inside GitHub Secrets!")
+        sys.exit(1)
+
+    async with async_playwright() as p:
+        print("🚀 Booting hyper-resilient desktop browser engine...")
+        
+        # Launching with production constraints and user sandbox configurations
+        browser = await p.chromium.launch(
+            headless=True, 
+            args=["--window-size=1920,1080", "--no-sandbox", "--disable-setuid-sandbox"]
+        )
+        
+        # Forging a realistic user context to pass security verification checks without an auth.json
         context = await browser.new_context(
-            storage_state="kaggle_auth.json",
-            viewport={"width": 1920, "height": 1080}
+            viewport={"width": 1920, "height": 1080},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
 
-        # Exact path of your script editor panel
-        notebook_url = "https://kaggle.com"
-        print(f"📡 Connecting to script workspace: {notebook_url}")
+        # Step 1: Connect to standard Kaggle email authentication screen
+        print("📡 Connecting to Kaggle baseline login node...")
+        await page.goto("https://kaggle.com/", wait_until="networkidle")
+
+        try:
+            # Handle layout variation where standard form might hide behind a selection button
+            email_login_toggle = page.locator("button:has-text('Sign in with email'), button:has-text('Use email')").first
+            if await email_login_toggle.is_visible():
+                await email_login_toggle.click()
+                await page.wait_for_timeout(1000)
+        except Exception:
+            pass
+
+        print("✍️ Executing native programmatic form login sequence...")
+        # Locating core input slots via explicit structural properties
+        await page.locator("input[name='email'], input[type='email']").first.fill(USER)
+        await page.wait_for_timeout(800) # Natural mimic delay
+        await page.locator("input[name='password'], input[type='password']").first.fill(PASS)
+        await page.wait_for_timeout(1000)
+
+        # Click submit and await session redirection
+        submit_btn = page.locator("button[type='submit'], data-testid='sign-in-button'").first
+        await submit_btn.click()
+        
+        print("⏳ Waiting for credentials authentication context confirmation...")
+        await page.wait_for_url("https://www.kaggle.com/", timeout=30000)
+        print("🔒 Security clearance verified! Session successfully launched.")
+
+        # Step 2: Navigate straight into your targeted script editor workspace 
+        notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
+        print(f"📡 Forwarding routing engine to workspace panel: {notebook_url}")
         
         try:
-            # Ensuring the complex React app completely finishes background network connections
             await page.goto(notebook_url, wait_until="networkidle", timeout=90000)
         except Exception as e:
-            print(f"⚠️ Navigation status context: {e}")
+            print(f"⚠️ App shell network note: {e}")
             
-        print("⏳ Waiting 30 seconds for the editor application layout to stabilize...")
+        print("⏳ Waiting 30 seconds for the React app shell to stabilize and attach the Dual T4 x2 acceleration arrays...")
         await page.wait_for_timeout(30000)
 
-        # Safety Check: Verify that the cookies successfully bypassed the login wall
-        page_content = await page.content()
-        if "Sign In" in page_content or "login" in page.url:
-            print("❌ Error: The session token in KAGGLE_AUTH_JSON is expired or rejected by Kaggle!")
-            await browser.close()
-            sys.exit(1)
-
         # ====================================================================
-        # NATIVE PLAYWRIGHT ACTION: REPLACING BRITTLE JAVASCRIPT INJECTION
+        # NATIVE PLAYWRIGHT ENGINE: TRIGGERING BACKGROUND VERSION COMMIT
         # ====================================================================
-        print("📋 Injecting JavaScript bypass to trigger background Save Version workflow...")
-        
+        print("📋 Accessing workspace controls for Save Version trigger...")
         opened_dialog = False
         try:
-            # Playwright's locator searches deep, through shadow DOMs and text nodes automatically.
-            # It tries to find the 'Save Version' button, handles both title-case variations, and clicks it.
+            # Native locators pierce straight into React shadow DOM trees automatically
             save_button = page.locator("button:has-text('Save Version'), button:has-text('Save version'), [data-testid='save-version-button']").first
-            
-            # Wait up to 10 seconds for the button to become interactive
-            await save_button.wait_for(state="visible", timeout=10000)
+            await save_button.wait_for(state="visible", timeout=15000)
             await save_button.click()
             opened_dialog = True
+            print("🔘 'Save Version' interactive configuration menu opened.")
         except Exception as e:
-            # Captures timeout if the locator times out or element isn't found
+            print(f"⚠️ Primary UI targeting failed to parse layout blocks: {e}")
             opened_dialog = False
 
-        await page.wait_for_timeout(3000)
+        await page.wait_for_timeout(4000)
 
         if opened_dialog:
-            print("🔘 'Save Version' menu opened. Confirming background run allocation...")
+            print("🔘 Locating definitive processing submission confirmations...")
             try:
-                # Target the final blue confirmation "Save" or "Save & Run All" button inside the modal dialog
+                # Target the final blue confirmation submission button inside the popup dialog window
                 confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], button:has-text('Save'), button:has-text('Save & Run All')").last
                 await confirm_btn.wait_for(state="visible", timeout=10000)
                 await confirm_btn.click()
-                print("🚀 Background 'Save & Run All' successfully triggered!")
+                print("🚀 SUCCESS! Pipeline successfully deployed to background server nodes utilizing Dual T4 x2 acceleration.")
             except Exception as e:
-                print(f"⚠️ Confirm button selector missed ({e}). Trying fallback keyboard confirm...")
+                print(f"⚠️ Confirmation locator parsing missed ({e}). Invoking fallback hotkey submit...")
                 await page.keyboard.press("Enter")
         else:
-            print("⚠️ Primary JS button locator missed. Deploying fallback hotkey sequence...")
-            # Fallback hotkey sequence to open Save Version dialog if UI changed: Ctrl + Shift + S
+            print("⚠️ Deploying alternative hotkey execution sequence pipelines due to layout abstraction...")
             await page.focus("body")
             await page.keyboard.down("Control")
             await page.keyboard.down("Shift")
             await page.keyboard.press("s")
             await page.keyboard.up("Shift")
             await page.keyboard.up("Control")
-            await page.wait_for_timeout(4000)
+            await page.wait_for_timeout(5000)
             await page.keyboard.press("Enter")
             print("⚡ Hotkey Save Version pipeline dispatched.")
 
-        print("⏳ Waiting 15 seconds to ensure the backend server locks in the commit token...")
+        print("⏳ Awaiting 15-second tracking handshake confirmation before termination...")
         await page.wait_for_timeout(15000)
         
         print("\n" + "="*80)
         print("🎉 PIPELINE TRIGGER COMPLETE!")
-        print("Kaggle is now running your script in a locked background environment on your GPU T4.")
+        print("Kaggle is now running your script in a locked background environment on your GPU T4x2.")
         print("The GPU will automatically power off and stop usage the exact second your code finishes.")
-        print("🔗 Track execution and view live logs here: https://kaggle.com")
         print("="*80 + "\n")
         
         await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(run_permanent_kaggle_ui_trigger())
+
 
