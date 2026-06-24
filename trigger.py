@@ -301,6 +301,13 @@ async def run():
         print("⏳ Waiting 30 seconds for the editor application layout to stabilize...")
         await page.wait_for_timeout(30000)
 
+        # Check if cookie actually logged you in or dropped you onto a guest landing screen
+        page_content = await page.content()
+        if "Sign In" in page_content or "login" in page.url:
+            print("❌ Error: The session token in KAGGLE_AUTH_JSON is expired or rejected by Kaggle!")
+            await browser.close()
+            sys.exit(1)
+
         # ====================================================================
         # JAVASCRIPT INJECTION: TRIGGERING NATIVE KAGGLE CORE SAVE ENGINE
         # ====================================================================
@@ -310,9 +317,25 @@ async def run():
         # This acts exactly as if you clicked "Save Version" -> "Save & Run All" in the browser!
         save_js = """
         () => {
-            // Find any button labeled Save Version or Save version
-            const buttons = Array.from(document.querySelectorAll('button'));
-            const saveBtn = buttons.find(b => b.textContent.toLowerCase().includes('save version'));
+            // Priority 1: Check for Kaggle's explicit data-testid attribute if available
+            let saveBtn = document.querySelector('[data-testid="save-version-button"]');
+            
+            // Priority 2: Scan deep DOM layers if first-level lookup failed
+            if (!saveBtn) {
+                const elements = Array.from(document.querySelectorAll('*'));
+                saveBtn = elements.find(el => {
+                    const text = el.textContent || '';
+                    // Match full word strings or nested element text blocks
+                    return el.tagName === 'BUTTON' && text.trim().toLowerCase() === 'save version';
+                });
+            }
+            
+            // Priority 3: Fallback button text containment query
+            if (!saveBtn) {
+                saveBtn = Array.from(document.querySelectorAll('button')).find(
+                    b => b.textContent.toLowerCase().includes('save version')
+                );
+            }
             
             if (saveBtn) {
                 saveBtn.click();
@@ -323,14 +346,15 @@ async def run():
         """
         
         opened_dialog = await page.evaluate(save_js)
-        await page.wait_for_timeout(10000)
+        await page.wait_for_timeout(3000)
 
         if opened_dialog:
             print("🔘 'Save Version' menu opened. Confirming background run allocation...")
             try:
-                # Target the final blue confirmation "Save" button inside the popup dialog window
-                confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
-                await confirm_btn.click(timeout=10000)
+                # FIXED: Swapped to a precise locator sequencing prioritizing Kaggle's strict popup button components
+                confirm_btn = page.locator("button[data-testid='save-version-dialog-save-button'], [data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
+                await confirm_btn.wait_for(state="visible", timeout=8000)
+                await confirm_btn.click()
                 print("🚀 Background 'Save & Run All' successfully triggered!")
             except Exception as e:
                 print(f"⚠️ Confirm button selector missed ({e}). Trying fallback keyboard confirm...")
@@ -344,7 +368,7 @@ async def run():
             await page.keyboard.press("s")
             await page.keyboard.up("Shift")
             await page.keyboard.up("Control")
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(4000)
             await page.keyboard.press("Enter")
             print("⚡ Hotkey Save Version pipeline dispatched.")
 
