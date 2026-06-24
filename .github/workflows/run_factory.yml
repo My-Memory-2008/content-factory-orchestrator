@@ -555,6 +555,7 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
+          KAGGLE_PASSWORD: ${{secrets.KAGGLE_PASSWORD}}
         run: python3 trigger.py
 
       # - name: Execute Kaggle T4x2 Push Trigger
