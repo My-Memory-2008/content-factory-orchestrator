@@ -525,7 +525,7 @@ jobs:
           #)
           # script = resp.choices[0].message.content.strip()
           
-          th open('pipeline_data.json', 'w') as f:
+          with open('pipeline_data.json', 'w') as f:
             json.dump({
                  "reel_url": pick['url'], "shortcode": sc, "username": user,
                  "script_text": " ",
