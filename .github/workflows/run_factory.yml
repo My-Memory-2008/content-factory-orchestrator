@@ -525,7 +525,7 @@ jobs:
           #)
           # script = resp.choices[0].message.content.strip()
           
-          with open('pipeline_data.json', 'w') as f:
+          th open('pipeline_data.json', 'w') as f:
             json.dump({
                  "reel_url": pick['url'], "shortcode": sc, "username": user,
                  "script_text": " ",
@@ -542,7 +542,6 @@ jobs:
               json.dump(data, f, indent=2)
           print(f"✅ Queued: {pick['url']}")
           EOF
-
 
                  # 5. Commit changes back to GitHub
                  # - name: Commit Updates
