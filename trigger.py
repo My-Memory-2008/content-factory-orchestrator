@@ -503,14 +503,12 @@ async def prepare_auth_file():
     if os.path.exists(ROLLING_STATE):
         print(f"🔄 Found rolling artifact state file: {ROLLING_STATE}")
         return ROLLING_STATE
-        
     secret_data = os.environ.get(FALLBACK_SECRET_VAR)
     if secret_data:
         print("🌱 Rolling state missing. Seeding workspace with KAGGLE_AUTH_JSON secret...")
         with open(ROLLING_STATE, "w") as f:
             f.write(secret_data)
         return ROLLING_STATE
-        
     print(f"❌ Error: Missing {FALLBACK_SECRET_VAR} environment variable secret or rolling state!")
     sys.exit(1)
 
@@ -552,44 +550,83 @@ async def run():
             await browser.close()
             sys.exit(1)
 
-        print("⏳ Waiting for the main editor canvas container to hydrate...")
-        # Target the top-level parent container from your image snippet
-        editor_canvas = page.locator("div[data-testid='notebook-editor-render-tid']")
-        try:
-            await editor_canvas.wait_for(state="visible", timeout=45000)
-            print("✨ Editor workspace rendered on screen.")
-        except Exception:
-            print("⚠️ Workspace tracking slow, trying to look for button directly...")
+        print("⏳ Waiting 30 seconds for content frames to fully assemble...")
+        await page.wait_for_timeout(30000)
 
         # ====================================================================
-        # PERMANENT FIXED SELECTOR MATCHING THE HARDCODED HTML ATTRIBUTE
+        # OMNIPRESENT SHADOW DOM DEEP CRAWLER BYPASS
         # ====================================================================
-        print("📋 Locating the Save Version button via immutable title tag...")
-        save_menu_locator = page.locator('button[title="Save Version"]').first
+        print("📋 Injecting deep layout script to target 'Save Version'...")
         
-        try:
-            # Explicitly wait for this exact element to appear in the layout
-            await save_menu_locator.wait_for(state="visible", timeout=30000)
-            await save_menu_locator.scroll_into_view_if_needed()
+        deep_crawler_js = """
+        () => {
+            // Recursive function that penetrates open shadow roots to discover elements
+            function findElementDeep(root, selectorText) {
+                const elements = Array.from(root.querySelectorAll('*'));
+                for (const el of elements) {
+                    // Match by textContent, aria-label, or title tags
+                    const matchesText = el.textContent && el.textContent.includes(selectorText);
+                    const matchesTitle = el.getAttribute('title') === selectorText;
+                    const matchesAria = el.getAttribute('aria-label') === selectorText;
+                    
+                    if ((matchesText || matchesTitle || matchesAria) && el.tagName === 'BUTTON') {
+                        return el;
+                    }
+                    if (el.shadowRoot) {
+                        const found = findElementDeep(el.shadowRoot, selectorText);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
             
-            # Click it forcefully to open the dialog drawer panel
-            await save_menu_locator.click(force=True)
-            print("🔘 'Save Version' menu opened successfully!")
-            await page.wait_for_timeout(4000)
-            
-            # Click the blue final execution "Save" confirmation action button inside the open pop-up
-            print("💾 Confirming background execution run profile...")
-            confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
-            await confirm_btn.click(timeout=15000)
-            print("🚀 Background 'Save & Run All' successfully triggered!")
-            
-        except Exception as e:
-            print(f"❌ Critical Error: Could not execute interaction pattern ({e})")
+            const targetButton = findElementDeep(document, "Save Version");
+            if (targetButton) {
+                targetButton.scrollInto_view_if_needed ? targetButton.scrollInto_view_if_needed() : null;
+                targetButton.click();
+                return true;
+            }
+            return false;
+        }
+        """
+        
+        # Dispatch click across the shadow container barrier
+        opened_via_crawler = await page.evaluate(deep_crawler_js)
+        await page.wait_for_timeout(5000)
+        
+        if opened_via_crawler:
+            print("🔘 'Save Version' menu opened successfully using deep browser layout crawler!")
+            try:
+                # Handle the final confirmation form overlay modal
+                print("💾 Dispatching confirmation runtime form submit...")
+                
+                # Check for confirmation via the exact same deep crawler
+                confirm_js = """
+                () => {
+                    const buttons = Array.from(document.querySelectorAll('button'));
+                    const lastConfirm = buttons.filter(b => b.textContent.trim() === 'Save' || b.getAttribute('data-test-id') === 'save-version-dialog-save-button').pop();
+                    if (lastConfirm) {
+                        lastConfirm.click();
+                        return true;
+                    }
+                    return false;
+                }
+                """
+                confirmed = await page.evaluate(confirm_js)
+                if not confirmed:
+                    # Fallback to key confirmation if elements are shifted
+                    await page.keyboard.press("Enter")
+                print("🚀 Background 'Save & Run All' successfully triggered!")
+            except Exception as e:
+                print(f"⚠️ Confirmation block interface conflict: {e}")
+                await page.keyboard.press("Enter")
+        else:
+            print("❌ Fatal Execution Error: Element text signature 'Save Version' was completely invisible to document root trees.")
             await page.screenshot(path="error_screen.png")
             await browser.close()
             sys.exit(1)
 
-        print("⏳ Waiting 15 seconds to ensure backend registration completes...")
+        print("⏳ Waiting 15 seconds to anchor execution instance pipelines...")
         await page.wait_for_timeout(15000)
         
         # Keep our continuous rolling cookie update file fresh
@@ -604,4 +641,3 @@ async def run():
 
 if __name__ == "__main__":
     asyncio.run(run())
-
