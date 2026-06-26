@@ -547,7 +547,7 @@ async def run():
         notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
 
 
-        "
+        
         print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
