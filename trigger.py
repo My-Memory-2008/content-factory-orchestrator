@@ -490,7 +490,6 @@
 
 
 
-
 import asyncio
 import os
 import sys
@@ -500,18 +499,15 @@ ROLLING_STATE = "state.json"
 FALLBACK_SECRET_VAR = "KAGGLE_AUTH_JSON"
 
 async def prepare_auth_file():
-    """Manages the continuous self-refreshing cookie state pipeline tracking."""
     if os.path.exists(ROLLING_STATE):
         print(f"🔄 Found rolling artifact state file: {ROLLING_STATE}")
         return ROLLING_STATE
-        
     secret_data = os.environ.get(FALLBACK_SECRET_VAR)
     if secret_data:
         print("🌱 Rolling state missing. Seeding workspace with KAGGLE_AUTH_JSON secret...")
         with open(ROLLING_STATE, "w") as f:
             f.write(secret_data)
         return ROLLING_STATE
-        
     print(f"❌ Error: Missing {FALLBACK_SECRET_VAR} environment variable secret or rolling state!")
     sys.exit(1)
 
@@ -561,56 +557,85 @@ async def run():
         await page.wait_for_timeout(30000)
 
         # ====================================================================
-        # ADVANCED JAVASCRIPT INJECTION CRAWLER (DEEP DOM TRAVERSAL)
+        # ADVANCED CROSS-FRAME & SHADOW DOM INJECTION CRAWLER
         # ====================================================================
-        print("📋 Injecting absolute JavaScript bypass to click 'Save Version'...")
+        print("📋 Injecting cross-frame JavaScript bypass to locate 'Save Version'...")
         
         js_click_save_menu = """
         () => {
             function findSaveButton(root) {
                 if (!root) return null;
-                
-                // 1. Check all elements inside this root level
+                try {
+                    const elements = Array.from(root.querySelectorAll('*'));
+                    for (const el of elements) {
+                        if (el.tagName === 'BUTTON') {
+                            const hasMatchingTitle = el.getAttribute('title') === 'Save Version';
+                            const hasMatchingAria = el.getAttribute('aria-label') === 'Save Version';
+                            const hasMatchingTooltipId = el.getAttribute('aria-describedby') === 'hiddenSaveVersionTooltip';
+                            
+                            if (hasMatchingTitle || hasMatchingAria || hasMatchingTooltipId) {
+                                return el;
+                            }
+                        }
+                        if (el.shadowRoot) {
+                            const found = findSaveButton(el.shadowRoot);
+                            if (found) return found;
+                        }
+                    }
+                } catch(e) { /* Catch security cross-origin sandbox restrictions safely */ }
+                return null;
+            }
+            return findSaveButton(document) ? true : false;
+        }
+        """
+
+        # Native click invocation script that runs safely inside whatever frame holds the button
+        js_force_click = """
+        () => {
+            function findAndClick(root) {
                 const elements = Array.from(root.querySelectorAll('*'));
                 for (const el of elements) {
                     if (el.tagName === 'BUTTON') {
-                        const hasMatchingTitle = el.getAttribute('title') === 'Save Version';
-                        const hasMatchingAria = el.getAttribute('aria-label') === 'Save Version';
-                        const hasMatchingTooltipId = el.getAttribute('aria-describedby') === 'hiddenSaveVersionTooltip';
-                        
-                        if (hasMatchingTitle || hasMatchingAria || hasMatchingTooltipId) {
-                            return el;
+                        if (el.getAttribute('title') === 'Save Version' || el.getAttribute('aria-label') === 'Save Version' || el.getAttribute('aria-describedby') === 'hiddenSaveVersionTooltip') {
+                            el.scrollIntoView({ block: 'center' });
+                            el.click();
+                            return true;
                         }
                     }
-                    
-                    // 2. Recursively crawl down open Shadow DOM roots if present
                     if (el.shadowRoot) {
-                        const found = findSaveButton(el.shadowRoot);
-                        if (found) return found;
+                        if (findAndClick(el.shadowRoot)) return true;
                     }
                 }
-                return null;
+                return false;
             }
-            
-            const btn = findSaveButton(document);
-            if (btn) {
-                btn.scrollIntoView({ block: 'center' });
-                btn.click();
-                return true;
-            }
-            return false;
+            return findAndClick(document);
         }
         """
+
+        opened_dialog = False
+        target_frame = None
+
+        # Loop through the main document page AND all inner isolated iframes sequentially
+        all_frames = page.frames
+        print(f"🔍 Discovered {len(all_frames)} isolated frame layers on screen. Scanning...")
         
-        # Execute the primary click to bring up the Kaggle settings popup panel
-        opened_dialog = await page.evaluate(js_click_save_menu)
+        for frame in all_frames:
+            try:
+                is_button_here = await frame.evaluate(js_click_save_menu)
+                if is_button_here:
+                    print(f"🎯 Target button discovered inside frame: '{frame.name or 'iframe-container'}'!")
+                    opened_dialog = await frame.evaluate(js_force_click)
+                    target_frame = frame
+                    break
+            except Exception:
+                continue
+
         await page.wait_for_timeout(4000)
 
-        if opened_dialog:
-            print("🔘 'Save Version' menu panel successfully opened via Javascript injection!")
+        if opened_dialog and target_frame:
+            print("🔘 'Save Version' menu panel successfully opened via cross-frame injection!")
             print("💾 Confirming background run allocation (Save & Run All)...")
             
-            # Second JavaScript execution specifically targeting the final confirmation modal window
             js_confirm_run = """
             () => {
                 function findConfirmButton(root) {
@@ -642,15 +667,16 @@ async def run():
             }
             """
             
-            confirmed = await page.evaluate(js_confirm_run)
+            # Make sure we submit the confirmation on the exact same frame canvas document context
+            confirmed = await target_frame.evaluate(js_confirm_run)
             if confirmed:
-                print("🚀 Background 'Save & Run All' successfully triggered via deep JavaScript confirmation!")
+                print("🚀 Background 'Save & Run All' successfully triggered inside sub-frame layer!")
             else:
-                print("⚠️ Confirmation button layout structure missed. Attempting keyboard Enter fallback...")
+                print("⚠️ Confirmation modal button layout missed. Using keyboard fallback...")
                 await page.keyboard.press("Enter")
                 print("🚀 Sent keyboard confirmation event trigger sequence.")
         else:
-            print("❌ Fatal Error: JavaScript crawler failed to locate any button matching the HTML specifications.")
+            print("❌ Fatal Error: JavaScript cross-frame search failed to resolve the button element.")
             await page.screenshot(path="error_screen.png")
             print("📸 Diagnostic snapshot dumped to error_screen.png")
             await browser.close()
