@@ -488,7 +488,6 @@
 # if __name__ == "__main__":
 #     asyncio.run(run())
 
-
 import asyncio
 import os
 import sys
@@ -519,7 +518,7 @@ async def run():
     async with async_playwright() as p:
         print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
         
-        # Launching headless browser with stealth parameters to prevent rapid cookie expiration
+        # Launching browser with stealth arguments to prevent automated detection blocks
         browser = await p.chromium.launch(
             headless=True, 
             args=[
@@ -538,85 +537,89 @@ async def run():
         )
         page = await context.new_page()
         
-        # Override the automation flag property explicitly
+        # Mask automation properties explicitly
         await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         # Exact path of your script editor panel
-        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
+        notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
         print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
-            await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
+            # networkidle ensures all dynamic background scripts are loaded before proceeding
+            await page.goto(notebook_url, wait_until="networkidle", timeout=90000)
         except Exception as e:
             print(f"⚠️ Navigation status context: {e}")
             
         print("⏳ Waiting 30 seconds for the editor application layout to stabilize...")
         await page.wait_for_timeout(30000)
 
-        # Check if Kaggle forced a logout or is redirecting due to an invalid session
+        # Security Boundary Check: Did the session drop?
         if "login" in page.url or await page.locator("text=Sign In").is_visible():
             print("❌ Access Refused: The session cookie state has dropped or expired.")
             await browser.close()
             sys.exit(1)
 
         # ====================================================================
-        # JAVASCRIPT INJECTION: TRIGGERING NATIVE KAGGLE CORE SAVE ENGINE
+        # REENGINEERED CLICK SEQUENCING VIA STABLE DOM ATTRIBUTES
         # ====================================================================
-        print("📋 Injecting JavaScript bypass to trigger background Save Version workflow...")
+        print("📋 Locating structural Kaggle Save Version menu trigger node...")
         
-        save_js = """
-        () => {
-            const buttons = Array.from(document.querySelectorAll('button'));
-            const saveBtn = buttons.find(b => b.textContent.toLowerCase().includes('save version'));
+        # Targets Kaggle's specific production design token for the Save button
+        save_menu_locator = page.locator("button[data-test-id='editor-header-save-button'], button:has-text('Save Version')").first
+        
+        try:
+            # Force focus by bringing it into view, avoiding reliance on blind keyboard shortcuts
+            await save_menu_locator.scroll_into_view_if_needed()
+            await save_menu_locator.click(timeout=15000)
+            print("🔘 'Save Version' panel opened successfully via direct DOM pointer target.")
+            await page.wait_for_timeout(4000)
             
-            if (saveBtn) {
-                saveBtn.click();
-                return true;
+            # Target the final blue confirmation "Save" button inside the open modal viewport
+            print("💾 Dispatched inner payload configuration run execution form submit...")
+            confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
+            await confirm_btn.click(timeout=10000)
+            print("🚀 Background 'Save & Run All' successfully triggered!")
+            
+        except Exception as e:
+            print(f"⚠️ Structural DOM locator failed ({e}). Deploying absolute text-parsing script...")
+            
+            # Robust programmatic fallback in case Kaggle modifies structural elements
+            js_backup_dispatch = """
+            () => {
+                const elements = Array.from(document.querySelectorAll('button, div, span'));
+                const target = elements.find(el => el.textContent.trim().toLowerCase() === 'save version');
+                if (target) {
+                    target.click();
+                    return true;
+                }
+                return false;
             }
-            return false;
-        }
-        """
-        
-        opened_dialog = await page.evaluate(save_js)
-        await page.wait_for_timeout(3000)
-
-        if opened_dialog:
-            print("🔘 'Save Version' menu opened. Confirming background run allocation...")
-            try:
-                confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
-                await confirm_btn.click(timeout=10000)
-                print("🚀 Background 'Save & Run All' successfully triggered!")
-            except Exception as e:
-                print(f"⚠️ Confirm button selector missed ({e}). Trying fallback keyboard confirm...")
+            """
+            opened_via_js = await page.evaluate(js_backup_dispatch)
+            await page.wait_for_timeout(4000)
+            
+            if opened_via_js:
+                print("⚡ Modal opened via Javascript backup evaluation. Pressing Enter to confirm...")
                 await page.keyboard.press("Enter")
-        else:
-            print("⚠️ Primary JS button locator missed. Deploying fallback hotkey sequence...")
-            await page.focus("body")
-            await page.keyboard.down("Control")
-            await page.keyboard.down("Shift")
-            await page.keyboard.press("s")
-            await page.keyboard.up("Shift")
-            await page.keyboard.up("Control")
-            await page.wait_for_timeout(3000)
-            await page.keyboard.press("Enter")
-            print("⚡ Hotkey Save Version pipeline dispatched.")
+                print("🚀 Executed background confirmation matrix event.")
+            else:
+                print("❌ Fatal Execution Error: Could not locate the 'Save Version' interactive node anywhere on screen.")
+                await browser.close()
+                sys.exit(1)
 
         print("⏳ Waiting 15 seconds to ensure the backend server locks in the commit token...")
         await page.wait_for_timeout(15000)
         
-        # Save the slightly modified rolling cookies state file for the next run
+        # Capture and save the freshly updated active session state cookies for next time
         await context.storage_state(path=ROLLING_STATE)
         print(f"💾 Fresh session tracking token array saved to: {ROLLING_STATE}")
         
         print("\n" + "="*80)
         print("🎉 PIPELINE TRIGGER COMPLETE!")
         print("Kaggle is now running your script in a locked background environment on your GPU T4.")
-        print("The GPU will automatically power off and stop usage the exact second your code finishes.")
-        print("🔗 Track execution and view live logs here: https://kaggle.com")
         print("="*80 + "\n")
         
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
-
