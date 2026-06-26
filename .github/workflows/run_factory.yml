@@ -686,9 +686,9 @@ jobs:
           KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
         run: python3 trigger.py
 
-      # 8. Upload the freshly generated rolling session state
+      # 8. Upload the freshly generated rolling session state so tomorrow's run can use it
       - name: Save Refreshed Kaggle Session State
-        if: always() # Ensures updated cookies register even if other workflow blocks break
+        if: always() # Guarantees updated cookies register even if other pipeline steps fail
         uses: actions/upload-artifact@v4
         with:
           name: kaggle-rolling-state
