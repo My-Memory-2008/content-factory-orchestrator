@@ -670,13 +670,12 @@ jobs:
             git push
           fi
 
-      # 6. Download rolling state from the previous manual execution
+      # 6. Download rolling state (Omitting path ensures it unzips right into the workspace root)
       - name: Download Previous Kaggle Session State
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: kaggle-rolling-state
-          path: .
 
       # 7. Trigger Kaggle (Using Kaggle CLI & Playwright)
       - name: Trigger Kaggle Notebook
@@ -692,5 +691,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kaggle-rolling-state
-          path: state.json
+          path: state.json # Keep this as state.json since you verified that's what's inside
           retention-days: 7
