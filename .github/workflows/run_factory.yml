@@ -468,7 +468,6 @@ jobs:
          python -m pip install --upgrade pip
          pip install playwright
          playwright install chromium --with-deps
-         pip install kaggle
          
 
       # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
@@ -548,31 +547,15 @@ jobs:
             git push
           fi
 
-      #🔥 THIS IS THE EXACT CODE YOU PROVIDED - WITH CRITICAL FIXES
-      - name: Push and Run Kaggle Notebook
+       # 6. Trigger Kaggle (Using Kaggle CLI)
+      - name: Trigger Kaggle Notebook
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-        run: |
-          # Install CLI
-          pip install kaggle
-          
-          # Setup auth - USE printf TO AVOID ESCAPING ISSUES
-          mkdir -p ~/.kaggle
-          printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > ~/.kaggle/kaggle.json
-          chmod 600 ~/.kaggle/kaggle.json
-          
-          # DEBUG: Show what we're sending (sanitized)
-          echo "🔐 Auth setup complete. Key length: ${#KAGGLE_KEY}"
-          
-          # Push to Kaggle - PATH IS "." BECAUSE FILES ARE IN REPO ROOT
-          echo "🚀 Pushing notebook to Kaggle from: $(pwd)"
-          kaggle kernels push -p .
-          
-          echo "✅ Pushed to Kaggle. If 'Run on push' is enabled, execution starts automatically."
-          echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
-    
-      #- name: Execute Kaggle T4x2 Push Trigger
+          KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
+        run: python3 trigger.py
+
+      # - name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
       #   # This explicitly passes your encrypted secrets into the runtime container
       #   # so that Playwright can read your session cookie!
