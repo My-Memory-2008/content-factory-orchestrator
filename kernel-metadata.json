@@ -6,11 +6,12 @@
     "kernel_type": "script",
     "is_private": "true",
     "enable_gpu": "true",
-    "gpu_group": "dual_t4",
+    "enable_tpu":"false",
     "enable_internet": "true",
     "dataset_sources": [
         "muhammadasjad2008/cat-reactions-vault"
     ],
+    "accelerator":"NvidiaTeslaT4x2",
     "competition_sources": [],
     "kernel_sources": []
 }
