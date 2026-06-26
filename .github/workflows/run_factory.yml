@@ -468,6 +468,7 @@ jobs:
          python -m pip install --upgrade pip
          pip install playwright
          playwright install chromium --with-deps
+         pip install kaggle
          
 
       # 4. Run the Queue Logic (Checks Duplicates & Generates Script)
@@ -553,7 +554,12 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
-        run: python3 trigger.py
+        run: |
+          kaggle kernels push -p .
+          echo "waiting for kaggle to initialize..."
+          sleep 10
+          #
+          kaggle kernels status ${{secrets.KAGGLE_USERNAME}}/content-factory-engine
 
       # - name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
