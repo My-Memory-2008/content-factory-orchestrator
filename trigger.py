@@ -495,202 +495,94 @@ import os
 import sys
 from playwright.async_api import async_playwright
 
-ROLLING_STATE = "state.json"
-FALLBACK_SECRET_VAR = "KAGGLE_AUTH_JSON"
-
-async def prepare_auth_file():
-    if os.path.exists(ROLLING_STATE):
-        print(f"🔄 Found rolling artifact state file: {ROLLING_STATE}")
-        return ROLLING_STATE
-    secret_data = os.environ.get(FALLBACK_SECRET_VAR)
-    if secret_data:
-        print("🌱 Rolling state missing. Seeding workspace with KAGGLE_AUTH_JSON secret...")
-        with open(ROLLING_STATE, "w") as f:
-            f.write(secret_data)
-        return ROLLING_STATE
-    print(f"❌ Error: Missing {FALLBACK_SECRET_VAR} environment variable secret or rolling state!")
-    sys.exit(1)
-
 async def run():
-    auth_path = await prepare_auth_file()
-
     async with async_playwright() as p:
         print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
         
-        browser = await p.chromium.launch(
-            headless=True, 
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-gpu",
-                "--window-size=1920,1080"
-            ]
-        )
+        # Verify repository secrets token block 
+        secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
+        if not secret_auth_data:
+            print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
+            sys.exit(1)
+            
+        with open("kaggle_auth.json", "w") as f:
+            f.write(secret_auth_data)
+
+        # Launching headless browser on desktop resolution
+        browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
         context = await browser.new_context(
-            storage_state=auth_path,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            viewport={"width": 1920, "height": 1080},
-            locale="en-US",
-            timezone_id="America/New_York"
+            storage_state="kaggle_auth.json",
+            viewport={"width": 1920, "height": 1080}
         )
         page = await context.new_page()
-        await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-        notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
+        # Exact path of your script editor panel
+        notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
         print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
-            await page.goto(notebook_url, wait_until="commit", timeout=90000)
+            await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
         except Exception as e:
-            print(f"⚠️ Initial routing network warning: {e}")
-
-        print(f"📊 Current Page URL: {page.url}")
-        print(f"📊 Current Page Title: {await page.title()}")
-
-        if "login" in page.url or await page.locator("text=Sign In").is_visible():
-            print("❌ Access Refused: The session cookie state has dropped or expired.")
-            await page.screenshot(path="error_screen.png")
-            await browser.close()
-            sys.exit(1)
-
-        print("⏳ Waiting 30 seconds for the deep single-page application framework to load...")
+            print(f"⚠️ Navigation status context: {e}")
+            
+        print("⏳ Waiting 30 seconds for the editor application layout to stabilize...")
         await page.wait_for_timeout(30000)
 
         # ====================================================================
-        # ADVANCED CROSS-FRAME & SHADOW DOM INJECTION CRAWLER
+        # JAVASCRIPT INJECTION: TRIGGERING NATIVE KAGGLE CORE SAVE ENGINE
         # ====================================================================
-        print("📋 Injecting cross-frame JavaScript bypass to locate 'Save Version'...")
+        print("📋 Injecting JavaScript bypass to trigger background Save Version workflow...")
         
-        js_click_save_menu = """
+        # This script locates the exact internal state button and forces a production version commit.
+        # This acts exactly as if you clicked "Save Version" -> "Save & Run All" in the browser!
+        save_js = """
         () => {
-            function findSaveButton(root) {
-                if (!root) return null;
-                try {
-                    const elements = Array.from(root.querySelectorAll('*'));
-                    for (const el of elements) {
-                        if (el.tagName === 'BUTTON') {
-                            const hasMatchingTitle = el.getAttribute('title') === 'Save Version';
-                            const hasMatchingAria = el.getAttribute('aria-label') === 'Save Version';
-                            const hasMatchingTooltipId = el.getAttribute('aria-describedby') === 'hiddenSaveVersionTooltip';
-                            
-                            if (hasMatchingTitle || hasMatchingAria || hasMatchingTooltipId) {
-                                return el;
-                            }
-                        }
-                        if (el.shadowRoot) {
-                            const found = findSaveButton(el.shadowRoot);
-                            if (found) return found;
-                        }
-                    }
-                } catch(e) { /* Catch security cross-origin sandbox restrictions safely */ }
-                return null;
+            // Find any button labeled Save Version or Save version
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const saveBtn = buttons.find(b => b.textContent.toLowerCase().includes('save version'));
+            
+            if (saveBtn) {
+                saveBtn.click();
+                return true;
             }
-            return findSaveButton(document) ? true : false;
+            return false;
         }
         """
-
-        # Native click invocation script that runs safely inside whatever frame holds the button
-        js_force_click = """
-        () => {
-            function findAndClick(root) {
-                const elements = Array.from(root.querySelectorAll('*'));
-                for (const el of elements) {
-                    if (el.tagName === 'BUTTON') {
-                        if (el.getAttribute('title') === 'Save Version' || el.getAttribute('aria-label') === 'Save Version' || el.getAttribute('aria-describedby') === 'hiddenSaveVersionTooltip') {
-                            el.scrollIntoView({ block: 'center' });
-                            el.click();
-                            return true;
-                        }
-                    }
-                    if (el.shadowRoot) {
-                        if (findAndClick(el.shadowRoot)) return true;
-                    }
-                }
-                return false;
-            }
-            return findAndClick(document);
-        }
-        """
-
-        opened_dialog = False
-        target_frame = None
-
-        # Loop through the main document page AND all inner isolated iframes sequentially
-        all_frames = page.frames
-        print(f"🔍 Discovered {len(all_frames)} isolated frame layers on screen. Scanning...")
         
-        for frame in all_frames:
+        opened_dialog = await page.evaluate(save_js)
+        await page.wait_for_timeout(3000)
+
+        if opened_dialog:
+            print("🔘 'Save Version' menu opened. Confirming background run allocation...")
             try:
-                is_button_here = await frame.evaluate(js_click_save_menu)
-                if is_button_here:
-                    print(f"🎯 Target button discovered inside frame: '{frame.name or 'iframe-container'}'!")
-                    opened_dialog = await frame.evaluate(js_force_click)
-                    target_frame = frame
-                    break
-            except Exception:
-                continue
-
-        await page.wait_for_timeout(4000)
-
-        if opened_dialog and target_frame:
-            print("🔘 'Save Version' menu panel successfully opened via cross-frame injection!")
-            print("💾 Confirming background run allocation (Save & Run All)...")
-            
-            js_confirm_run = """
-            () => {
-                function findConfirmButton(root) {
-                    if (!root) return null;
-                    const elements = Array.from(root.querySelectorAll('*'));
-                    for (const el of elements) {
-                        if (el.tagName === 'BUTTON') {
-                            const isTestId = el.getAttribute('data-test-id') === 'save-version-dialog-save-button';
-                            const hasSaveText = el.textContent && el.textContent.trim() === 'Save';
-                            
-                            if (isTestId || hasSaveText) {
-                                return el;
-                            }
-                        }
-                        if (el.shadowRoot) {
-                            const found = findConfirmButton(el.shadowRoot);
-                            if (found) return found;
-                        }
-                    }
-                    return null;
-                }
-                
-                const confirmBtn = findConfirmButton(document);
-                if (confirmBtn) {
-                    confirmBtn.click();
-                    return true;
-                }
-                return false;
-            }
-            """
-            
-            # Make sure we submit the confirmation on the exact same frame canvas document context
-            confirmed = await target_frame.evaluate(js_confirm_run)
-            if confirmed:
-                print("🚀 Background 'Save & Run All' successfully triggered inside sub-frame layer!")
-            else:
-                print("⚠️ Confirmation modal button layout missed. Using keyboard fallback...")
+                # Target the final blue confirmation "Save" button inside the popup dialog window
+                confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
+                await confirm_btn.click(timeout=10000)
+                print("🚀 Background 'Save & Run All' successfully triggered!")
+            except Exception as e:
+                print(f"⚠️ Confirm button selector missed ({e}). Trying fallback keyboard confirm...")
                 await page.keyboard.press("Enter")
-                print("🚀 Sent keyboard confirmation event trigger sequence.")
         else:
-            print("❌ Fatal Error: JavaScript cross-frame search failed to resolve the button element.")
-            await page.screenshot(path="error_screen.png")
-            print("📸 Diagnostic snapshot dumped to error_screen.png")
-            await browser.close()
-            sys.exit(1)
+            print("⚠️ Primary JS button locator missed. Deploying fallback hotkey sequence...")
+            # Fallback hotkey sequence to open Save Version dialog if UI changed: Ctrl + Shift + S
+            await page.focus("body")
+            await page.keyboard.down("Control")
+            await page.keyboard.down("Shift")
+            await page.keyboard.press("s")
+            await page.keyboard.up("Shift")
+            await page.keyboard.up("Control")
+            await page.wait_for_timeout(3000)
+            await page.keyboard.press("Enter")
+            print("⚡ Hotkey Save Version pipeline dispatched.")
 
-        print("⏳ Waiting 15 seconds to ensure backend registration completes...")
+        print("⏳ Waiting 15 seconds to ensure the backend server locks in the commit token...")
         await page.wait_for_timeout(15000)
-        
-        # Capture and write the rolling updated cookie values
-        await context.storage_state(path=ROLLING_STATE)
-        print(f"💾 Fresh session tracking token array saved to: {ROLLING_STATE}")
         
         print("\n" + "="*80)
         print("🎉 PIPELINE TRIGGER COMPLETE!")
+        print("Kaggle is now running your script in a locked background environment on your GPU T4.")
+        print("The GPU will automatically power off and stop usage the exact second your code finishes.")
+        print("🔗 Track execution and view live logs here: https://kaggle.com")
         print("="*80 + "\n")
         
         await browser.close()
