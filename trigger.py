@@ -606,6 +606,7 @@ async def prepare_auth_file():
     """Determines whether to use yesterday's rolling cookies or seed from secrets."""
     if os.path.exists(ROLLING_STATE):
         print(f"🔄 Found rolling artifact state file: {ROLLING_STATE}")
+        print(f"✌️ Got the latest kaggle authentication json cookies..🏆")
         return ROLLING_STATE
         
     secret_data = os.environ.get(FALLBACK_SECRET_VAR)
