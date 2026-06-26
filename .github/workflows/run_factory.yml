@@ -551,7 +551,7 @@ jobs:
       - name: Authenticate Kaggle API
         run: |
            mkdir -p ~/.kaggle
-           echo '${{ secrets.KAGGLE_LEGACY_KEY }}' > ~/.kaggle/kaggle.json
+           echo '${{ secrets.KAGGLE_KEY }}' > ~/.kaggle/kaggle.json
            chmod 600 ~/.kaggle/kaggle.json
 
       - name: Push Code and Trigger GPU Run
