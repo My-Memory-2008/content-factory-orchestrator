@@ -490,88 +490,132 @@
 
 
 
+
+import asyncio
 import os
 import sys
-import json
-import requests
+from playwright.async_api import async_playwright
 
-def trigger_via_api():
-    print("🚀 Setting up native Kaggle API authentication protocol...")
-    
-    username = os.environ.get("KAGGLE_USERNAME")
-    api_key = os.environ.get("KAGGLE_KEY")
-    
-    if not username or not api_key:
-        print("❌ Error: Missing KAGGLE_USERNAME or KAGGLE_KEY environment variables!")
-        sys.exit(1)
+ROLLING_STATE = "state.json"
+FALLBACK_SECRET_VAR = "KAGGLE_AUTH_JSON"
+
+async def prepare_auth_file():
+    """Manages the continuous self-refreshing cookie state pipeline tracking."""
+    if os.path.exists(ROLLING_STATE):
+        print(f"🔄 Found rolling artifact state file: {ROLLING_STATE}")
+        return ROLLING_STATE
         
-    owner_slug = "muhammadasjad2008"
-    dataset_slug = "content-factory-engine"
-    
-    api_url = "https://kaggle.com"
-    
-    try:
-        with open("pipeline_data.json", "r") as f:
-            pipeline_data = json.load(f)
-        print("📋 Loaded metadata configuration from pipeline_data.json.")
-    except Exception as e:
-        print(f"⚠️ Could not load pipeline_data.json ({e}). Using empty default.")
-        pipeline_data = {}
+    secret_data = os.environ.get(FALLBACK_SECRET_VAR)
+    if secret_data:
+        print("🌱 Rolling state missing. Seeding workspace with KAGGLE_AUTH_JSON secret...")
+        with open(ROLLING_STATE, "w") as f:
+            f.write(secret_data)
+        return ROLLING_STATE
+        
+    print(f"❌ Error: Missing {FALLBACK_SECRET_VAR} environment variable secret or rolling state!")
+    sys.exit(1)
 
-    # Comprehensive production payload declaring structural T4x2 parameters
-    payload = {
-        "id": f"{owner_slug}/{dataset_slug}",
-        "slug": dataset_slug,
-        "title": "Content Factory Engine",
-        "codeType": "script",
-        "language": "python",
-        "isPrivate": True,
-        "enableGpu": True,
-        "gpuType": "T4x2", 
-        "enableInternet": True,
-        "datasetDataSources": ["muhammadasjad2008/cat-reactions-vault"],
-        "competitionDataSources": [],
-        "kernelDataSources": [],
-        "text": f"# Automated Execution Token\npipeline_meta = {json.dumps(pipeline_data, indent=2)}\n"
-    }
+async def run():
+    auth_path = await prepare_auth_file()
 
-    # ====================================================================
-    # CRITICAL FIX: EXPLICITLY MAPPING THE AUTHENTICATION KEY HEADERS
-    # ====================================================================
-    custom_headers = {
-        "Content-Type": "application/json",
-        "X-Kaggle-Username": username,
-        "X-Kaggle-Key": api_key
-    }
+    async with async_playwright() as p:
+        print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
+        
+        # Deploy with standard anti-detection profile extensions to bypass dynamic data center blocks
+        browser = await p.chromium.launch(
+            headless=True, 
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--window-size=1920,1080"
+            ]
+        )
+        context = await browser.new_context(
+            storage_state=auth_path,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+            locale="en-US",
+            timezone_id="America/New_York"
+        )
+        page = await context.new_page()
+        
+        # Deep override of automated driver attributes to bypass bot tracking hooks
+        await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-    print(f"📡 Sending native kernel push command to Kaggle API Gateway for {owner_slug}/{dataset_slug}...")
-    
-    # We remove auth=() tuple and pass the custom_headers containing keys directly
-    response = requests.post(
-        api_url,
-        json=payload,
-        headers=custom_headers
-    )
+        # Exact workspace path assignment 
+        notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
 
-    if response.status_code == 200:
+
+        "
+        print(f"📡 Connecting to script workspace: {notebook_url}")
+        
         try:
-            result = response.json()
-            print("\n" + "="*80)
-            print("🎉 NATIVE API TRIGGER COMPLETED SUCCESSFULLY!")
-            print(f"Kaggle is processing version {result.get('versionNumber', 'New')} on Dual T4 GPUs.")
-            print(f"🔗 Track progress here: {result.get('url')}")
-            print("="*80 + "\n")
-        except Exception as parse_error:
-            print(f"⚠️ API responded with 200, but data parsing failed: {parse_error}")
-            print(f"Raw response text: {response.text}")
+            # wait_until="commit" ensures basic raw HTTP transport handshakes pass safely
+            await page.goto(notebook_url, wait_until="commit", timeout=90000)
+        except Exception as e:
+            print(f"⚠️ Initial routing network warning: {e}")
+
+        # Diagnostics checkpoint: Print exactly what webpage Playwright is viewing
+        print(f"📊 Current Page URL: {page.url}")
+        print(f"📊 Current Page Title: {await page.title()}")
+
+        # Strict security fallback boundary checkpoint
+        if "login" in page.url or await page.locator("text=Sign In").is_visible():
+            print("❌ Access Refused: The session cookie state has dropped or expired.")
+            await page.screenshot(path="error_screen.png")
+            await browser.close()
             sys.exit(1)
-    else:
-        print(f"\n❌ API Rejected Request! HTTP Status Code: {response.status_code}")
-        print("="*80)
-        print("📋 SERVER REJECTION DETAILS:")
-        print(response.text)
+
+        print("⏳ Waiting 30 seconds for the deep single-page application framework to load...")
+        await page.wait_for_timeout(30000)
+
+        # ====================================================================
+        # SHADOW-PIERCING CSS TARGETING VIA HARDCODED IMMUTABLE ATTRIBUTES
+        # ====================================================================
+        print("📋 Locating the Save Version button via piercing CSS tokens...")
+        
+        # Uses explicit element matching attributes to pierce Shadow roots
+        save_menu_locator = page.locator('button[title="Save Version"][aria-label="Save Version"]').first
+        
+        try:
+            # Poll for the element to stabilize and render on screen
+            await save_menu_locator.wait_for(state="visible", timeout=45000)
+            await save_menu_locator.scroll_into_view_if_needed()
+            
+            # Dispatch click to trigger the overlay form panel drawer
+            await save_menu_locator.click(force=True)
+            print("🔘 'Save Version' menu panel deployed successfully!")
+            await page.wait_for_timeout(4000)
+            
+            # Target the final blue confirmation "Save" execute button inside the popup modal
+            print("💾 Confirming background execution run profile allocation...")
+            confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
+            await confirm_btn.wait_for(state="visible", timeout=15000)
+            await confirm_btn.click(force=True)
+            print("🚀 Background 'Save & Run All' successfully triggered on Kaggle!")
+            
+        except Exception as e:
+            print(f"❌ Playwright Interaction Failure: Elements could not be resolved ({e})")
+            # Always dump a tracking frame snapshot to workspace to view exactly what broke
+            await page.screenshot(path="error_screen.png")
+            print("📸 Failure structure captured to error_screen.png")
+            await browser.close()
+            sys.exit(1)
+
+        print("⏳ Waiting 15 seconds to ensure backend server records version serialization...")
+        await page.wait_for_timeout(15000)
+        
+        # Crucial Step: Capture and update the rolling active session tracking state cookies file
+        await context.storage_state(path=ROLLING_STATE)
+        print(f"💾 Fresh session tracking token array saved to: {ROLLING_STATE}")
+        
+        print("\n" + "="*80)
+        print("🎉 PIPELINE TRIGGER COMPLETE!")
         print("="*80 + "\n")
-        sys.exit(1)
+        
+        await browser.close()
 
 if __name__ == "__main__":
-    trigger_via_api()
+    asyncio.run(run())
+
