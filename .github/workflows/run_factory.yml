@@ -548,19 +548,35 @@ jobs:
             git push
           fi
 
-       # 6. Trigger Kaggle (Using Kaggle CLI)
-      - name: Trigger Kaggle Notebook
-        env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-          KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
+      - name: Authenticate Kaggle API
         run: |
-          kaggle kernels push -p .
-          echo "waiting for kaggle to initialize..."
-          sleep 10
-          #
-          kaggle kernels status ${{secrets.KAGGLE_USERNAME}}/content-factory-engine
+           mkdir -p ~/.kaggle
+           echo '${{ secrets.KAGGLE_LEGACY_KEY }}' > ~/.kaggle/kaggle.json
+           chmod 600 ~/.kaggle/kaggle.json
 
+      - name: Push Code and Trigger GPU Run
+        run: |
+           # Triggers execution on Kaggle servers using the metadata parameters
+           kaggle kernels push -p .
+
+      - name: Monitor Execution Status
+        run: |
+          # Optional loop to poll status and print out logs upon completion
+          echo "Waiting for remote execution to complete..."
+          while true; do
+             STATUS=$(kaggle kernels status muhammadasjad2008/content-factory-engine | awk '{print $NF}')
+             echo "Current status: $STATUS"
+             if [ "$STATUS" = "complete" ]; then
+                 echo "Execution successful!"
+                 kaggle kernels output muhammadasjad2008/content-factory-engine -p ./output
+                 break
+             elif [ "$STATUS" = "error" ]; then
+                  echo "Execution failed. Fetching logs..."
+                  kaggle kernels output muhammadasjad2008/content-factory-engine -p ./output
+                  exit 1
+             fi
+             sleep 60
+          done
       # - name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
       #   # This explicitly passes your encrypted secrets into the runtime container
