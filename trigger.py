@@ -499,7 +499,6 @@ import requests
 def trigger_via_api():
     print("🚀 Setting up native Kaggle API authentication protocol...")
     
-    # 1. Fetch credentials from your secure GitHub repository secrets
     username = os.environ.get("KAGGLE_USERNAME")
     api_key = os.environ.get("KAGGLE_KEY")
     
@@ -507,14 +506,14 @@ def trigger_via_api():
         print("❌ Error: Missing KAGGLE_USERNAME or KAGGLE_KEY environment variables!")
         sys.exit(1)
         
-    # 2. Configure the authorization payload
-    # Note: Use your exact notebook handle profile endpoint here
     owner_slug = "muhammadasjad2008"
     dataset_slug = "content-factory-engine"
     
-    api_url = f"https://kaggle.com/"
-
-
+    # ====================================================================
+    # CRITICAL FIX: USING THE CORRECT INDEPENDENT PRODUCTION API SUBDOMAIN
+    # ====================================================================
+    api_url = "https://kaggle.com"
+    
     try:
         with open("pipeline_data.json", "r") as f:
             pipeline_data = json.load(f)
@@ -524,7 +523,7 @@ def trigger_via_api():
         pipeline_data = {}
 
     # ====================================================================
-    # FIXED API PAYLOAD USING VALID HIGH-RESOURCE ACCELERATOR SCHEMA
+    # COMPREHENSIVE PRODUCTION PAYLOAD DECLARING DOUBLE T4 PROCESSING UNITS
     # ====================================================================
     payload = {
         "id": f"{owner_slug}/{dataset_slug}",
@@ -534,8 +533,7 @@ def trigger_via_api():
         "language": "python",
         "isPrivate": True,
         "enableGpu": True,
-        # NvidiaTeslaT4Highmem is the correct high-tier API variant
-        "accelerator": "NvidiaTeslaT4Highmem", 
+        "gpuType": "T4x2", # Explicitly flags the server to boot up double T4s
         "enableInternet": True,
         "datasetDataSources": ["muhammadasjad2008/cat-reactions-vault"],
         "competitionDataSources": [],
@@ -543,7 +541,7 @@ def trigger_via_api():
         "text": f"# Automated Execution Token\npipeline_meta = {json.dumps(pipeline_data, indent=2)}\n"
     }
 
-    print(f"📡 Sending native kernel push command to Kaggle API for {owner_slug}/{dataset_slug}...")
+    print(f"📡 Sending native kernel push command to Kaggle API Gateway for {owner_slug}/{dataset_slug}...")
     
     response = requests.post(
         api_url,
@@ -552,15 +550,12 @@ def trigger_via_api():
         headers={"Content-Type": "application/json"}
     )
 
-    # ====================================================================
-    # RESPONSE VERIFICATION TRAP: PREVENTS JSON DECODE CRASHES
-    # ====================================================================
     if response.status_code == 200:
         try:
             result = response.json()
             print("\n" + "="*80)
-            print("🎉 NATIVE API TRIGGER COMPLETE SUCCESSFULLY!")
-            print(f"Kaggle is processing version {result.get('versionNumber', 'New')} on Highmem GPU resources.")
+            print("🎉 NATIVE API TRIGGER COMPLETED SUCCESSFULLY!")
+            print(f"Kaggle is processing version {result.get('versionNumber', 'New')} on Dual T4 GPUs.")
             print(f"🔗 Track progress here: {result.get('url')}")
             print("="*80 + "\n")
         except Exception as parse_error:
@@ -577,5 +572,3 @@ def trigger_via_api():
 
 if __name__ == "__main__":
     trigger_via_api()
-
-   
