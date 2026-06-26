@@ -548,36 +548,31 @@ jobs:
             git push
           fi
 
-      - name: Authenticate Kaggle API
+      #🔥 THIS IS THE EXACT CODE YOU PROVIDED - WITH CRITICAL FIXES
+      - name: Push and Run Kaggle Notebook
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-           mkdir -p ~/.kaggle
-           echo '${{ secrets.KAGGLE_KEY }}' > ~/.kaggle/kaggle.json
-           chmod 600 ~/.kaggle/kaggle.json
-
-      - name: Push Code and Trigger GPU Run
-        run: |
-           # Triggers execution on Kaggle servers using the metadata parameters
-           kaggle kernels push -p .
-
-      - name: Monitor Execution Status
-        run: |
-          # Optional loop to poll status and print out logs upon completion
-          echo "Waiting for remote execution to complete..."
-          while true; do
-             STATUS=$(kaggle kernels status muhammadasjad2008/content-factory-engine | awk '{print $NF}')
-             echo "Current status: $STATUS"
-             if [ "$STATUS" = "complete" ]; then
-                 echo "Execution successful!"
-                 kaggle kernels output muhammadasjad2008/content-factory-engine -p ./output
-                 break
-             elif [ "$STATUS" = "error" ]; then
-                  echo "Execution failed. Fetching logs..."
-                  kaggle kernels output muhammadasjad2008/content-factory-engine -p ./output
-                  exit 1
-             fi
-             sleep 60
-          done
-      # - name: Execute Kaggle T4x2 Push Trigger
+          # Install CLI
+          pip install kaggle
+          
+          # Setup auth - USE printf TO AVOID ESCAPING ISSUES
+          mkdir -p ~/.kaggle
+          printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+          
+          # DEBUG: Show what we're sending (sanitized)
+          echo "🔐 Auth setup complete. Key length: ${#KAGGLE_KEY}"
+          
+          # Push to Kaggle - PATH IS "." BECAUSE FILES ARE IN REPO ROOT
+          echo "🚀 Pushing notebook to Kaggle from: $(pwd)"
+          kaggle kernels push -p .
+          
+          echo "✅ Pushed to Kaggle. If 'Run on push' is enabled, execution starts automatically."
+          echo "🔗 Monitor: https://www.kaggle.com/muhammadasjad2008/content-factory-engine"
+    
+      #- name: Execute Kaggle T4x2 Push Trigger
       #   # 🔥 THE CRITICAL ENVIRONMENT BRIDGE:
       #   # This explicitly passes your encrypted secrets into the runtime container
       #   # so that Playwright can read your session cookie!
