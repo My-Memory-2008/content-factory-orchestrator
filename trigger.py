@@ -490,6 +490,7 @@
 
 
 
+
 import asyncio
 import os
 import sys
@@ -499,7 +500,6 @@ ROLLING_STATE = "state.json"
 FALLBACK_SECRET_VAR = "KAGGLE_AUTH_JSON"
 
 async def prepare_auth_file():
-    """Ensures a valid Playwright storage state file is ready for use."""
     if os.path.exists(ROLLING_STATE):
         print(f"🔄 Found rolling artifact state file: {ROLLING_STATE}")
         return ROLLING_STATE
@@ -547,88 +547,61 @@ async def run():
         except Exception as e:
             print(f"⚠️ Initial navigation routing alert: {e}")
 
-        # Security Boundary Check: Did cookies fail and drop to registration prompt?
         if "login" in page.url or await page.locator("text=Sign In").is_visible():
             print("❌ Access Refused: The session cookie state has dropped or expired.")
             await browser.close()
             sys.exit(1)
 
-        # ====================================================================
-        # NEW CRITICAL WAITING MATRIX: BLOCK UNTIL JAVASCRIPT APP HYDRATES
-        # ====================================================================
-        print("⏳ Waiting for Kaggle core application bundle compilation to settle...")
-        
-        # This locator matches any part of the active editor toolbar shell
-        app_shell_locator = page.locator("div[class*='editor'], main, #site-body")
+        print("⏳ Waiting for the main editor canvas container to hydrate...")
+        # Target the top-level parent container from your image snippet
+        editor_canvas = page.locator("div[data-testid='notebook-editor-render-tid']")
         try:
-            await app_shell_locator.first.wait_for(state="visible", timeout=45000)
-            print("✨ Application frame is rendered. Checking button hydration...")
+            await editor_canvas.wait_for(state="visible", timeout=45000)
+            print("✨ Editor workspace rendered on screen.")
         except Exception:
-            print("⚠️ App frame detection slow. Proceeding directly to structural lookup...")
+            print("⚠️ Workspace tracking slow, trying to look for button directly...")
 
-        # Deep search for the 'Save Version' action button across both data selectors and raw text fragments
-        save_menu_locator = page.locator("button[data-test-id='editor-header-save-button'], button:has-text('Save Version'), button:has-text('Save version')").first
+        # ====================================================================
+        # PERMANENT FIXED SELECTOR MATCHING THE HARDCODED HTML ATTRIBUTE
+        # ====================================================================
+        print("📋 Locating the Save Version button via immutable title tag...")
+        save_menu_locator = page.locator('button[title="Save Version"]').first
         
         try:
-            # Force the runner to actively wait up to 45 seconds for this specific button to become clickable
-            print("📋 Polling structural Kaggle Save Version menu trigger node...")
-            await save_menu_locator.wait_for(state="visible", timeout=45000)
-            
+            # Explicitly wait for this exact element to appear in the layout
+            await save_menu_locator.wait_for(state="visible", timeout=30000)
             await save_menu_locator.scroll_into_view_if_needed()
-            await save_menu_locator.click(force=True)
-            print("🔘 'Save Version' panel opened successfully via direct DOM locator context.")
             
-            # Wait for the submission overlay modal window to become visible on the screen
+            # Click it forcefully to open the dialog drawer panel
+            await save_menu_locator.click(force=True)
+            print("🔘 'Save Version' menu opened successfully!")
             await page.wait_for_timeout(4000)
             
-            print("💾 Dispatched inner payload configuration run execution form submit...")
+            # Click the blue final execution "Save" confirmation action button inside the open pop-up
+            print("💾 Confirming background execution run profile...")
             confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
             await confirm_btn.click(timeout=15000)
             print("🚀 Background 'Save & Run All' successfully triggered!")
             
         except Exception as e:
-            print(f"⚠️ Structural DOM locator failed ({e}). Deploying absolute Javascript text-extraction query...")
-            
-            # Fallback JavaScript execution block that crawls the window document live
-            js_backup_dispatch = """
-            () => {
-                const elements = Array.from(document.querySelectorAll('button, div, span'));
-                const target = elements.find(el => el.textContent.trim().toLowerCase().includes('save version'));
-                if (target) {
-                    target.click();
-                    return true;
-                }
-                return false;
-            }
-            """
-            opened_via_js = await page.evaluate(js_backup_dispatch)
-            await page.wait_for_timeout(4000)
-            
-            if opened_via_js:
-                print("⚡ Action modal deployed via Javascript string fallback. Confirming payload allocation...")
-                await page.keyboard.press("Enter")
-                print("🚀 Background submission event triggered via hotkey sequence override.")
-            else:
-                print("❌ Fatal Execution Error: The 'Save Version' node could not be resolved inside this renderer pass.")
-                # Save a screenshot to the workspace so you can see what went wrong in GitHub Actions
-                await page.screenshot(path="error_screen.png")
-                print("📸 Error context layout saved to 'error_screen.png'.")
-                await browser.close()
-                sys.exit(1)
+            print(f"❌ Critical Error: Could not execute interaction pattern ({e})")
+            await page.screenshot(path="error_screen.png")
+            await browser.close()
+            sys.exit(1)
 
-        print("⏳ Waiting 15 seconds to ensure the backend server locks in the commit token...")
+        print("⏳ Waiting 15 seconds to ensure backend registration completes...")
         await page.wait_for_timeout(15000)
         
-        # Capture and save the freshly updated active session state cookies for next time
+        # Keep our continuous rolling cookie update file fresh
         await context.storage_state(path=ROLLING_STATE)
         print(f"💾 Fresh session tracking token array saved to: {ROLLING_STATE}")
         
         print("\n" + "="*80)
         print("🎉 PIPELINE TRIGGER COMPLETE!")
-        print("Kaggle is now running your script in a locked background environment on your GPU T4.")
         print("="*80 + "\n")
         
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run())
+
