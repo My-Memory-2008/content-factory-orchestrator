@@ -490,7 +490,6 @@
 
 
 
-
 import os
 import sys
 import json
@@ -509,9 +508,6 @@ def trigger_via_api():
     owner_slug = "muhammadasjad2008"
     dataset_slug = "content-factory-engine"
     
-    # ====================================================================
-    # CRITICAL FIX: USING THE CORRECT INDEPENDENT PRODUCTION API SUBDOMAIN
-    # ====================================================================
     api_url = "https://kaggle.com"
     
     try:
@@ -522,9 +518,7 @@ def trigger_via_api():
         print(f"⚠️ Could not load pipeline_data.json ({e}). Using empty default.")
         pipeline_data = {}
 
-    # ====================================================================
-    # COMPREHENSIVE PRODUCTION PAYLOAD DECLARING DOUBLE T4 PROCESSING UNITS
-    # ====================================================================
+    # Comprehensive production payload declaring structural T4x2 parameters
     payload = {
         "id": f"{owner_slug}/{dataset_slug}",
         "slug": dataset_slug,
@@ -533,7 +527,7 @@ def trigger_via_api():
         "language": "python",
         "isPrivate": True,
         "enableGpu": True,
-        "gpuType": "T4x2", # Explicitly flags the server to boot up double T4s
+        "gpuType": "T4x2", 
         "enableInternet": True,
         "datasetDataSources": ["muhammadasjad2008/cat-reactions-vault"],
         "competitionDataSources": [],
@@ -541,13 +535,22 @@ def trigger_via_api():
         "text": f"# Automated Execution Token\npipeline_meta = {json.dumps(pipeline_data, indent=2)}\n"
     }
 
+    # ====================================================================
+    # CRITICAL FIX: EXPLICITLY MAPPING THE AUTHENTICATION KEY HEADERS
+    # ====================================================================
+    custom_headers = {
+        "Content-Type": "application/json",
+        "X-Kaggle-Username": username,
+        "X-Kaggle-Key": api_key
+    }
+
     print(f"📡 Sending native kernel push command to Kaggle API Gateway for {owner_slug}/{dataset_slug}...")
     
+    # We remove auth=() tuple and pass the custom_headers containing keys directly
     response = requests.post(
         api_url,
-        auth=(username, api_key),
         json=payload,
-        headers={"Content-Type": "application/json"}
+        headers=custom_headers
     )
 
     if response.status_code == 200:
