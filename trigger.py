@@ -521,7 +521,6 @@ async def run():
     async with async_playwright() as p:
         print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
         
-        # Deploy with standard anti-detection profile extensions to bypass dynamic data center blocks
         browser = await p.chromium.launch(
             headless=True, 
             args=[
@@ -539,28 +538,19 @@ async def run():
             timezone_id="America/New_York"
         )
         page = await context.new_page()
-        
-        # Deep override of automated driver attributes to bypass bot tracking hooks
         await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-        # Exact workspace path assignment 
         notebook_url = "https://www.kaggle.com/code/muhammadasjad2008/content-factory-engine/edit/"
-
-
-        
         print(f"📡 Connecting to script workspace: {notebook_url}")
         
         try:
-            # wait_until="commit" ensures basic raw HTTP transport handshakes pass safely
             await page.goto(notebook_url, wait_until="commit", timeout=90000)
         except Exception as e:
             print(f"⚠️ Initial routing network warning: {e}")
 
-        # Diagnostics checkpoint: Print exactly what webpage Playwright is viewing
         print(f"📊 Current Page URL: {page.url}")
         print(f"📊 Current Page Title: {await page.title()}")
 
-        # Strict security fallback boundary checkpoint
         if "login" in page.url or await page.locator("text=Sign In").is_visible():
             print("❌ Access Refused: The session cookie state has dropped or expired.")
             await page.screenshot(path="error_screen.png")
@@ -571,42 +561,105 @@ async def run():
         await page.wait_for_timeout(30000)
 
         # ====================================================================
-        # SHADOW-PIERCING CSS TARGETING VIA HARDCODED IMMUTABLE ATTRIBUTES
+        # ADVANCED JAVASCRIPT INJECTION CRAWLER (DEEP DOM TRAVERSAL)
         # ====================================================================
-        print("📋 Locating the Save Version button via piercing CSS tokens...")
+        print("📋 Injecting absolute JavaScript bypass to click 'Save Version'...")
         
-        # Uses explicit element matching attributes to pierce Shadow roots
-        save_menu_locator = page.locator('button[title="Save Version"][aria-label="Save Version"]').first
+        js_click_save_menu = """
+        () => {
+            function findSaveButton(root) {
+                if (!root) return null;
+                
+                // 1. Check all elements inside this root level
+                const elements = Array.from(root.querySelectorAll('*'));
+                for (const el of elements) {
+                    if (el.tagName === 'BUTTON') {
+                        const hasMatchingTitle = el.getAttribute('title') === 'Save Version';
+                        const hasMatchingAria = el.getAttribute('aria-label') === 'Save Version';
+                        const hasMatchingTooltipId = el.getAttribute('aria-describedby') === 'hiddenSaveVersionTooltip';
+                        
+                        if (hasMatchingTitle || hasMatchingAria || hasMatchingTooltipId) {
+                            return el;
+                        }
+                    }
+                    
+                    // 2. Recursively crawl down open Shadow DOM roots if present
+                    if (el.shadowRoot) {
+                        const found = findSaveButton(el.shadowRoot);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+            
+            const btn = findSaveButton(document);
+            if (btn) {
+                btn.scrollIntoView({ block: 'center' });
+                btn.click();
+                return true;
+            }
+            return false;
+        }
+        """
         
-        try:
-            # Poll for the element to stabilize and render on screen
-            await save_menu_locator.wait_for(state="visible", timeout=45000)
-            await save_menu_locator.scroll_into_view_if_needed()
+        # Execute the primary click to bring up the Kaggle settings popup panel
+        opened_dialog = await page.evaluate(js_click_save_menu)
+        await page.wait_for_timeout(4000)
+
+        if opened_dialog:
+            print("🔘 'Save Version' menu panel successfully opened via Javascript injection!")
+            print("💾 Confirming background run allocation (Save & Run All)...")
             
-            # Dispatch click to trigger the overlay form panel drawer
-            await save_menu_locator.click(force=True)
-            print("🔘 'Save Version' menu panel deployed successfully!")
-            await page.wait_for_timeout(4000)
+            # Second JavaScript execution specifically targeting the final confirmation modal window
+            js_confirm_run = """
+            () => {
+                function findConfirmButton(root) {
+                    if (!root) return null;
+                    const elements = Array.from(root.querySelectorAll('*'));
+                    for (const el of elements) {
+                        if (el.tagName === 'BUTTON') {
+                            const isTestId = el.getAttribute('data-test-id') === 'save-version-dialog-save-button';
+                            const hasSaveText = el.textContent && el.textContent.trim() === 'Save';
+                            
+                            if (isTestId || hasSaveText) {
+                                return el;
+                            }
+                        }
+                        if (el.shadowRoot) {
+                            const found = findConfirmButton(el.shadowRoot);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                }
+                
+                const confirmBtn = findConfirmButton(document);
+                if (confirmBtn) {
+                    confirmBtn.click();
+                    return true;
+                }
+                return false;
+            }
+            """
             
-            # Target the final blue confirmation "Save" execute button inside the popup modal
-            print("💾 Confirming background execution run profile allocation...")
-            confirm_btn = page.locator("button[data-test-id='save-version-dialog-save-button'], button:has-text('Save')").last
-            await confirm_btn.wait_for(state="visible", timeout=15000)
-            await confirm_btn.click(force=True)
-            print("🚀 Background 'Save & Run All' successfully triggered on Kaggle!")
-            
-        except Exception as e:
-            print(f"❌ Playwright Interaction Failure: Elements could not be resolved ({e})")
-            # Always dump a tracking frame snapshot to workspace to view exactly what broke
+            confirmed = await page.evaluate(js_confirm_run)
+            if confirmed:
+                print("🚀 Background 'Save & Run All' successfully triggered via deep JavaScript confirmation!")
+            else:
+                print("⚠️ Confirmation button layout structure missed. Attempting keyboard Enter fallback...")
+                await page.keyboard.press("Enter")
+                print("🚀 Sent keyboard confirmation event trigger sequence.")
+        else:
+            print("❌ Fatal Error: JavaScript crawler failed to locate any button matching the HTML specifications.")
             await page.screenshot(path="error_screen.png")
-            print("📸 Failure structure captured to error_screen.png")
+            print("📸 Diagnostic snapshot dumped to error_screen.png")
             await browser.close()
             sys.exit(1)
 
-        print("⏳ Waiting 15 seconds to ensure backend server records version serialization...")
+        print("⏳ Waiting 15 seconds to ensure backend registration completes...")
         await page.wait_for_timeout(15000)
         
-        # Crucial Step: Capture and update the rolling active session tracking state cookies file
+        # Capture and write the rolling updated cookie values
         await context.storage_state(path=ROLLING_STATE)
         print(f"💾 Fresh session tracking token array saved to: {ROLLING_STATE}")
         
@@ -618,4 +671,3 @@ async def run():
 
 if __name__ == "__main__":
     asyncio.run(run())
-
