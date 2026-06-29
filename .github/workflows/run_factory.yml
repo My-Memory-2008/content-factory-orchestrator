@@ -791,23 +791,24 @@ jobs:
           # Provide the cloud server a 15-second gap to finish wireguard handshakes
           sleep 15
 
-      # 4b. Extract targeted link from matrix and pipe through the native SOCKS5 container port
-      - name: Cloud Download Video Asset via Proxy
+      # 4b. Fetch the direct media stream anonymously via an unauthenticated downloader gateway API
+      - name: Cloud Download Video Asset via Proxy API
         run: |
           python3 << 'EOF'
-          import json, os, subprocess, requests
+          import json, os, subprocess, requests, re
           
-          # 1. Verify the WARP SOCKS5 tunnel layer is listening and authenticated
+          # 1. Verify the local Cloudflare WARP proxy node is running
           proxies = {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'}
           try:
-              cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=15).text
+              cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=15).text.strip()
               print(f"🔒 Executing via Secure Cloudflare WARP Network IP: {cloud_ip}")
           except Exception as e:
-              print(f"⚠️ Proxy verification handshake failed: {e}. Proceeding directly...")
+              print(f"⚠️ Proxy handshake delayed: {e}. Attempting direct processing...")
+              proxies = None
           
-          # 2. Safety checking for pipeline inputs
+          # 2. Extract pipeline target metadata
           if not os.path.exists('pipeline_data.json'):
-              print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
+              print("ℹ专 pipeline_data.json missing. Skipping download loop.")
               exit(0)
               
           with open('pipeline_data.json', 'r') as f:
@@ -817,30 +818,54 @@ jobs:
           shortcode = pipeline.get('shortcode', 'downloaded_reel')
           
           if not reel_url or "unknown" in reel_url:
-              print("❌ No valid link string present inside tracking pool.")
+              print("❌ Missing video URL path target.")
               exit(0)
               
-          # 3. Formulate the destination directory matrix
           os.makedirs('downloads', exist_ok=True)
-          output_template = f"downloads/{shortcode}.%(ext)s"
+          output_path = f"downloads/{shortcode}.mp4"
           
-          # 4. Route yt-dlp through the standard SOCKS5 WARP daemon port 1080
-          print(f"🚀 Pulling source target link: {reel_url}")
-          command = [
-              "yt-dlp",
-              "--proxy", "socks5://127.0.0.1:1080",
-              "--no-check-certificate",
-              "-o", output_template,
-              reel_url
-          ]
+          print(f"🚀 Contacting downstream unauthenticated mirror API for: {reel_url}")
           
-          result = subprocess.run(command, capture_output=True, text=True)
-          print(result.stdout)
-          if result.returncode != 0:
-              print(f"❌ Target download script failed to extract stream asset: {result.stderr}")
+          # 3. Request direct download stream link from a public API engine mirror
+          api_endpoint = "https://vsub.xyz"
+          payload = {"url": reel_url}
+          headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+          
+          video_stream_url = None
+          try:
+              response = requests.post(api_endpoint, json=payload, headers=headers, proxies=proxies, timeout=25)
+              if response.status_code == 200:
+                  res_data = response.json()
+                  # Extract raw URL mapping out of common public API layouts
+                  video_stream_url = res_data.get('url') or res_data.get('data', {}).get('url')
+          except Exception as api_err:
+              print(f"⚠️ Primary API mirror busy: {api_err}. Trying fallback strategy...")
+              
+          # 4. Fallback: If public API engines fail, strip the URL query parameters and try unauthenticated curl
+          if not video_stream_url:
+              print("🔄 API route unavailable. Attempting direct fallback link construction...")
+              # Appending specific query triggers to plain links forces certain CDN nodes to expose raw payloads
+              clean_url = reel_url.split('?')[0]
+              video_stream_url = f"{clean_url}?__a=1&__d=dis"
+          
+          # 5. Save the file stream directly into the workspace using curl
+          if video_stream_url:
+              print("🔗 Source asset link isolated. Streaming data...")
+              # Run standard curl across the local proxy to pull down the direct video source binary
+              curl_cmd = ["curl", "-L", "-o", output_path, video_stream_url]
+              if proxies:
+                  curl_cmd.extend(["--socks5-hostname", "127.0.0.1:1080"])
+                  
+              result = subprocess.run(curl_cmd, capture_output=True, text=True)
+              
+              if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+                  print("🎉 Video asset captured successfully without touching account endpoints!")
+              else:
+                  print(f"❌ Asset stream capture failed or empty payload returned: {result.stderr}")
           else:
-              print("🎉 Asset captured successfully inside cloud storage directory.")
+              print("❌ Unable to resolve clean mirror paths for this media target.")
           EOF
+
 
       # ====================================================================
 
