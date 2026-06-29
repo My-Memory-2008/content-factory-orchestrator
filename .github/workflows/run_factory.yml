@@ -783,7 +783,7 @@ jobs:
       # FIXED ROUTINE: GHCR IMAGE PATH & SOCKS5 TUNNEL ALIGNMENT
       # ====================================================================
 
-      # ====================================================================
+      # ===================================================================
       # ROBUST ROUTINE: HEADED PLAYWRIGHT VIRTUAL SCREEN BYPASS (NO COOKIES)
       # ====================================================================
 
@@ -797,7 +797,7 @@ jobs:
           echo "DISPLAY=:99" >> $GITHUB_ENV
           sleep 3
 
-      # 4b. Use genuine browser simulation to process snapinsta.app completely safely
+      # 4b. Use genuine browser simulation to process snapinsta.to completely safely
       - name: Cloud Download Video Asset via Playwright Simulation
         env:
           DISPLAY: :99
@@ -825,10 +825,10 @@ jobs:
               os.makedirs('downloads', exist_ok=True)
               output_path = f"downloads/{shortcode}.mp4"
               
-              print(f"🚀 Launching real browser instance to download: {reel_url}")
+              print(f"🚀 Launching real browser instance to download from snapinsta.to: {reel_url}")
               
               async with async_playwright() as p:
-                  # CRITICAL: Launch with headless=False. Xvfb captures it so it looks like a real screen
+                  # Launch with headless=False to mimic a human user screen footprint
                   browser = await p.chromium.launch(
                       headless=False,
                       args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
@@ -842,40 +842,65 @@ jobs:
                   
                   page = await context.new_page()
                   
-                  # Navigate to the downloader platform
+                  # Block analytical script scripts and known ad networks to optimize cloud network speeds
+                  await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
+                  
+                  # Navigate to the target downloader platform layout
                   print("🌐 Loading downloader frontend...")
                   await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
-                  await page.wait_for_timeout(3000)
+                  await page.wait_for_timeout(4000)
                   
-                  # Input the target URL string into the search bar
-                  input_selector = "input#url"
+                  # Target the precise input element field you highlighted
+                  input_selector = "input#s_input"
                   await page.wait_for_selector(input_selector, timeout=15000)
                   await page.fill(input_selector, reel_url)
                   await page.wait_for_timeout(1000)
                   
-                  # Press submit button
-                  print("⚡ Dispatching submission click event...")
-                  await page.click("button[type='submit']")
+                  # Click the targeted search submission button containing the 'Download' text
+                  print("⚡ Dispatching submission click event on primary download engine button...")
+                  submit_button_selector = "button:has-text('Download')"
+                  await page.click(submit_button_selector)
                   
-                  # Wait dynamically for the processing layer to generate the final download button elements
-                  print("⏳ Processing content stream, waiting for asset link...")
-                  download_btn_selector = "a.download-media"
+                  # Wait dynamically for background events and API requests to fully resolve media links
+                  print("⏳ Monitoring page layout transformations, waiting for direct download buttons...")
+                  
+                  # Close rogue popups and alert banners if they overlay on top of the browser screen canvas
+                  try:
+                      close_selectors = [".modal-footer button", ".close", "button:has-text('Close')", "#close-button"]
+                      for sel in close_selectors:
+                          if await page.locator(sel).is_visible():
+                              await page.click(sel)
+                              print(f"🧹 Dismissed intersecting popup component: {sel}")
+                  except Exception:
+                      pass
+                  
+                  # Target the specific inner result link structure rendered by snapinsta.to
+                  # Look for general download anchors or buttons that have 'Download Video' text properties
+                  download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
+                  video_stream_url = None
                   
                   try:
-                      await page.wait_for_selector(download_btn_selector, timeout=30000)
+                      # Give the backend up to 25 seconds to process and print out the media cards
+                      await page.wait_for_selector(download_btn_selector, timeout=25000)
                       video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
                   except Exception as e:
-                      print(f"❌ Failed to locate download button (Cloudflare block or UI changed): {e}")
-                      await browser.close()
-                      return
-                      
+                      print(f"❌ Could not isolate the direct stream link node on page: {e}")
+                      # Fallback step: search broadly for any active href strings pointing directly to video containers
+                      links = await page.locator("a").all()
+                      for link in links:
+                          href = await link.get_attribute("href")
+                          if href and ("instagram" in href or "cdn" in href or ".mp4" in href):
+                              video_stream_url = href
+                              break
+                              
                   await browser.close()
               
               # 2. Download the isolated source .mp4 string using standard curl utility
               if video_stream_url:
-                  # Clean up URL encoding artifacts
+                  # Clean up URL encoding formats
                   video_stream_url = video_stream_url.replace('&amp;', '&')
-                  print("🔗 Source link isolated. Streaming media blocks directly into workspace directory...")
+                  print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
+                  print("Streaming media blocks directly into workspace directory...")
                   
                   curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
                   subprocess.run(curl_cmd, capture_output=True)
@@ -891,11 +916,12 @@ jobs:
                   else:
                       print("❌ Core system disk space rejected file creation execution.")
               else:
-                  print("❌ Could not extract the raw download asset URL path property.")
+                  print("❌ Could not extract the raw download asset URL path property from the page canvas.")
           
           # Execute the primary async routine
           asyncio.run(run_stealth_download())
           EOF
+
 
 
 
