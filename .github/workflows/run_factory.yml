@@ -580,6 +580,129 @@
 
 
 
+# name: Content Factory Orchestrator (Duplicate-Proof)
+
+# on:
+#   workflow_dispatch:         # Allows manual trigger
+
+# jobs:
+#   process-queue:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write        # Allows the bot to push files back to repo
+#       actions: write         # Required to read/write rolling artifact tracking pools
+
+#     steps:
+#       # 1. Checkout your repository
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+
+#       # 2. Set up Python
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.10'
+
+#       # 3. Install lightweight dependencies
+#       - name: Install Dependencies
+#         run: |
+#          pip install requests openai
+#          python -m pip install --upgrade pip
+#          pip install playwright
+#          playwright install chromium --with-deps
+         
+
+#       # 4. Process queue → generate pipeline_data.json
+#       - name: Process Queue & Generate Script
+#         run: |
+#           python3 << 'EOF'
+#           import os, json, re
+#           from datetime import datetime, timezone
+          
+#           with open('reel_queue.json', 'r') as f:
+#               data = json.load(f)
+          
+#           queue = data.get('queue', [])
+#           processed = {p['url'] for p in data.get('processed', [])}
+          
+#           pick = None
+#           for r in queue:
+#               if '://instagram.com' in r['url']:
+#                   pick = r
+#                   break
+          
+#           if not pick:
+#               print("✅ No new reels. Exiting.")
+#               exit(0)
+          
+#           sc_match = re.search(r'/reel/([^/?]+)', pick['url'])
+#           sc = sc_match.group(1) if sc_match else "unknown"
+#           user = pick.get('username', 'unknown')
+          
+#           with open('pipeline_data.json', 'w') as f:
+#             json.dump({
+#                  "reel_url": pick['url'], "shortcode": sc, "username": user,
+#                  "script_text": " ",
+#                   "youtube_title": f"AI Hack #shorts",
+#                   "youtube_description": f"Tip from @{user}. #ai",
+#                   "youtube_tags": ["AI","Shorts"]
+#               }, f, indent=2)
+          
+#           data.setdefault('processed', []).append({
+#               "url": pick['url'], "username": user,
+#               "status": "in_progress", "started_at": datetime.now(timezone.utc).isoformat()
+#           })
+#           with open('reel_queue.json', 'w') as f:
+#               json.dump(data, f, indent=2)
+#           print(f"✅ Queued: {pick['url']}")
+#           EOF
+
+#       # 5. Commit changes back to GitHub
+#       - name: Commit Updates
+#         run: |
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@://github.com"
+#           git add -f reel_queue.json pipeline_data.json
+#           if git diff-index --quiet HEAD --; then
+#             echo "ℹ️ No changes to commit."
+#           else
+#             git commit -m "Auto: Picked next reel [skip ci]"
+#             git push
+#           fi
+
+#       # ====================================================================
+#       # CROSS-RUN HISTORICAL ARTIFACT RECOVERY LOOP (PERMANENT FIX)
+#       # ====================================================================
+
+#       # 6. Search across ALL historical runs to find and download yesterday's active token state
+#       - name: Download Latest Historical Kaggle Session State
+#         uses: dawidd6/action-download-artifact@v9
+#         continue-on-error: true # Safe fallback if the entire repo is wiped
+#         with:
+#           name: kaggle-rolling-state
+#           search_artifacts: true  # CRITICAL: Forces GitHub to look outside the current run thread
+#           path: .                 # Extract file directly to your main working workspace root
+
+
+#       # 7. Trigger Kaggle (Using Kaggle CLI & Playwright)
+#       - name: Trigger Kaggle Notebook
+#         env:
+#           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+#           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+#           KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
+#         run: python3 trigger.py
+
+#       # 8. Upload the freshly generated rolling session state so tomorrow's run can use it
+#       - name: Save Refreshed Kaggle Session State
+#         if: always() # Guarantees updated cookies register even if other pipeline steps fail
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: kaggle-rolling-state
+#           path: state.json # Keep this as state.json since you verified that's what's inside
+#           retention-days: 7
+
+
+
 name: Content Factory Orchestrator (Duplicate-Proof)
 
 on:
@@ -606,12 +729,11 @@ jobs:
       # 3. Install lightweight dependencies
       - name: Install Dependencies
         run: |
-         pip install requests openai
+         pip install requests openai yt-dlp requests[socks]
          python -m pip install --upgrade pip
          pip install playwright
          playwright install chromium --with-deps
          
-
       # 4. Process queue → generate pipeline_data.json
       - name: Process Queue & Generate Script
         run: |
@@ -657,16 +779,82 @@ jobs:
           print(f"✅ Queued: {pick['url']}")
           EOF
 
+      # ====================================================================
+      # NEW ROUTINE: AUTOMATED CLOUD VIDEO DOWNLOAD LOOP (TOR BYPASS)
+      # ====================================================================
+
+      # 4a. Install Tor Network Routing Daemon natively on the cloud container
+      - name: Initialize Tor Cloud Network Daemon
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tor
+          sudo service tor start
+          sleep 5
+
+      # 4b. Pull queue url from pipeline_data.json and pull the asset via Tor proxy
+      - name: Cloud Download Video Asset via Proxy
+        run: |
+          python3 << 'EOF'
+          import json, os, subprocess, requests
+          
+          # 1. Double check the Tor cloud connection path is open
+          proxies = {'http': 'socks5://127.0.0.1:9050', 'https': 'socks5://127.0.0.1:9050'}
+          try:
+              cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=10).text
+              print(f"🔒 Executing via Secure Tor Routing Cloud IP: {cloud_ip}")
+          except Exception as e:
+              print("⚠️ Tor handshake delayed, proceeding anyway...")
+          
+          # 2. Extract the video url targeted in step 4
+          if not os.path.exists('pipeline_data.json'):
+              print("ℹ️ pipeline_data.json missing or no reel active. Skipping download.")
+              exit(0)
+              
+          with open('pipeline_data.json', 'r') as f:
+              pipeline = json.load(f)
+          
+          reel_url = pipeline.get('reel_url')
+          shortcode = pipeline.get('shortcode', 'downloaded_reel')
+          
+          if not reel_url or "unknown" in reel_url:
+              print("❌ No valid URL present inside pipeline_data.json.")
+              exit(0)
+              
+          # 3. Build destination folder matrix inside workspace
+          os.makedirs('downloads', exist_ok=True)
+          output_template = f"downloads/{shortcode}.%(ext)s"
+          
+          # 4. Trigger yt-dlp layer routed completely via SOCKS5 proxy loop
+          print(f"🚀 Pulling source target link: {reel_url}")
+          command = [
+              "yt-dlp",
+              "--proxy", "socks5://127.0.0.1:9050",
+              "--no-check-certificate",
+              "-o", output_template,
+              reel_url
+          ]
+          
+          result = subprocess.run(command, capture_output=True, text=True)
+          print(result.stdout)
+          if result.returncode != 0:
+              print(f"⚠️ Warning during download stream: {result.stderr}")
+          else:
+              print("🎉 Asset captured successfully inside cloud storage directory.")
+          EOF
+
+      # ====================================================================
+
       # 5. Commit changes back to GitHub
       - name: Commit Updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@://github.com"
-          git add -f reel_queue.json pipeline_data.json
+          # Modified to strictly include tracking files as well as the new downloads folder
+          git add -f reel_queue.json pipeline_data.json downloads/
           if git diff-index --quiet HEAD --; then
             echo "ℹ️ No changes to commit."
           else
-            git commit -m "Auto: Picked next reel [skip ci]"
+            git commit -m "Auto: Picked next reel & downloaded media asset [skip ci]"
             git push
           fi
 
@@ -700,3 +888,4 @@ jobs:
           name: kaggle-rolling-state
           path: state.json # Keep this as state.json since you verified that's what's inside
           retention-days: 7
+
