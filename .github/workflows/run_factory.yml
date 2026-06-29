@@ -783,103 +783,120 @@ jobs:
       # FIXED ROUTINE: GHCR IMAGE PATH & SOCKS5 TUNNEL ALIGNMENT
       # ====================================================================
 
-      # 4a. Initialize a clean residential consumer tunnel via Cloudflare WARP using correct image tag
-      - name: Initialize Cloudflare WARP Cloud Network
-        run: |
-          # Pull and run directly from GitHub Container Registry (ghcr.io)
-          docker run -d --name warproxy -p 1080:1080 ghcr.io/kingcc/warproxy:latest
-          # Provide the cloud server a 15-second gap to finish wireguard handshakes
-          sleep 15
+      # ====================================================================
+      # ROBUST ROUTINE: HEADED PLAYWRIGHT VIRTUAL SCREEN BYPASS (NO COOKIES)
+      # ====================================================================
 
-      # 4b. Safely process video via SnapInsta.to backend token handler using local WARP routing
-      - name: Cloud Download Video Asset via Proxy API
+      # 4a. Initialize a Virtual Screen Buffer (Xvfb) so Chromium can run with headless=false in the cloud
+      - name: Initialize Virtual Display Framebuffer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          # Start Xvfb background display port 99
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 3
+
+      # 4b. Use genuine browser simulation to process snapinsta.app completely safely
+      - name: Cloud Download Video Asset via Playwright Simulation
+        env:
+          DISPLAY: :99
         run: |
           python3 << 'EOF'
-          import json, os, subprocess, requests, re
+          import json, os, subprocess, asyncio
+          from playwright.async_api import async_playwright
           
-          # 1. Establish and verify connection through local SOCKS5 tunnel
-          proxies = {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'}
-          try:
-              cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=15).text.strip()
-              print(f"🔒 Executing via Secure Cloudflare WARP Network IP: {cloud_ip}")
-          except Exception as e:
-              print(f"⚠️ Proxy connection delayed ({e}). Initializing fallback strategy...")
-              proxies = None
-          
-          # 2. Extract pipeline target from step 4
-          if not os.path.exists('pipeline_data.json'):
-              print("ℹ️ pipeline_data.json missing. Skipping download loop.")
-              exit(0)
-              
-          with open('pipeline_data.json', 'r') as f:
-              pipeline = json.load(f)
-          
-          reel_url = pipeline.get('reel_url')
-          shortcode = pipeline.get('shortcode', 'downloaded_reel')
-          
-          if not reel_url or "unknown" in reel_url:
-              print("❌ Missing video URL target path.")
-              exit(0)
-              
-          os.makedirs('downloads', exist_ok=True)
-          output_path = f"downloads/{shortcode}.mp4"
-          
-          print(f"🚀 Dispatching backend extraction queries directly to SnapInsta.to...")
-          
-          # 3. Emulate SnapInsta.to's native AJAX token request pipeline
-          ajax_endpoint = "https://snapinsta.to"
-          headers = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-              "X-Requested-With": "XMLHttpRequest",
-              "Content-Type": "application/x-www-form-urlencoded"
-          }
-          payload = {
-              "q": reel_url,
-              "t": "media",
-              "lang": "en"
-          }
-          
-          video_stream_url = None
-          try:
-              response = requests.post(ajax_endpoint, data=payload, headers=headers, proxies=proxies, timeout=20)
-              if response.status_code == 200:
-                  res_data = response.json()
-                  # Parse HTML stream properties embedded in SnapInsta's json response layout
-                  html_content = res_data.get('data', '')
+          async def run_stealth_download():
+              # 1. Extraction safety checks
+              if not os.path.exists('pipeline_data.json'):
+                  print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
+                  return
                   
-                  # Isolate the exact source video download anchor href using regular expressions
-                  url_matches = re.findall(r'href="([^"]+)"[^>]*class="[^"]*download-media', html_content)
-                  if url_matches:
-                      video_stream_url = url_matches[0]
-                      # Standardize formatting entities
-                      video_stream_url = video_stream_url.replace('&amp;', '&')
-          except Exception as api_err:
-              print(f"❌ SnapInsta server handshake failed: {api_err}")
+              with open('pipeline_data.json', 'r') as f:
+                  pipeline = json.load(f)
               
-          # 4. Stream real binary data down to workspace using cURL over SOCKS5 proxy
-          if video_stream_url:
-              print("🔗 Source link isolated. Streaming media file blocks directly into repo...")
-              curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path]
-              if proxies:
-                  curl_cmd.extend(["--socks5-hostname", "127.0.0.1:1080"])
-              curl_cmd.append(video_stream_url)
+              reel_url = pipeline.get('reel_url')
+              shortcode = pipeline.get('shortcode', 'downloaded_reel')
               
-              subprocess.run(curl_cmd, capture_output=True)
+              if not reel_url or "unknown" in reel_url:
+                  print("❌ Missing video URL target path inside JSON queue.")
+                  return
+                  
+              os.makedirs('downloads', exist_ok=True)
+              output_path = f"downloads/{shortcode}.mp4"
               
-              # 5. Strict Size Guard Verification Check
-              if os.path.exists(output_path):
-                  file_size = os.path.getsize(output_path)
-                  if file_size > 50000: # Ensure size exceeds light error text fragments
-                      print(f"🎉 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
+              print(f"🚀 Launching real browser instance to download: {reel_url}")
+              
+              async with async_playwright() as p:
+                  # CRITICAL: Launch with headless=False. Xvfb captures it so it looks like a real screen
+                  browser = await p.chromium.launch(
+                      headless=False,
+                      args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                  )
+                  
+                  # Emulate a clean desktop user profile environment
+                  context = await browser.new_context(
+                      viewport={'width': 1280, 'height': 720},
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                  )
+                  
+                  page = await context.new_page()
+                  
+                  # Navigate to the downloader platform
+                  print("🌐 Loading downloader frontend...")
+                  await page.goto("https://snapinsta.app", wait_until="domcontentloaded", timeout=60000)
+                  await page.wait_for_timeout(3000)
+                  
+                  # Input the target URL string into the search bar
+                  input_selector = "input#url"
+                  await page.wait_for_selector(input_selector, timeout=15000)
+                  await page.fill(input_selector, reel_url)
+                  await page.wait_for_timeout(1000)
+                  
+                  # Press submit button
+                  print("⚡ Dispatching submission click event...")
+                  await page.click("button[type='submit']")
+                  
+                  # Wait dynamically for the processing layer to generate the final download button elements
+                  print("⏳ Processing content stream, waiting for asset link...")
+                  download_btn_selector = "a.download-media"
+                  
+                  try:
+                      await page.wait_for_selector(download_btn_selector, timeout=30000)
+                      video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
+                  except Exception as e:
+                      print(f"❌ Failed to locate download button (Cloudflare block or UI changed): {e}")
+                      await browser.close()
+                      return
+                      
+                  await browser.close()
+              
+              # 2. Download the isolated source .mp4 string using standard curl utility
+              if video_stream_url:
+                  # Clean up URL encoding artifacts
+                  video_stream_url = video_stream_url.replace('&amp;', '&')
+                  print("🔗 Source link isolated. Streaming media blocks directly into workspace directory...")
+                  
+                  curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
+                  subprocess.run(curl_cmd, capture_output=True)
+                  
+                  # 3. Size Guard Checklist
+                  if os.path.exists(output_path):
+                      file_size = os.path.getsize(output_path)
+                      if file_size > 50000:
+                          print(f"🎉 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
+                      else:
+                          os.remove(output_path)
+                          print("❌ Download output contains text or error page metrics instead of binary. Dropping.")
                   else:
-                      # If a page error is written instead of video, strip the broken file immediately
-                      os.remove(output_path)
-                      print("❌ Saved file contains too small of a payload footprint. Stream rejected.")
+                      print("❌ Core system disk space rejected file creation execution.")
               else:
-                  print("❌ File write operation dropped mid-stream by cloud disk management.")
-          else:
-              print("❌ Unable to extract raw link strings from target mirror payload block.")
+                  print("❌ Could not extract the raw download asset URL path property.")
+          
+          # Execute the primary async routine
+          asyncio.run(run_stealth_download())
           EOF
+
 
 
 
