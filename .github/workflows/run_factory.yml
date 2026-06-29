@@ -1007,6 +1007,7 @@ jobs:
          pip install playwright
          playwright install chromium --with-deps
          
+
       # 4. Process queue → generate pipeline_data.json
       - name: Process Queue & Generate Script
         run: |
@@ -1053,7 +1054,7 @@ jobs:
           EOF
 
       # ====================================================================
-      # ROBUST ROUTINE: PLAYWRIGHT VIRTUAL DISPLAY + CONTINUOUS RESET GUARD
+      # ROBUST ROUTINE: HEADED PLAYWRIGHT VIRTUAL SCREEN BYPASS (NO COOKIES)
       # ====================================================================
 
       # 4a. Initialize a Virtual Screen Buffer (Xvfb) so Chromium can run with headless=false in the cloud
@@ -1061,20 +1062,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
+          # Start Xvfb background display port 99
           Xvfb :99 -screen 0 1280x720x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
           sleep 3
 
-      # 4b. Clear out stale workspace fragments and process snapinsta.to safely
+      # 4b. Use genuine browser simulation to process snapinsta.to completely safely
       - name: Cloud Download Video Asset via Playwright Simulation
         env:
           DISPLAY: :99
         run: |
           python3 << 'EOF'
           import json, os, subprocess, asyncio, shutil
+          from playwright.async_api import async_playwright
           
           async def run_stealth_download():
-              # 1. Verification checks
+              # 1. Extraction safety checks
               if not os.path.exists('pipeline_data.json'):
                   print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
                   return
@@ -1089,8 +1092,7 @@ jobs:
                   print("❌ Missing video URL target path inside JSON queue.")
                   return
               
-              # CRITICAL SYSTEM RESET: If the downloads directory exists, delete it completely
-              # This ensures old large mp4 binaries are cleared out of Git commits
+              # CRITICAL AUTOMATED RESET: Wipes out previous video file frames completely
               if os.path.exists('downloads'):
                   shutil.rmtree('downloads')
                   print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
@@ -1101,11 +1103,13 @@ jobs:
               print(f"🚀 Launching real browser instance to download from snapinsta.to: {reel_url}")
               
               async with async_playwright() as p:
+                  # Launch with headless=False to mimic a human user screen footprint
                   browser = await p.chromium.launch(
                       headless=False,
                       args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
                   )
                   
+                  # Emulate a clean desktop user profile environment
                   context = await browser.new_context(
                       viewport={'width': 1280, 'height': 720},
                       user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -1113,41 +1117,49 @@ jobs:
                   
                   page = await context.new_page()
                   
-                  # Block tracking structures
+                  # Block analytical scripts and known ad networks to optimize cloud network speeds
                   await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
                   
+                  # Navigate to the target downloader platform layout
                   print("🌐 Loading downloader frontend...")
                   await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
                   await page.wait_for_timeout(4000)
                   
+                  # Target the precise input element field you highlighted
                   input_selector = "input#s_input"
                   await page.wait_for_selector(input_selector, timeout=15000)
                   await page.fill(input_selector, reel_url)
                   await page.wait_for_timeout(1000)
                   
+                  # Click the targeted search submission button containing the 'Download' text
                   print("⚡ Dispatching submission click event on primary download engine button...")
                   submit_button_selector = "button:has-text('Download')"
                   await page.click(submit_button_selector)
                   
+                  # Wait dynamically for background events and API requests to fully resolve media links
                   print("⏳ Monitoring page layout transformations, waiting for direct download buttons...")
                   
-                  # Dismiss popups if visible
+                  # Close rogue popups and alert banners if they overlay on top of the browser screen canvas
                   try:
                       close_selectors = [".modal-footer button", ".close", "button:has-text('Close')", "#close-button"]
                       for sel in close_selectors:
                           if await page.locator(sel).is_visible():
                               await page.click(sel)
+                              print(f"🧹 Dismissed intersecting popup component: {sel}")
                   except Exception:
                       pass
                   
+                  # Target the specific inner result link structure rendered by snapinsta.to
                   download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
                   video_stream_url = None
                   
                   try:
+                      # Give the backend up to 25 seconds to process and print out the media cards
                       await page.wait_for_selector(download_btn_selector, timeout=25000)
                       video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
                   except Exception as e:
-                      print(f"❌ Could not isolate direct stream link layout configuration: {e}")
+                      print(f"❌ Could not isolate the direct stream link node on page: {e}")
+                      # Fallback step: search broadly for any active href strings pointing directly to video containers
                       links = await page.locator("a").all()
                       for link in links:
                           href = await link.get_attribute("href")
@@ -1157,8 +1169,9 @@ jobs:
                               
                   await browser.close()
               
-              # 2. Pull down asset binary blocks using curl
+              # 2. Download the isolated source .mp4 string using standard curl utility
               if video_stream_url:
+                  # Clean up URL encoding formats
                   video_stream_url = video_stream_url.replace('&amp;', '&')
                   print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
                   print("Streaming media blocks directly into workspace directory...")
