@@ -729,7 +729,7 @@ jobs:
       # 3. Install lightweight dependencies
       - name: Install Dependencies
         run: |
-         pip install requests openai yt-dlp requests[socks]
+         pip install requests openai yt-dlp
          python -m pip install --upgrade pip
          pip install playwright
          playwright install chromium --with-deps
@@ -780,34 +780,34 @@ jobs:
           EOF
 
       # ====================================================================
-      # NEW ROUTINE: AUTOMATED CLOUD VIDEO DOWNLOAD LOOP (TOR BYPASS)
+      # FIX ROUTINE: CLOUDFLARE WARP BYPASS TRICK (REPLACES REJECTED TOR ROUTE)
       # ====================================================================
 
-      # 4a. Install Tor Network Routing Daemon natively on the cloud container
-      - name: Initialize Tor Cloud Network Daemon
+      # 4a. Initialize a clean residential consumer tunnel via Cloudflare WARP
+      - name: Initialize Cloudflare WARP Cloud Network
         run: |
-          sudo apt-get update
-          sudo apt-get install -y tor
-          sudo service tor start
-          sleep 5
+          # Launch a secure local wrapper proxy container attached to the WARP infrastructure
+          docker run -d --name warproxy -p 8080:8080 kingcc/warproxy:latest
+          # Provide the cloud server a 10-second gap to establish the handshake connection
+          sleep 10
 
-      # 4b. Pull queue url from pipeline_data.json and pull the asset via Tor proxy
+      # 4b. Extract targeted link from matrix and pipe through the WARP container port
       - name: Cloud Download Video Asset via Proxy
         run: |
           python3 << 'EOF'
           import json, os, subprocess, requests
           
-          # 1. Double check the Tor cloud connection path is open
-          proxies = {'http': 'socks5://127.0.0.1:9050', 'https': 'socks5://127.0.0.1:9050'}
+          # 1. Verify the WARP HTTP tunnel layer is listening and authenticated
+          proxies = {'http': 'http://127.0.0.1:8080', 'https': 'http://127.0.0.1:8080'}
           try:
-              cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=10).text
-              print(f"🔒 Executing via Secure Tor Routing Cloud IP: {cloud_ip}")
+              cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=15).text
+              print(f"🔒 Executing via Secure Cloudflare WARP Network IP: {cloud_ip}")
           except Exception as e:
-              print("⚠️ Tor handshake delayed, proceeding anyway...")
+              print(f"⚠️ Proxy verification handshake failed: {e}. Proceeding directly...")
           
-          # 2. Extract the video url targeted in step 4
+          # 2. Safety checking for pipeline inputs
           if not os.path.exists('pipeline_data.json'):
-              print("ℹ️ pipeline_data.json missing or no reel active. Skipping download.")
+              print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
               exit(0)
               
           with open('pipeline_data.json', 'r') as f:
@@ -817,18 +817,18 @@ jobs:
           shortcode = pipeline.get('shortcode', 'downloaded_reel')
           
           if not reel_url or "unknown" in reel_url:
-              print("❌ No valid URL present inside pipeline_data.json.")
+              print("❌ No valid link string present inside tracking pool.")
               exit(0)
               
-          # 3. Build destination folder matrix inside workspace
+          # 3. Formulate the destination directory matrix
           os.makedirs('downloads', exist_ok=True)
           output_template = f"downloads/{shortcode}.%(ext)s"
           
-          # 4. Trigger yt-dlp layer routed completely via SOCKS5 proxy loop
+          # 4. Route yt-dlp through the standard HTTP/HTTPS WARP daemon port 
           print(f"🚀 Pulling source target link: {reel_url}")
           command = [
               "yt-dlp",
-              "--proxy", "socks5://127.0.0.1:9050",
+              "--proxy", "http://127.0.0.1:8080",
               "--no-check-certificate",
               "-o", output_template,
               reel_url
@@ -837,7 +837,7 @@ jobs:
           result = subprocess.run(command, capture_output=True, text=True)
           print(result.stdout)
           if result.returncode != 0:
-              print(f"⚠️ Warning during download stream: {result.stderr}")
+              print(f"❌ Target download script failed to extract stream asset: {result.stderr}")
           else:
               print("🎉 Asset captured successfully inside cloud storage directory.")
           EOF
@@ -849,7 +849,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@://github.com"
-          # Modified to strictly include tracking files as well as the new downloads folder
           git add -f reel_queue.json pipeline_data.json downloads/
           if git diff-index --quiet HEAD --; then
             echo "ℹ️ No changes to commit."
