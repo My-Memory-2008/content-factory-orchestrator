@@ -729,7 +729,7 @@ jobs:
       # 3. Install lightweight dependencies
       - name: Install Dependencies
         run: |
-         pip install requests openai yt-dlp
+         pip install requests openai yt-dlp requests[socks]
          python -m pip install --upgrade pip
          pip install playwright
          playwright install chromium --with-deps
@@ -780,25 +780,25 @@ jobs:
           EOF
 
       # ====================================================================
-      # FIX ROUTINE: CLOUDFLARE WARP BYPASS TRICK (REPLACES REJECTED TOR ROUTE)
+      # FIXED ROUTINE: GHCR IMAGE PATH & SOCKS5 TUNNEL ALIGNMENT
       # ====================================================================
 
-      # 4a. Initialize a clean residential consumer tunnel via Cloudflare WARP
+      # 4a. Initialize a clean residential consumer tunnel via Cloudflare WARP using correct image tag
       - name: Initialize Cloudflare WARP Cloud Network
         run: |
-          # Launch a secure local wrapper proxy container attached to the WARP infrastructure
-          docker run -d --name warproxy -p 8080:8080 kingcc/warproxy:latest
-          # Provide the cloud server a 10-second gap to establish the handshake connection
-          sleep 10
+          # Pull and run directly from GitHub Container Registry (ghcr.io)
+          docker run -d --name warproxy -p 1080:1080 ghcr.io/kingcc/warproxy:latest
+          # Provide the cloud server a 15-second gap to finish wireguard handshakes
+          sleep 15
 
-      # 4b. Extract targeted link from matrix and pipe through the WARP container port
+      # 4b. Extract targeted link from matrix and pipe through the native SOCKS5 container port
       - name: Cloud Download Video Asset via Proxy
         run: |
           python3 << 'EOF'
           import json, os, subprocess, requests
           
-          # 1. Verify the WARP HTTP tunnel layer is listening and authenticated
-          proxies = {'http': 'http://127.0.0.1:8080', 'https': 'http://127.0.0.1:8080'}
+          # 1. Verify the WARP SOCKS5 tunnel layer is listening and authenticated
+          proxies = {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'}
           try:
               cloud_ip = requests.get('https://ipify.org', proxies=proxies, timeout=15).text
               print(f"🔒 Executing via Secure Cloudflare WARP Network IP: {cloud_ip}")
@@ -824,11 +824,11 @@ jobs:
           os.makedirs('downloads', exist_ok=True)
           output_template = f"downloads/{shortcode}.%(ext)s"
           
-          # 4. Route yt-dlp through the standard HTTP/HTTPS WARP daemon port 
+          # 4. Route yt-dlp through the standard SOCKS5 WARP daemon port 1080
           print(f"🚀 Pulling source target link: {reel_url}")
           command = [
               "yt-dlp",
-              "--proxy", "http://127.0.0.1:8080",
+              "--proxy", "socks5://127.0.0.1:1080",
               "--no-check-certificate",
               "-o", output_template,
               reel_url
@@ -848,7 +848,7 @@ jobs:
       - name: Commit Updates
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@://github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f reel_queue.json pipeline_data.json downloads/
           if git diff-index --quiet HEAD --; then
             echo "ℹ️ No changes to commit."
