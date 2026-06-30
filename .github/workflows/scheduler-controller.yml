@@ -61,7 +61,7 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           KAGGLE_AUTH_JSON: ${{ secrets.KAGGLE_AUTH_JSON }}
-        run: python3 trigger.py
+        run: python3 trigger-scheduler.py
 
       # 7a. FIX STEP: Guard against uploading empty or missing states if trigger.py errored out
       - name: Verify Newly Extracted Session Tokens
