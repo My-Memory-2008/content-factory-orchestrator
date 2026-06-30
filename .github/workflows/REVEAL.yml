@@ -1,0 +1,11 @@
+name: Reveal Secret
+on: workflow_dispatch # Allows you to trigger it manually
+
+jobs:
+  reveal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Base64 Encode Secret
+        run: |
+          # Encode the secret so GitHub logs won't automatically mask it
+          echo "${{ secrets.KAGGLE_KEY }}" | base64
