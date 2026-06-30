@@ -605,32 +605,28 @@ async def run():
     async with async_playwright() as p:
         print("🚀 Setting up ultra-efficient Kaggle Script Save Version trigger...")
         
-        # Verify repository secrets token block 
-        secret_auth_data = os.environ.get("KAGGLE_AUTH_JSON")
-        if not secret_auth_data:
-            print("❌ Error: Missing KAGGLE_AUTH_JSON environment variable secret!")
+        # 1. Fetch official API credentials from GitHub Secrets
+        KAGGLE_USER = os.environ.get("KAGGLE_USERNAME")
+        KAGGLE_KEY = os.environ.get("KAGGLE_KEY")
+        
+        if not KAGGLE_USER or not KAGGLE_KEY:
+            print("❌ Error: Missing KAGGLE_USERNAME or KAGGLE_KEY secrets!")
             sys.exit(1)
-            
-        with open("kaggle_auth.json", "w") as f:
-            f.write(secret_auth_data)
 
         # Launching headless browser on desktop resolution
         browser = await p.chromium.launch(headless=True, args=["--window-size=1920,1080"])
         
         notebook_url = "https://kaggle.com/code/muhammadasjad2008/content-factory-engine/edit"
         login_successful = False
-        
-        # Define the two separate configuration variables clearly
         active_context = None
         active_page = None
 
         # ====================================================================
-        # LAYER 1: ATTEMPT HISTORICAL LOGIN (USING HISTORICAL VARIABLES)
+        # LAYER 1: TRY ROLLING COOKIES (FAST PATH)
         # ====================================================================
         if os.path.exists("state.json") and os.path.getsize("state.json") > 5:
             print("🔑 Attempting login with historical rolling state.json session cookies...")
             try:
-                # Use a unique variable for the historical setup
                 historical_context = await browser.new_context(
                     storage_state="state.json",
                     viewport={"width": 1920, "height": 1080}
@@ -638,40 +634,50 @@ async def run():
                 historical_page = await historical_context.new_page()
                 await historical_page.goto(notebook_url, wait_until="domcontentloaded", timeout=45000)
                 
-                # Check for an element unique to a logged-in editor workspace
+                # Verify if we are actually in the editor or got booted to login page
                 await historical_page.wait_for_selector("button:has-text('Save Version'), .edit-notebook", timeout=10000)
                 print("✅ Historical rolling cookies verified! Session successfully resumed.")
                 
-                # Pass the successful lane over to the active tracking pointers
                 active_context = historical_context
                 active_page = historical_page
                 login_successful = True
             except Exception as e:
-                print(f"⚠️ Historical session cookies expired or challenged: {e}")
-                # Cleanly close and wipe the broken historical instances
+                print(f"⚠️ Historical session cookies expired or flagged by IP jump: {e}")
                 if 'historical_page' in locals(): await historical_page.close()
                 if 'historical_context' in locals(): await historical_context.close()
                 login_successful = False
 
         # ====================================================================
-        # LAYER 2: FALLBACK LOGIN (USING ORIGINAL SOURCE VARIABLES)
+        # LAYER 2: PERMANENT FALLBACK (NATIVE KAGGLE LOGIN VIA API CREDENTIALS)
         # ====================================================================
         if not login_successful:
-            print("🔑 Initializing fresh login using backup repository secret (KAGGLE_AUTH_JSON)...")
+            print("🔑 Rolling cookies failed. Executing permanent API-driven login fallback...")
             try:
-                # Use a unique variable for the original fallback setup
-                original_context = await browser.new_context(
-                    storage_state="kaggle_auth.json",
-                    viewport={"width": 1920, "height": 1080}
-                )
+                original_context = await browser.new_context(viewport={"width": 1920, "height": 1080})
                 original_page = await original_context.new_page()
-                await original_page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
                 
-                # Pass the original fallback lane over to the active tracking pointers
+                # Navigate straight to Kaggle's clean login gateway
+                await original_page.goto("Use code with caution.pythonhttps://kaggle.comUse code with caution.python", wait_until="domcontentloaded")
+                
+                # Click 'Sign in with Kaggle' to reveal standard user/pass/key fields
+                await original_page.click("button:has-text('Sign in with Kaggle'), button:has-text('Email')")
+                
+                # Kaggle lets you log in using your Username and your permanent API Secret Key!
+                await original_page.fill("input[name='username'], input[type='text']", KAGGLE_USER)
+                await original_page.fill("input[name='password'], input[type='password']", KAGGLE_KEY)
+                
+                # Submit login form
+                await original_page.click("button[type='submit'], button:has-text('Sign In')")
+                await original_page.wait_for_timeout(5000)
+                
+                # Now navigate to your notebook editor completely authenticated
+                print("📡 Routing authenticated browser to editor space...")
+                await original_page.goto(notebook_url, wait_until="domcontentloaded", timeout=60000)
+                
                 active_context = original_context
                 active_page = original_page
             except Exception as e:
-                print(f"❌ Core navigation failed on original fallback: {e}")
+                print(f"❌ Core API fallback login failed: {e}")
                 sys.exit(1)
 
         # ====================================================================
@@ -688,7 +694,6 @@ async def run():
         () => {
             const buttons = Array.from(document.querySelectorAll('button'));
             const saveBtn = buttons.find(b => b.textContent.toLowerCase().includes('save version'));
-            
             if (saveBtn) {
                 saveBtn.click();
                 return true;
@@ -735,13 +740,9 @@ async def run():
             print("🎉 Success: Refreshed token footprints written out cleanly to state.json.")
         except Exception as state_err:
             print(f"⚠️ Error dumping updated authentication state: {state_err}")
-        # ====================================================================
         
         print("\n" + "="*80)
         print("🎉 PIPELINE TRIGGER COMPLETE!")
-        print("Kaggle is now running your script in a locked background environment on your GPU T4.")
-        print("The GPU will automatically power off and stop usage the exact second your code finishes.")
-        print("🔗 Track execution and view live logs here: https://kaggle.com")
         print("="*80 + "\n")
         
         await browser.close()
