@@ -1,0 +1,72 @@
+name: Instagram Reel Analyzer (Ollama Qwen2.5-VL + Playwright)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Automated run every 6 hours
+  workflow_dispatch: # Allows manual trigger button click
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Setup Execution Environment
+      - name: Set up Python
+        uses: actions/uses-python@v5
+        with:
+          python-version: '3.10'
+
+      # 2. System Layer Package Dependencies
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update 
+          sudo apt-get install -y ffmpeg xvfb curl
+          pip install opencv-python-headless pillow requests playwright
+          playwright install chromium
+
+      # 3. Cache Ollama Models to prevent downloading the 3B weights every single run
+      - name: Cache Ollama Models
+        id: cache-ollama
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama
+          key: ollama-qwen25-vl-3b-cache
+
+      # 4. Install Ollama and Boot Server Service
+      - name: Install and Run Ollama
+        run: |
+          # Download and install Ollama binary
+          curl -fsSL https://ollama.com | sh
+          
+          # Serve Ollama as a background process daemon
+          ollama serve &
+          
+          # Give the engine service 5 seconds to wake up completely
+          sleep 5
+          
+          # Download Qwen2.5-VL 3B weights if not pulled by the cache step
+          echo "Pulling Qwen2.5-VL model weights..."
+          ollama pull qwen2.5-vl:3b
+
+      # 5. Initialize Virtual Display Framebuffer for Headed Playwright Browser Simulation
+      - name: Initialize Virtual Display Framebuffer
+        run: |
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 3
+
+      # 6. Execute Main Orchestration Script
+      - name: Run Analyzer Script
+        env:
+          DISPLAY: :99
+        run: python analyzer.py
+
+      # 7. Write Back Code Base Changes 
+      - name: Commit and Push Results
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add approved.txt
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update approved reels [skip ci]" && git push)
