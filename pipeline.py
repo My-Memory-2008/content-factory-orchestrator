@@ -161,8 +161,8 @@ def run_gemma_ai_evaluation(reel_url, video_file_path):
     prompt = (
         "Analyze these video frames thoroughly. You are acting as a strict quality control filter. "
         "Check all corners, edges, and the center for any kind of creator handle text, branding, application logo, "
-        "or corporate promotional elements. Also, verify if a human face is clearly visible. "
-        "If there are ANY watermarks, promotional logos, or human faces visible, reply with 'REJECT'. "
+        "or corporate promotional elements. Also, verify if a human face is clearly visible who promotes himself and the frame looks like faceless video. "
+        "If there are ANY watermarks, promotional logos, or human faces visible who promote themselves through branding and for subscription or following, reply with 'REJECT'. "
         "If the video is completely faceless AND completely free of any branding/watermarks, reply with 'APPROVE'."
     )
     
