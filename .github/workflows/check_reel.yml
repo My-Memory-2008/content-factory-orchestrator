@@ -1,7 +1,11 @@
 name: Bulk Reel Processor Queue
 
 on:
-  workflow_dispatch: # Allows your external system or API to execute it exactly when needed
+  workflow_dispatch: 
+
+# --- CRITICAL FIX: GRANT WRITE PERMISSIONS TO THE BOT ---
+permissions:
+  contents: write # Allows the automatic GITHUB_TOKEN to push the file updates back to main
 
 jobs:
   process-next-video:
@@ -46,7 +50,7 @@ jobs:
         git config --global user.name "Queue Processor Bot"
         git config --global user.email "actions@github.com"
         git pull origin main
-        git add input_reels.txt rejected.txt reel_source_summa.txt curated_vault/
+        git add input_reels.txt rejected.txt reel_source_summa.txt
         git commit -m "Auto-Update: Processed queue ledger item" || echo "No changes to save."
         git push origin main
       env:
