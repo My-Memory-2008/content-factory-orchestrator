@@ -39,77 +39,82 @@ jobs:
         echo "DISPLAY=:99" >> $GITHUB_ENV
         sleep 3
 
-    # --- STEP 1: POP LINK FROM QUEUE & CHECK METADATA LIKES ---
-    - name: Run Engagement Pre-Check
-      run: python pipeline.py
-
-    # --- STEP 2: PLAYWRIGHT CHROMIUM DOWNLOAD BLOCK ---
-    - name: Cloud Download Video Asset via Playwright Simulation
+    # --- SINGLE STEP EXECUTION: MANAGEMENT AND STEALTH DOWNLOADING ---
+    - name: Cloud Extraction via Playwright Screen Automation
       env:
         DISPLAY: :99
       run: |
         python3 << 'EOF'
-        import json, os, subprocess, asyncio, shutil
+        import sys, os, subprocess, asyncio, shutil
         from playwright.async_api import async_playwright
         
-        async def run_stealth_download():
-            if not os.path.exists('current_target.txt'):
-                print("ℹ️ current_target.txt missing. Target reel did not pass metrics. Skipping downloader.")
-                return
+        async def process_queue_and_download():
+            input_file = "input_reels.txt"
+            storage_dir = "curated_vault"
+            rejected_file = "rejected.txt"
+            
+            if not os.path.exists(input_file):
+                print("ℹ️ input_reels.txt is missing. Create it to begin loops.")
+                sys.exit(0)
                 
-            with open('current_target.txt', 'r') as f:
-                reel_url = f.read().strip()
+            with open(input_file, "r") as f:
+                urls = [line.strip() for line in f if line.strip()]
+                
+            if not urls:
+                print("📭 Queue Empty. No entries inside input_reels.txt.")
+                sys.exit(0)
+                
+            # Pop the first target link
+            reel_url = urls[0]
+            print(f"🎬 Target Isolated: {reel_url}")
+            
+            # Clean immediately from queue file so lists never get mixed up
+            with open(input_file, "w") as f:
+                for remaining_url in urls[1:]:
+                    f.write(f"{remaining_url}\n")
+            print("🧹 Target permanently wiped from input_reels.txt queue canvas.")
             
             try:
                 shortcode = reel_url.split("/reel/")[-1].split("/")[0]
             except Exception:
                 shortcode = "unique_asset"
                 
-            if os.path.exists('curated_vault'):
-                shutil.rmtree('curated_vault')
-            os.makedirs('curated_vault', exist_ok=True)
-            output_path = f"curated_vault/reel_{shortcode}.mp4"
+            if os.path.exists(storage_dir):
+                shutil.rmtree(storage_dir)
+            os.makedirs(storage_dir, exist_ok=True)
+            output_path = f"{storage_dir}/reel_{shortcode}.mp4"
             
-            print(f"🚀 Launching browser window to process snapinsta.to for: {reel_url}")
             async with async_playwright() as p:
-                browser = await p.chromium.launch(
-                    headless=False,
-                    args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
-                )
-                context = await browser.new_context(
-                    viewport={'width': 1280, 'height': 720},
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                )
+                browser = await p.chromium.launch(headless=False, args=["--disable-blink-features=AutomationControlled", "--no-sandbox"])
+                context = await browser.new_context(viewport={'width': 1280, 'height': 720}, user_agent="Mozilla/5.0")
                 page = await context.new_page()
-                await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
                 
+                await page.route("**/*", lambda r: r.continue_() if not any(x in r.request.url for x in ["doubleclick", "popads", "adservice"]) else r.abort())
                 await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_timeout(4000)
+                await page.wait_for_timeout(3000)
                 
                 input_selector = "input#s_input"
                 await page.wait_for_selector(input_selector, timeout=15000)
                 await page.fill(input_selector, reel_url)
-                await page.wait_for_timeout(1000)
                 
-                submit_button_selector = "button:has-text('Download')"
-                await page.click(submit_button_selector)
-                print("⏳ Button clicked! Monitoring layout transformation nodes...")
+                await page.click("button:has-text('Download')")
+                print("⏳ Loading media download links container...")
                 
                 try:
-                    close_selectors = [".modal-footer button", ".close", "button:has-text('Close')", "#close-button"]
+                    await page.wait_for_timeout(4000)
+                    close_selectors = [".modal-footer button", ".close", "button:has-text('Close')"]
                     for sel in close_selectors:
-                        if await page.locator(sel).is_visible():
-                            await page.click(sel)
+                        if await page.locator(sel).is_visible(): await page.click(sel)
                 except Exception:
                     pass
-                
+                    
                 download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
                 video_stream_url = None
                 
                 try:
                     await page.wait_for_selector(download_btn_selector, timeout=25000)
                     video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
-                except Exception as e:
+                except Exception:
                     links = await page.locator("a").all()
                     for link in links:
                         href = await link.get_attribute("href")
@@ -118,37 +123,31 @@ jobs:
                             break
                             
                 await browser.close()
-            
+                
             if video_stream_url:
                 video_stream_url = video_stream_url.replace('&amp;', '&')
-                print(f"🔗 Stream link found. Fetching raw mp4 structure payload...")
-                curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
-                subprocess.run(curl_cmd, capture_output=True)
+                subprocess.run(["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url], capture_output=True)
                 if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-                    print("🎉 Video file successfully saved into workspace folder.")
+                    print("🎉 Media payload streamed successfully into file blocks.")
                     return
-            
-            # If it falls through, log a clear tracking message in the repository files
-            print("❌ Downloader fell through. Writing failure properties...")
-            with open("rejected.txt", "a") as f_rej:
-                f_rej.write(f"{reel_url} - Downloader website extraction failed\n")
-            if os.path.exists('current_target.txt'):
-                os.remove('current_target.txt')
+                    
+            print("❌ Download Pipeline failed to isolate stream container tags.")
+            with open(rejected_file, "a") as f_rej:
+                f_rej.write(f"{reel_url} - Downloader engine failed to grab asset file\n")
                 
-        asyncio.run(run_stealth_download())
+        asyncio.run(process_queue_and_download())
         EOF
 
-    # --- STEP 3: RUN QUANTIZED GEMMA VISUAL ANALYSIS ---
+    # --- STEP 2: RUN QUANTIZED GEMMA VISUAL ANALYSIS ONLY IF FILE IS PRESENT ---
     - name: Execute Gemma AI Verification Pipeline
-      run: python pipeline.py --gemma
+      run: python pipeline.py
 
-    # --- STEP 4: SAVE REPOSITORY STATE AND CLEANUP METADATA ---
+    # --- STEP 3: COMMIT REPOSITORY CHANGES ---
     - name: Commit and Save Ledger State Modifications
       run: |
         git config --global user.name "Queue Processor Bot"
         git config --global user.email "actions@github.com"
         git pull origin main
-        rm -f current_target.txt
         git add input_reels.txt rejected.txt reel_source_summa.txt
         git commit -m "Auto-Update: Processed queue ledger item" || echo "No changes to save."
         git push origin main
