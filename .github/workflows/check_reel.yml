@@ -3,9 +3,8 @@ name: Bulk Reel Processor Queue
 on:
   workflow_dispatch: 
 
-# --- CRITICAL FIX: GRANT WRITE PERMISSIONS TO THE BOT ---
 permissions:
-  contents: write # Allows the automatic GITHUB_TOKEN to push the file updates back to main
+  contents: write 
 
 jobs:
   process-next-video:
@@ -40,17 +39,117 @@ jobs:
         echo "DISPLAY=:99" >> $GITHUB_ENV
         sleep 3
 
-    - name: Execute Unified Pipeline Script
-      env:
-        DISPLAY: :99
+    # --- STEP 1: POP LINK FROM QUEUE & CHECK METADATA LIKES ---
+    - name: Run Engagement Pre-Check
       run: python pipeline.py
 
+    # --- STEP 2: PLAYWRIGHT CHROMIUM DOWNLOAD BLOCK ---
+    - name: Cloud Download Video Asset via Playwright Simulation
+      env:
+        DISPLAY: :99
+      run: |
+        python3 << 'EOF'
+        import json, os, subprocess, asyncio, shutil
+        from playwright.async_api import async_playwright
+        
+        async def run_stealth_download():
+            if not os.path.exists('current_target.txt'):
+                print("ℹ️ current_target.txt missing. Target reel did not pass metrics. Skipping downloader.")
+                return
+                
+            with open('current_target.txt', 'r') as f:
+                reel_url = f.read().strip()
+            
+            try:
+                shortcode = reel_url.split("/reel/")[-1].split("/")[0]
+            except Exception:
+                shortcode = "unique_asset"
+                
+            if os.path.exists('curated_vault'):
+                shutil.rmtree('curated_vault')
+            os.makedirs('curated_vault', exist_ok=True)
+            output_path = f"curated_vault/reel_{shortcode}.mp4"
+            
+            print(f"🚀 Launching browser window to process snapinsta.to for: {reel_url}")
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(
+                    headless=False,
+                    args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                )
+                context = await browser.new_context(
+                    viewport={'width': 1280, 'height': 720},
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                )
+                page = await context.new_page()
+                await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
+                
+                await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_timeout(4000)
+                
+                input_selector = "input#s_input"
+                await page.wait_for_selector(input_selector, timeout=15000)
+                await page.fill(input_selector, reel_url)
+                await page.wait_for_timeout(1000)
+                
+                submit_button_selector = "button:has-text('Download')"
+                await page.click(submit_button_selector)
+                print("⏳ Button clicked! Monitoring layout transformation nodes...")
+                
+                try:
+                    close_selectors = [".modal-footer button", ".close", "button:has-text('Close')", "#close-button"]
+                    for sel in close_selectors:
+                        if await page.locator(sel).is_visible():
+                            await page.click(sel)
+                except Exception:
+                    pass
+                
+                download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
+                video_stream_url = None
+                
+                try:
+                    await page.wait_for_selector(download_btn_selector, timeout=25000)
+                    video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
+                except Exception as e:
+                    links = await page.locator("a").all()
+                    for link in links:
+                        href = await link.get_attribute("href")
+                        if href and ("instagram" in href or "cdn" in href or ".mp4" in href):
+                            video_stream_url = href
+                            break
+                            
+                await browser.close()
+            
+            if video_stream_url:
+                video_stream_url = video_stream_url.replace('&amp;', '&')
+                print(f"🔗 Stream link found. Fetching raw mp4 structure payload...")
+                curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
+                subprocess.run(curl_cmd, capture_output=True)
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
+                    print("🎉 Video file successfully saved into workspace folder.")
+                    return
+            
+            # If it falls through, log a clear tracking message in the repository files
+            print("❌ Downloader fell through. Writing failure properties...")
+            with open("rejected.txt", "a") as f_rej:
+                f_rej.write(f"{reel_url} - Downloader website extraction failed\n")
+            if os.path.exists('current_target.txt'):
+                os.remove('current_target.txt')
+                
+        asyncio.run(run_stealth_download())
+        EOF
+
+    # --- STEP 3: RUN QUANTIZED GEMMA VISUAL ANALYSIS ---
+    - name: Execute Gemma AI Verification Pipeline
+      run: python pipeline.py --gemma
+
+    # --- STEP 4: SAVE REPOSITORY STATE AND CLEANUP METADATA ---
     - name: Commit and Save Ledger State Modifications
       run: |
         git config --global user.name "Queue Processor Bot"
         git config --global user.email "actions@github.com"
         git pull origin main
-        git add input_reels.txt rejected.txt reel_source_summa.txt
+        rm -f current_target.txt
+        git add input_reels.txt rejected.txt reel_source.txt
         git commit -m "Auto-Update: Processed queue ledger item" || echo "No changes to save."
         git push origin main
       env:
