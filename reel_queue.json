@@ -1,5 +1,11 @@
 {
   "queue": [
+    {
+      "url": "https://www.instagram.com/sarcasm_only/reel/C8kSwlkP0xd/",
+      "username": "sarcasm_only",
+      "notes": "Auto-added from reels_source.txt",
+      "added_at": "2026-07-01T07:32:14.106842+00:00"
+    }
   ],
   "processed": [
     {
@@ -990,7 +996,7 @@
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
-    "last_run": "2026-06-30T10:10:54.768144+00:00",
+    "last_run": "2026-07-01T07:32:14.107045+00:00",
     "next_scheduled": null
   }
 }
