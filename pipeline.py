@@ -1,94 +1,38 @@
 import os
 import cv2
 import sys
+import shutil
 import torch
 import numpy as np
 from PIL import Image
-from curl_cffi import requests
 from transformers import AutoProcessor, AutoModelForMultimodalLM, BitsAndBytesConfig
 
-INPUT_FILE = "input_reels.txt"
-REJECTED_FILE = "rejected.txt"
 FINAL_VAULT = "reel_source.txt"
-TARGET_TRACKER = "current_target.txt"
+REJECTED_FILE = "rejected.txt"
+NEW_STORAGE_DIR = "curated_vault"
 
 def log_failure(url, reason):
     print(f"❌ PIPELINE REJECTION: {url} -> Reason: {reason}")
     with open(REJECTED_FILE, "a") as f_rej:
         f_rej.write(f"{url} - {reason}\n")
 
-# ==========================================
-# PHASE 1: QUEUE MANAGER & METADATA PRE-CHECK
-# ==========================================
-def run_pre_check():
-    if not os.path.exists(INPUT_FILE):
-        print(f"ℹ️ '{INPUT_FILE}' missing. Please create it and add your links.")
-        sys.exit(0)
-
-    with open(INPUT_FILE, "r") as f:
-        urls = [line.strip() for line in f if line.strip()]
-
-    if not urls:
-        print("📭 No new URLs found in your input file queue.")
-        sys.exit(0)
-
-    current_url = urls[0]
-    print(f"🎬 Selected Target Reel: {current_url}")
-
-    # Remove immediately from the input queue file
-    with open(INPUT_FILE, "w") as f:
-        for remaining_url in urls[1:]:
-            f.write(f"{remaining_url}\n")
-    print("🧹 Queue Updated: Target link permanently cleared from input_reels.txt.")
-    
-    # Check Instagram engagement statistics
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    try:
-        meta_url = f"{current_url}/?__a=1&__d=dis"
-        resp = requests.get(meta_url, headers=headers, impersonate="chrome120")
-        
-        if resp.status_code == 200:
-            items = resp.json().get('items', [])
-            likes = items[0].get('like_count', 0) if items else 0
-            print(f"📊 Engagement Metadata Found -> Likes: {likes}")
-            
-            if likes >= 50000:
-                # Save target URL to temporary tracker file for the YAML workflow to read
-                with open(TARGET_TRACKER, "w") as f_target:
-                    f_target.write(current_url)
-                print(f"✅ Metric approved. Link written to {TARGET_TRACKER}")
-                return
-            else:
-                log_failure(current_url, f"Low Engagement ({likes} likes)")
-        else:
-            log_failure(current_url, f"Instagram Firewall Blocked Metadata Request (Status Code: {resp.status_code})")
-    except Exception as e:
-        log_failure(current_url, f"Metadata Parsing Exception Error: {str(e)}")
-    
-    sys.exit(0)
-
-# ==========================================
-# PHASE 2: GEMMA AI FRAME INSPECTOR
-# ==========================================
 def run_gemma_ai_evaluation():
-    if not os.path.exists(TARGET_TRACKER):
-        print("ℹ️ Target tracker file missing. Skipping AI cycle.")
+    # Detect the filename generated dynamically inside the workspace
+    if not os.path.exists(NEW_STORAGE_DIR):
+        print("ℹ️ Storage directory missing. Skipping AI cycle.")
         return
 
-    with open(TARGET_TRACKER, "r") as f:
-        reel_url = f.read().strip()
-
-    # Locate the video file downloaded by the YAML Playwright step
-    video_file_path = None
-    if os.path.exists("curated_vault"):
-        files = [os.path.join("curated_vault", f) for f in os.listdir("curated_vault") if f.endswith(".mp4")]
-        if files:
-            video_file_path = files[0]
-
-    if not video_file_path or not os.path.exists(video_file_path):
-        log_failure(reel_url, "Missing downloaded video file during AI verification stage.")
-        cleanup_temp_files()
+    files = [f for f in os.listdir(NEW_STORAGE_DIR) if f.endswith(".mp4")]
+    if not files:
+        print("ℹ️ No download target file found to process. Skipping AI verification.")
         return
+
+    video_file_name = files[0]
+    video_file_path = os.path.join(NEW_STORAGE_DIR, video_file_name)
+    
+    # Extract raw URL back from filename reconstruction (reel_shortcode.mp4)
+    shortcode = video_file_name.replace("reel_", "").replace(".mp4", "")
+    reel_url = f"https://instagram.com{shortcode}/"
         
     try:
         print("🧠 Loading Quantized Gemma Multimodal Model...")
@@ -113,7 +57,6 @@ def run_gemma_ai_evaluation():
 
         if not frames:
             log_failure(reel_url, "OpenCV failed to parse video structural frames cleanly.")
-            cleanup_temp_files()
             return
 
         prompt = (
@@ -144,16 +87,9 @@ def run_gemma_ai_evaluation():
     except Exception as e:
         log_failure(reel_url, f"Gemma Evaluation Stage Crash: {str(e)}")
     finally:
-        cleanup_temp_files()
-
-def cleanup_temp_files():
-    if os.path.exists("curated_vault"):
-        shutil.rmtree("curated_vault")
-    if os.path.exists(TARGET_TRACKER):
-        os.remove(TARGET_TRACKER)
+        # Guarantee local workspace is wiped clean
+        if os.path.exists(NEW_STORAGE_DIR):
+            shutil.rmtree(NEW_STORAGE_DIR)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--gemma":
-        run_gemma_ai_evaluation()
-    else:
-        run_pre_check()
+    run_gemma_ai_evaluation()
