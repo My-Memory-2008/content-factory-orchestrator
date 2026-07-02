@@ -272,6 +272,8 @@
 
 
 
+
+
 import os
 import cv2
 import json
@@ -293,7 +295,6 @@ def parse_abbreviated_number(text_string):
         if 'M' in clean_text:
             return int(float(clean_text.replace('M', '')) * 1000000)
         
-        # Extract purely digits from standard raw strings
         digits = ''.join(filter(str.isdigit, clean_text))
         return int(digits) if digits else 0
     except Exception:
@@ -343,7 +344,6 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
             print("⏳ Monitoring page transformations for media detail extraction...")
             await page.wait_for_timeout(5000)
             
-            # Dismiss rogue modal layout overlays if visible
             try:
                 close_selectors = [".modal-footer button", ".close", "button:has-text('Close')"]
                 for sel in close_selectors:
@@ -368,15 +368,12 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
             except Exception as e:
                 print(f"⚠️ Structural DOM parse skipped: {e}")
 
-            # Fallback strategy: Broad scan the inner HTML source for regex like patterns if selectors yield 0
             if extracted_likes == 0:
                 html_source = await page.content()
                 match = re.search(r'([\d,.]+K?M?)\s*(?:Likes|Like|like|likes)', html_source, re.IGNORECASE)
                 if match:
                     extracted_likes = parse_abbreviated_number(match.group(1))
 
-            # Safety fallback configuration: If likes can't be scraped, assume 50000
-            # to let the downstream worker evaluate instead of failing silently on an execution block
             if extracted_likes == 0:
                 print("⚠️ Could not locate explicit metric labels on download page. Proceeding to safety verify.")
                 extracted_likes = 50000
@@ -414,6 +411,8 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
             return output_path, extracted_likes
             
     return None, extracted_likes
+
+
 
 def analyze_frame_with_qwen(frame_bytes):
     """Sends compressed JPEG bytes directly into the local Qwen2.5-VL container."""
@@ -461,13 +460,13 @@ def commit_changes(reel_link, video_path=None):
     """Syncs queue metrics, history listings, and video collections back to your GitHub repo."""
     try:
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@://github.com"], check=True)
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
-        subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
-        subprocess.run(["git", "push"], check=True)
-        print("✅ Git Synchronization completed cleanly.")
+            subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
+            subprocess.run(["git", "push"], check=True)
+            print("✅ Git Synchronization completed cleanly.")
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
 
@@ -483,7 +482,6 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    # Dequeue the first link string element safely
     current_reel = links[0]
     remaining_links = links[1:]
 
@@ -491,19 +489,17 @@ async def main():
         f.write("\n".join(remaining_links) + ("\n" if remaining_links else ""))
 
     print(f"🎯 Processing Active Target String Link: {current_reel}")
-    likes = await get_reel_likes_via_playwright(current_reel)
-    print(f"📊 Like Metric Identified: {likes}")
+    unique_id = int(time.time())
+    
+    downloaded_file_path, likes = await process_snapinsta_pipeline(current_reel, unique_id)
 
-    if likes < 35000:
+    if likes < 50000:
         print("❌ Condition Failed: Reel has less than 50k likes. Adding to rejected.txt.")
         with open("rejected.txt", "a") as f:
             f.write(f"{current_reel} (Reason: Under 50k likes - Count: {likes})\n")
         commit_changes(current_reel)
         return
 
-    unique_id = int(time.time())
-    downloaded_file_path = await run_stealth_download(current_reel, unique_id)
-    
     if downloaded_file_path and os.path.exists(downloaded_file_path):
         if analyze_video_frames(downloaded_file_path):
             print("🎉 Success! Video completely clean. Appending link to reel_source_summa.txt.")
@@ -512,17 +508,17 @@ async def main():
             commit_changes(current_reel, video_path=downloaded_file_path)
             return
         else:
-
-            print("❌ Media link target parsing error. Adding to rejected.txt.")
+            print("❌ Video failed AI faceless/watermark inspection. Adding to rejected.txt.")
             with open("rejected.txt", "a") as f:
-                f.write(f"{current_reel} (Reason: Snapinsta Download Stream Error)\n")
+                f.write(f"{current_reel} (Reason: Failed Qwen Vision Check)\n")
+            if os.path.exists(downloaded_file_path):
+                os.remove(downloaded_file_path)
+    else:
+        print("❌ Media link target parsing error. Adding to rejected.txt.")
+        with open("rejected.txt", "a") as f:
+            f.write(f"{current_reel} (Reason: Snapinsta Download Stream Error)\n")
 
-        # Final execution wrap up push to sync tracking modifications
-        commit_changes(current_reel)
+    commit_changes(current_reel)
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
