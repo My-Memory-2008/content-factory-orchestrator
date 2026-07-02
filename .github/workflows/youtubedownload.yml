@@ -321,7 +321,7 @@
 
 
 
-name: YouTube Video Downloader Automation (via Publer URL)
+name: YouTube Video Downloader Automation (via Publer Text Lookup)
 
 on:
   workflow_dispatch:
@@ -366,7 +366,7 @@ jobs:
             
             const browserContext = await browser.newContext({
               acceptDownloads: true,
-              viewport: { width: 1280, height: 800 },
+              viewport: { width: 1440, height: 900 }, // Forced widespread desktop window matrix to trigger responsive visibility rules
               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             });
             const page = await browserContext.newPage();
@@ -391,41 +391,26 @@ jobs:
               await page.click(buttonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // 🛠️ FUZZY HREF SEARCH LOOP:
-              // Manually search through every single <a> tag's href to find our partial substring match
-              let matchedHref = null;
-              const partialMatchString = 'publer-media-downloader';
-
-              console.log(`🔍 Scanning page elements for any href containing: "${partialMatchString}"`);
+              // 🛠️ BYPASS RESPONSIVE HIDDEN ELEMENT VISIBILITY RULES:
+              // Locate the text block even if Publer's system applies a "hidden" CSS rule to the viewport
+              const internalTextSelector = 'text="to your device"';
               
-              // Poll for up to 60 seconds for Publer backend to generate the link element
-              for (let i = 0; i < 60; i++) {
-                matchedHref = await page.$$eval('a', (anchors, searchStr) => {
-                  for (let a of anchors) {
-                    const hrefValue = a.getAttribute('href');
-                    if (hrefValue && hrefValue.includes(searchStr)) {
-                      return hrefValue; // Return the full matched link string back to our script
-                    }
-                  }
-                  return null;
-                }, partialMatchString);
+              console.log("⏳ Explicitly tracking the phrase element 'to your device'...");
+              await page.waitForSelector(internalTextSelector, { state: 'attached', timeout: 60000 });
+              console.log("🎯 Anchor text token located inside page object map.");
 
-                if (matchedHref) break;
-                await page.waitForTimeout(1000); // Check again after 1 second if not rendered yet
-              }
-
-              if (!matchedHref) {
-                throw new Error(`Timeout: No anchor tag containing '${partialMatchString}' was found in any href attribute.`);
-              }
-
-              console.log(`🎯 Match found! Full target URL intercepted.`);
+              // Initialize a promise block to trap the brand new page tab context opened by the click event
+              const newPagePromise = browserContext.waitForEvent('page');
               
-              // 🛠️ TRIGGER REDIRECT MANUALLY:
-              // Instead of relying on a button click element, navigate the page context directly to the extracted URL path
-              console.log("🔄 Navigating current page to the redirected download page location...");
-              await page.goto(matchedHref, { waitUntil: 'networkidle' });
+              console.log("🖱️ Triggering programmatic direct dispatch click on parent download anchor element...");
+              // We dispatch a direct DOM click event to ensure hidden layout layers do not block the pointer interaction
+              await page.dispatchEvent(internalTextSelector, 'click');
               
-              console.log(`✅ Redirect complete! Current page URL position: ${page.url()}`);
+              // Resolve the promise to control the new page object instance
+              const redirectedPage = await newPagePromise;
+              await redirectedPage.waitForLoadState('networkidle');
+              
+              console.log(`✅ Redirect complete! Current new page URL position: ${redirectedPage.url()}`);
 
             } catch (error) {
               console.error("❌ Automation routing routine caught failure exception:", error);
