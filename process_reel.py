@@ -272,6 +272,7 @@
 
 
 
+
 import os
 import cv2
 import json
@@ -318,7 +319,7 @@ async def run_stealth_download(reel_url, unique_id):
             input_selector = "input#s_input"
             await page.wait_for_selector(input_selector, timeout=15000)
             
-            # CRITICAL FIX: Ensure the input value is cast explicitly as a string to prevent Playwright list errors
+            # Ensure the input value is cast explicitly as a string to prevent Playwright list errors
             await page.fill(input_selector, str(reel_url))
             await page.wait_for_timeout(1000)
             
@@ -375,7 +376,8 @@ def analyze_frame_with_qwen(frame_bytes):
     
     payload = {"model": "qwen2.5vl:3b", "prompt": prompt_text, "images": [base64_image], "stream": False}
     try:
-        response = requests.post(url, json=payload, timeout=45)
+        # FIX: Increased timeout threshold limit to 180 seconds to survive CPU crunching restrictions
+        response = requests.post(url, json=payload, timeout=180)
         return response.json().get("response", "").strip().upper()
     except Exception as e:
         print(f"⚠️ Vision engine connectivity error: {e}")
@@ -430,8 +432,7 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    # CRITICAL FIX: Extract EXACTLY the first index string element [0] from the links array list 
-    current_reel = links[0]
+    current_reel = links
     remaining_links = links[1:]
 
     with open("input_link.txt", "w") as f:
@@ -440,7 +441,6 @@ async def main():
     print(f"🎯 Processing Active Target String Link: {current_reel}")
     unique_id = int(time.time())
     
-    # Passes a pure URL text string downward into Playwright fill loops
     downloaded_file_path = await run_stealth_download(current_reel, unique_id)
     
     if downloaded_file_path and os.path.exists(downloaded_file_path):
@@ -454,8 +454,11 @@ async def main():
             print("❌ Video failed AI faceless/watermark inspection. Adding to rejected.txt.")
             with open("rejected.txt", "a") as f:
                 f.write(f"{current_reel} (Reason: Failed Qwen Vision Check)\n")
-            if os.path.exists(downloaded_file_path):
-                os.remove(downloaded_file_path)
+            
+            # NOTE: Dropped file deletion here so that rejected videos remain saved in your repo inside checking_videos/
+            commit_changes(current_reel, video_path=downloaded_file_path)
+            return
+            
     else:
         print("❌ Media link target parsing error. Adding to rejected.txt.")
         with open("rejected.txt", "a") as f:
