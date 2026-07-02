@@ -27,7 +27,7 @@ async def get_reel_likes_via_playwright(reel_url):
         print(f"❌ Failed to parse shortcode string from URL: {e}")
         return 0
 
-    embed_url = f"https://instagram.com{shortcode}/embed/captioned/"
+    embed_url = f"https://instagram.com/{shortcode}/embed/captioned/"
     like_count = 0
     
     async with async_playwright() as p:
