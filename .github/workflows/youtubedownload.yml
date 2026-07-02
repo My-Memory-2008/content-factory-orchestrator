@@ -1,10 +1,13 @@
+
+
+
 # name: YouTube Video Downloader Automation (via Publer)
 
 # on:
 #   workflow_dispatch:
 #     inputs:
 #       video_url:
-#         description: 'https://youtube.com/shorts/w5W88Lf1Kbs?si=QoQi5IQtfF8NyXKh'
+#         description: 'Paste the YouTube URL to pass to Publer'
 #         required: true
 #         type: string
 
@@ -41,11 +44,13 @@
 #             console.log(`🚀 Processing automation targeting Publer engine for: ${videoUrl}`);
 
 #             const browser = await chromium.launch({ headless: true });
-#             const context = await browser.newContext({
+            
+#             // Renamed 'context' to 'browserContext' to resolve the variable conflict
+#             const browserContext = await browser.newContext({
 #               acceptDownloads: true,
 #               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 #             });
-#             const page = await context.newPage();
+#             const page = await browserContext.newPage();
 
 #             try {
 #               // Navigate directly to Publer's free tool asset page
@@ -141,7 +146,6 @@ jobs:
 
             const browser = await chromium.launch({ headless: true });
             
-            // Renamed 'context' to 'browserContext' to resolve the variable conflict
             const browserContext = await browser.newContext({
               acceptDownloads: true,
               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -158,14 +162,16 @@ jobs:
               await page.fill(inputSelector, videoUrl);
               console.log("✏️ Link successfully entered into Publer framework container.");
 
-              // Locate and click the 'Download' action execution button
+              // Locate and click the initial 'Download' conversion processing button
               const buttonSelector = 'button:has-text("Download")';
               await page.click(buttonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // Wait for Publer to process video and generate the media resource item link
-              const downloadLinkSelector = 'a[download], button:has-text("Download Video"), .download-link a';
+              // TARGET ELEMENT MATCHED BY YOUR PROVIDED HTML EXCERPT
+              // Targets links containing the text "Save" or matching Publer's unique class layout structure
+              const downloadLinkSelector = 'a.button.is-white:has-text("Save"), a[href*="kalemi-code"]';
               await page.waitForSelector(downloadLinkSelector, { timeout: 60000 });
+              console.log("🎯 Conversion complete! Target 'Save to your device' button discovered.");
 
               // Initialize a Playwright event promise block to capture incoming browser file download stream
               const downloadPromise = page.waitForEvent('download');
@@ -194,5 +200,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: publer-downloaded-video
-          path: ./youtubedownloads/
+          path: ./downloads/
           retention-days: 5
