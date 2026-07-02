@@ -1,10 +1,10 @@
 {
   "queue": [
     {
-      "url": "https://www.instagram.com/wasted/reel/DVjmjpoCcty/",
+      "url": "https://www.instagram.com/wasted/reel/DM0AKl9ORoF/",
       "username": "wasted",
       "notes": "Auto-added from reels_source.txt",
-      "added_at": "2026-07-02T00:18:35.522237+00:00"
+      "added_at": "2026-07-02T04:30:04.558666+00:00"
     }
   ],
   "processed": [
@@ -1038,7 +1038,7 @@
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
-    "last_run": "2026-07-02T00:18:35.522453+00:00",
+    "last_run": "2026-07-02T04:30:04.558905+00:00",
     "next_scheduled": null
   }
 }
