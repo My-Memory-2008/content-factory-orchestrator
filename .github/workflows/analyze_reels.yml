@@ -25,17 +25,22 @@ jobs:
 
       - name: Install Ollama
         run: |
-          curl -fsSL https://ollama.com | sh
+          # Safe dedicated installer string path execution 
+          curl -fsSL https://ollama.com/install.sh | sh
 
-      - name: Start Ollama & Pull Quantized Qwen2.5-VL
+      - name: Start Ollama Server
         run: |
           ollama serve &
-          echo "Waiting for local Ollama service host..."
-          until curl -s http://localhost:11434 > /dev/null; do sleep 2; done
-          
+          echo "Waiting for Ollama server to boot..."
+          until curl -s http://127.0.0.1:11434 > /dev/null; do
+            sleep 1
+          done
+          echo "Ollama server is up and running!"
+
+      - name: Download Vision Model
+        run: |
           # Pulling the compressed 4-bit version of Qwen2.5-VL 3B to survive on free 7GB RAM runners
           ollama pull qwen2.5-vl:3b-instruct-q4_K_M
-
       - name: Set up Python Engine
         uses: actions/setup-python@v5
         with:
