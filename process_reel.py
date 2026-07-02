@@ -270,6 +270,130 @@
 # if __name__ == "__main__":
 #     asyncio.run(main())
 
+import os
+import cv2
+import json
+import re
+import base64
+import shutil
+import asyncio
+import requests
+import subprocess
+import time
+from playwright.async_api import async_playwright
+
+async def run_stealth_download(reel_url, unique_id):
+    """
+    Launches a simulated Chromium browser instance inside Xvfb to 
+    safely extract and download video stream elements from snapinsta.to.
+    """
+    if os.path.exists('checking_videos'):
+        shutil.rmtree('checking_videos')
+        print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
+        
+    os.makedirs('checking_videos', exist_ok=True)
+    output_path = f"checking_videos/reel_{unique_id}.mp4"
+    
+    print(f"🚀 Launching real browser instance to download from snapinsta.to: {reel_url}")
+    video_stream_url = None
+    
+    async with async_playwright() as p:
+        try:
+            # Launch with headless=False to mimic a human user screen footprint
+            browser = await p.chromium.launch(
+                headless=False,
+                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+            )
+            
+            # Emulate a clean desktop user profile environment
+            context = await browser.new_context(
+                viewport={'width': 1280, 'height': 720},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            )
+            
+            page = await context.new_page()
+            
+            # Block analytical scripts and known ad networks to optimize cloud network speeds
+            await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
+            
+            # Navigate to the target downloader platform layout
+            print("🌐 Loading downloader frontend...")
+            await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(4000)
+            
+            # Target the precise input element field you highlighted
+            input_selector = "input#s_input"
+            await page.wait_for_selector(input_selector, timeout=15000)
+            await page.fill(input_selector, str(reel_url))
+            await page.wait_for_timeout(1000)
+            
+            # Click the targeted search submission button containing the 'Download' text
+            print("⚡ Dispatching submission click event on primary download engine button...")
+            submit_button_selector = "button:has-text('Download')"
+            await page.click(submit_button_selector)
+            
+            # Wait dynamically for background events and API requests to fully resolve media links
+            print("⏳ Monitoring page layout transformations, waiting for direct download buttons...")
+            await page.wait_for_timeout(12000)
+            
+            # Close rogue popups and alert banners if they overlay on top of the browser screen canvas
+            try:
+                close_selectors = [".modal-footer button", ".close", "button:has-text('Close')", "#close-button"]
+                for sel in close_selectors:
+                    if await page.locator(sel).is_visible():
+                        await page.click(sel)
+                        print(f"🧹 Dismissed intersecting popup component: {sel}")
+            except Exception:
+                pass
+            
+            # Target the specific inner result link structure rendered by snapinsta.to
+            download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
+            
+            try:
+                # Give the backend up to 25 seconds to process and print out the media cards
+                await page.wait_for_selector(download_btn_selector, timeout=25000)
+                video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
+            except Exception as e:
+                print(f"❌ Could not isolate the direct stream link node on page: {e}")
+                # Fallback step: search broadly for any active href strings pointing directly to video containers
+                links = await page.locator("a").all()
+                for link in links:
+                    href = await link.get_attribute("href")
+                    if href and ("instagram" in href or "cdn" in href or ".mp4" in href):
+                        video_stream_url = href
+                        break
+                        
+        except Exception as e:
+            print(f"❌ Main browser operations exception error trap hit: {e}")
+        finally:
+            if 'browser' in locals():
+                await browser.close()
+                
+    # 2. Download the isolated source .mp4 string using standard curl utility
+    if video_stream_url:
+        # Clean up URL encoding formats
+        video_stream_url = video_stream_url.replace('&amp;', '&')
+        print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
+        print("Streaming media blocks directly into workspace directory...")
+        
+        curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
+        subprocess.run(curl_cmd, capture_output=True)
+        
+        # Size Guard Checklist
+        if os.path.exists(output_path):
+            file_size = os.path.getsize(output_path)
+            if file_size > 50000:
+                print(f"🎉 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
+                return output_path
+            else:
+                os.remove(output_path)
+                print("❌ Download output contains light text metrics instead of video data. Dropping placeholder.")
+        else:
+            print("❌ Core system disk space rejected file creation execution.")
+    else:
+        print("❌ Could not extract the raw download asset URL path property.")
+        
+    return None
 
 
 def analyze_frame_with_qwen(frame_bytes):
