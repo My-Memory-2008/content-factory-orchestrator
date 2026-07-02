@@ -209,7 +209,7 @@ async def main():
     likes = await get_reel_likes_via_playwright(current_reel)
     print(f"📊 Like Metric Identified: {likes}")
 
-    if likes < 50000:
+    if likes < 35000:
         print("❌ Condition Failed: Reel has less than 50k likes. Adding to rejected.txt.")
         with open("rejected.txt", "a") as f:
             f.write(f"{current_reel} (Reason: Under 50k likes - Count: {likes})\n")
