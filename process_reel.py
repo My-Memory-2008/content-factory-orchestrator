@@ -324,8 +324,9 @@ async def run_stealth_download(reel_url, unique_id):
             await page.wait_for_timeout(1000)
             
             await page.click("button:has-text('Download')")
-            print("⏳ Parsing download link structures...")
-            await page.wait_for_timeout(5000)
+            print("⏳ Monitoring layout transformations and scanning page elements...")
+            # Give the backend server plenty of processing time to parse and display the download buttons
+            await page.wait_for_timeout(12000)
             
             try:
                 close_selectors = [".modal-footer button", ".close", "button:has-text('Close')"]
@@ -335,21 +336,20 @@ async def run_stealth_download(reel_url, unique_id):
             except Exception:
                 pass
                 
-            download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
-            await page.wait_for_selector(download_btn_selector, timeout=25000)
-            video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
+            # RESILIENT FALLBACK LOOP: Scans every link element on the page for video targets
+            links = await page.locator("a").all()
+            for link in links:
+                href = await link.get_attribute("href")
+                if href:
+                    # Clean up URL encoding formats
+                    href_clean = href.lower()
+                    if "cdninstagram" in href_clean or "://instagram.com" in href_clean or ".mp4" in href_clean or "download" in href_clean:
+                        video_stream_url = href
+                        print(f"🎯 Isolated valid download target URL stream match!")
+                        break
             
         except Exception as e:
-            print(f"⚠️ Falling back to deep link exploration block: {e}")
-            try:
-                links = await page.locator("a").all()
-                for link in links:
-                    href = await link.get_attribute("href")
-                    if href and ("instagram" in href or "cdn" in href or ".mp4" in href):
-                        video_stream_url = href
-                        break
-            except Exception:
-                pass
+            print(f"⚠️ Exception within main browser context loop: {e}")
         finally:
             if 'browser' in locals():
                 await browser.close()
@@ -361,56 +361,13 @@ async def run_stealth_download(reel_url, unique_id):
         if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
             print(f"🎉 Asset extracted cleanly: {output_path}")
             return output_path
+    else:
+        print("❌ Could not isolate any direct video link properties on Snapinsta page layout panels.")
             
     return None
-def analyze_frame_with_qwen(frame_bytes):
-    """Sends compressed JPEG bytes directly into the local Qwen2.5-VL container."""
-    url = "http://localhost:11434/api/generate"
-    base64_image = base64.b64encode(frame_bytes).decode('utf-8')
-    
-    prompt_text = (
-        "Analyze this image frame carefully. "
-        "Does it contain any human faces, brand logos, promotional text watermarks, or social handles? "
-        "Reply with exactly 'YES' if any of these are present, or 'NO' if the frame is completely clear and faceless."
-    )
-    
-    payload = {"model": "qwen2.5vl:3b", "prompt": prompt_text, "images": [base64_image], "stream": False}
-    try:
-        # FIX: Increased timeout threshold limit to 180 seconds to survive CPU crunching restrictions
-        response = requests.post(url, json=payload, timeout=180)
-        return response.json().get("response", "").strip().upper()
-    except Exception as e:
-        print(f"⚠️ Vision engine connectivity error: {e}")
-        return "YES"
 
-def analyze_video_frames(video_path):
-    """Extracts frame snapshots every 15 indices for vision inspection."""
-    cap = cv2.VideoCapture(video_path)
-    interval = 15
-    frame_count = 0
-    passed_check = True
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frame_count += 1
-        if frame_count % interval == 0:
-            _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
-            ai_verdict = analyze_frame_with_qwen(buffer.tobytes())
-            print(f"Frame {frame_count} Evaluation Result: {ai_verdict}")
-            if "YES" in ai_verdict:
-                print("❌ AI Verification Rejected: Frame contains face, branding, or watermarks.")
-                passed_check = False
-                break
-    cap.release()
-    return passed_check
-
-def commit_changes(reel_link, video_path=None):
-    """Syncs queue metrics, history listings, and video collections back to your GitHub repo."""
-    try:
-        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@://github.com"], check=True)
+"], check=True)
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
@@ -432,6 +389,7 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
+    # Dequeue the target element (Pops exactly one reel string link per runtime)
     current_reel = links
     remaining_links = links[1:]
 
@@ -455,7 +413,6 @@ async def main():
             with open("rejected.txt", "a") as f:
                 f.write(f"{current_reel} (Reason: Failed Qwen Vision Check)\n")
             
-            # NOTE: Dropped file deletion here so that rejected videos remain saved in your repo inside checking_videos/
             commit_changes(current_reel, video_path=downloaded_file_path)
             return
             
