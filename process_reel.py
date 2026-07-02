@@ -548,8 +548,6 @@ async def run_stealth_download(reel_url, unique_id):
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
             page = await context.new_page()
-            
-            # Block analytical scripts and ad networks to preserve cloud network speeds
             await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
             
             await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
@@ -562,7 +560,6 @@ async def run_stealth_download(reel_url, unique_id):
             
             submit_button_selector = "button:has-text('Download')"
             await page.click(submit_button_selector)
-            
             await page.wait_for_timeout(12000)
             
             try:
@@ -574,12 +571,10 @@ async def run_stealth_download(reel_url, unique_id):
                 pass
             
             download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
-            
             try:
                 await page.wait_for_selector(download_btn_selector, timeout=25000)
                 video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
-            except Exception as e:
-                print(f"❌ Could not isolate the direct stream link node on page: {e}")
+            except Exception:
                 links = await page.locator("a").all()
                 for link in links:
                     href = await link.get_attribute("href")
@@ -588,26 +583,18 @@ async def run_stealth_download(reel_url, unique_id):
                         break
                         
         except Exception as e:
-            print(f"❌ Main browser operations exception error trap hit: {e}")
+            print(f"❌ Main browser operations exception: {e}")
         finally:
             if 'browser' in locals():
                 await browser.close()
                 
     if video_stream_url:
         video_stream_url = video_stream_url.replace('&amp;', '&')
-        print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
-        
         curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
         subprocess.run(curl_cmd, capture_output=True)
-        
-        if os.path.exists(output_path):
-            file_size = os.path.getsize(output_path)
-            if file_size > 50000:
-                print(f"🎉 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
-                return output_path
-            else:
-                os.remove(output_path)
-                print("❌ Download output contains light text metrics instead of video data.")
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
+            print(f"🎉 Asset extracted cleanly: {output_path}")
+            return output_path
     return None
 def analyze_frame_with_qwen(frame_bytes):
     """Sends compressed JPEG bytes directly into the local Qwen2.5-VL container."""
@@ -629,44 +616,38 @@ def analyze_frame_with_qwen(frame_bytes):
         return "YES"
 
 def analyze_video_frames(video_path):
-    """Calculates 5% intervals to extract and inspect exactly 20 frames across the video."""
+    """Calculates 5% intervals and uses direct seeking to analyze exactly 20 frames near instantly."""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return False
 
-    # Get total frames in the video
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     print(f"📹 Total video frames found: {total_frames}")
 
-    # FIX: Calculate exact frame index targets for each 5% mark (1% to 100%)
-    # Resulting in an explicit array of exactly 20 frame target positions
+    # Calculate exact frame index targets for each 5% mark
     target_frames = [int(total_frames * (i / 20.0)) for i in range(1, 21)]
-    # Protect bounds against off-by-one index overflows
     target_frames = [min(f, total_frames - 1) for f in target_frames if f >= 0]
     
     print(f"🎯 Analysis targets mapped (20 frames total): {target_frames}")
     passed_check = True
-    current_frame_idx = 0
 
-    while cap.isOpened():
+    # FIX: Loop directly over the 20 target frames and seek instead of decoding sequentially
+    for target_idx in target_frames:
+        print(f"🎞️ Seeking directly to frame position: {target_idx}")
+        cap.set(cv2.CAP_PROP_POS_FRAMES, target_idx)
         ret, frame = cap.read()
         if not ret:
-            break
+            print(f"⚠️ Failed to read frame at position {target_idx}, skipping.")
+            continue
+
+        _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+        ai_verdict = analyze_frame_with_qwen(buffer.tobytes())
+        print(f"Frame {target_idx} Evaluation Result: {ai_verdict}")
         
-        # Check if current frame index is one of our 20 mathematical targets
-        if current_frame_idx in target_frames:
-            print(f"🎞️ Analyzing frame index position: {current_frame_idx}")
-            _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
-            
-            ai_verdict = analyze_frame_with_qwen(buffer.tobytes())
-            print(f"Frame {current_frame_idx} Evaluation Result: {ai_verdict}")
-            
-            if "YES" in ai_verdict:
-                print("❌ AI Verification Rejected: Frame contains face, branding, or watermarks.")
-                passed_check = False
-                break
-                
-        current_frame_idx += 1
+        if "YES" in ai_verdict:
+            print("❌ AI Verification Rejected: Frame contains face, branding, or watermarks.")
+            passed_check = False
+            break
         
     cap.release()
     return passed_check
@@ -696,7 +677,6 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    # Extract exactly the first single link element as a string from the array
     current_reel = links[0]
     remaining_links = links[1:]
 
