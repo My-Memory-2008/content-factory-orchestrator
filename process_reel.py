@@ -272,98 +272,6 @@
 
 
 
-import os
-import cv2
-import json
-import re
-import base64
-import shutil
-import asyncio
-import requests
-import subprocess
-import time
-from playwright.async_api import async_playwright
-
-async def run_stealth_download(reel_url, unique_id):
-    """
-    Launches a simulated Chromium browser instance inside Xvfb to 
-    safely extract and download video stream elements from snapinsta.to.
-    """
-    if os.path.exists('checking_videos'):
-        shutil.rmtree('checking_videos')
-        
-    os.makedirs('checking_videos', exist_ok=True)
-    output_path = f"checking_videos/reel_{unique_id}.mp4"
-    print(f"🚀 Initializing browser simulator for Snapinsta processing: {reel_url}")
-    video_stream_url = None
-    
-    async with async_playwright() as p:
-        try:
-            browser = await p.chromium.launch(
-                headless=False,
-                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
-            )
-            context = await browser.new_context(
-                viewport={'width': 1280, 'height': 720},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            )
-            page = await context.new_page()
-            
-            # Optimization: Kill trackers and slow ad networks to preserve runtime speeds
-            await page.route("**/*", lambda r: r.continue_() if not any(x in r.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else r.abort())
-            
-            await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_timeout(3000)
-            
-            input_selector = "input#s_input"
-            await page.wait_for_selector(input_selector, timeout=15000)
-            
-            # Ensure the input value is cast explicitly as a string to prevent Playwright list errors
-            await page.fill(input_selector, str(reel_url))
-            await page.wait_for_timeout(1000)
-            
-            await page.click("button:has-text('Download')")
-            print("⏳ Monitoring layout transformations and scanning page elements...")
-            # Give the backend server plenty of processing time to parse and display the download buttons
-            await page.wait_for_timeout(12000)
-            
-            try:
-                close_selectors = [".modal-footer button", ".close", "button:has-text('Close')"]
-                for sel in close_selectors:
-                    if await page.locator(sel).is_visible():
-                        await page.click(sel)
-            except Exception:
-                pass
-                
-            # RESILIENT FALLBACK LOOP: Scans every link element on the page for video targets
-            links = await page.locator("a").all()
-            for link in links:
-                href = await link.get_attribute("href")
-                if href:
-                    href_clean = href.lower()
-                    if "cdninstagram" in href_clean or "://instagram.com" in href_clean or ".mp4" in href_clean or "download" in href_clean:
-                        video_stream_url = href
-                        print("🎯 Isolated valid download target URL stream match!")
-                        break
-            
-        except Exception as e:
-            print(f"⚠️ Exception within main browser context loop: {e}")
-        finally:
-            if 'browser' in locals():
-                await browser.close()
-                
-    # FIX: Correctly process and return output path inside the download execution flow
-    if video_stream_url:
-        video_stream_url = video_stream_url.replace('&amp;', '&')
-        curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
-        subprocess.run(curl_cmd, capture_output=True)
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-            print(f"🎉 Asset extracted cleanly: {output_path}")
-            return output_path
-    else:
-        print("❌ Could not isolate any direct video link properties on Snapinsta page layout panels.")
-            
-    return None
 def analyze_frame_with_qwen(frame_bytes):
     """Sends compressed JPEG bytes directly into the local Qwen2.5-VL container."""
     url = "http://localhost:11434/api/generate"
@@ -377,7 +285,7 @@ def analyze_frame_with_qwen(frame_bytes):
     
     payload = {"model": "qwen2.5vl:3b", "prompt": prompt_text, "images": [base64_image], "stream": False}
     try:
-        # Long timeout threshold limit to survive CPU crunching restrictions on free runners
+        # Long timeout threshold limit to survive CPU processing restrictions on free cloud instances
         response = requests.post(url, json=payload, timeout=180)
         return response.json().get("response", "").strip().upper()
     except Exception as e:
@@ -411,8 +319,7 @@ def commit_changes(reel_link, video_path=None):
     """Syncs queue metrics, history listings, and video collections back to your GitHub repo."""
     try:
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        # FIX: Updated formatting syntax to a valid standard non-reply bot email configuration layout
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@://github.com"], check=True)
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
@@ -434,16 +341,18 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    # Extract EXACTLY the first index string element [0] from the links array list 
+    # FIXED DATA EXTRACTION: Pull exactly the first element index [0] from the list array
     current_reel = links[0]
     remaining_links = links[1:]
 
+    # Overwrite input queue right away to prevent infinite loop execution traps
     with open("input_link.txt", "w") as f:
         f.write("\n".join(remaining_links) + ("\n" if remaining_links else ""))
 
     print(f"🎯 Processing Active Target String Link: {current_reel}")
     unique_id = int(time.time())
     
+    # Executes the Playwright download step using the single sanitized URL text string
     downloaded_file_path = await run_stealth_download(current_reel, unique_id)
     
     if downloaded_file_path and os.path.exists(downloaded_file_path):
@@ -454,11 +363,11 @@ async def main():
             commit_changes(current_reel, video_path=downloaded_file_path)
             return
         else:
-            # FIX: Completed the missing file cleanup step tracking execution criteria bounds
             print("❌ Video failed AI faceless/watermark inspection. Adding to rejected.txt.")
             with open("rejected.txt", "a") as f:
                 f.write(f"{current_reel} (Reason: Failed Qwen Vision Check)\n")
             
+            # Keeps the downloaded video tracked inside checking_videos/ for manual review
             commit_changes(current_reel, video_path=downloaded_file_path)
             return
             
