@@ -272,7 +272,6 @@
 
 
 
-
 import os
 import cv2
 import json
@@ -318,7 +317,9 @@ async def run_stealth_download(reel_url, unique_id):
             
             input_selector = "input#s_input"
             await page.wait_for_selector(input_selector, timeout=15000)
-            await page.fill(input_selector, reel_url)
+            
+            # CRITICAL FIX: Ensure the input value is cast explicitly as a string to prevent Playwright list errors
+            await page.fill(input_selector, str(reel_url))
             await page.wait_for_timeout(1000)
             
             await page.click("button:has-text('Download')")
@@ -429,8 +430,8 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    # Dequeue the target element (Pops exactly one reel string link per runtime)
-    current_reel = links
+    # CRITICAL FIX: Extract EXACTLY the first index string element [0] from the links array list 
+    current_reel = links[0]
     remaining_links = links[1:]
 
     with open("input_link.txt", "w") as f:
@@ -439,7 +440,7 @@ async def main():
     print(f"🎯 Processing Active Target String Link: {current_reel}")
     unique_id = int(time.time())
     
-    # Bypassed likes calculation: Loops directly down to core Snapinsta download processing
+    # Passes a pure URL text string downward into Playwright fill loops
     downloaded_file_path = await run_stealth_download(current_reel, unique_id)
     
     if downloaded_file_path and os.path.exists(downloaded_file_path):
