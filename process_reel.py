@@ -213,7 +213,7 @@ def commit_changes(reel_link, video_path=None):
         subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
         subprocess.run(["git", "push"], check=True)
         print("✅ Git Synchronization completed cleanly.")
-    except Exception as e:
+    
 
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
