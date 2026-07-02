@@ -14,11 +14,14 @@ jobs:
       - name: Initialize Virtual Display Framebuffer (Xvfb)
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-glx
+          # Installed modern Ubuntu 24.04 GLX rendering libraries instead of deprecated mesa-glx
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libegl1
+          
           # Launch background display 99 so Chromium runs without crashing
           Xvfb :99 -screen 0 1280x720x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
           sleep 3
+
 
       - name: Install Ollama
         run: |
