@@ -239,5 +239,5 @@ async def main():
     # Final execution wrap up push to sync tracking modifications
     commit_changes(current_reel)
 
-if name == "main":
+if __name__ == "__main__":
     asyncio.run(main())
