@@ -11,15 +11,19 @@ import time
 from playwright.async_api import async_playwright
 
 async def get_reel_likes_via_playwright(reel_url):
-    """Launches Playwright to load the Instagram embed frame and securely extract like counts."""
+    """
+    Launches Playwright to load the Instagram embed frame.
+    Uses multi-stage DOM parsing to reliably extract the exact like metric text.
+    """
     print(f"🕵️  Checking like count via Playwright layout simulation: {reel_url}")
     
-    # Clean the URL to extract the unique shortcode string safely
+    # Strip any query parameters and extract the shortcode
     try:
-        if "/reel/" in reel_url:
-            shortcode = reel_url.split("/reel/")[1].split("/")[0]
-        elif "/p/" in reel_url:
-            shortcode = reel_url.split("/p/")[1].split("/")[0]
+        clean_url = reel_url.split('?')[0]
+        if "/reel/" in clean_url:
+            shortcode = clean_url.split("/reel/")[-1].replace('/', '')
+        elif "/p/" in clean_url:
+            shortcode = clean_url.split("/p/")[-1].replace('/', '')
         else:
             print("❌ Invalid URL structure format provided.")
             return 0
@@ -41,21 +45,47 @@ async def get_reel_likes_via_playwright(reel_url):
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
             page = await context.new_page()
-            await page.goto(embed_url, wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(3000)
             
-            page_content = await page.content()
-            match = re.search(r'"edge_liked_by":\s*\{\s*"count":\s*(\d+)\}', page_content)
-            if match:
-                like_count = int(match.group(1))
-            else:
-                match_alt = re.search(r'(\d+)\s+likes', page_content, re.IGNORECASE)
-                if match_alt:
-                    like_count = int(match_alt.group(1).replace(',', ''))
-                    
+            # Navigate to the embed view page
+            await page.goto(embed_url, wait_until="networkidle", timeout=30000)
+            await page.wait_for_timeout(4000)
+            
+            # --- STRATEGY 1: Look for the visible text metric in the DOM elements ---
+            # Instagram embed displays likes inside elements containing text like 'likes' or '1,234 likes'
+            try:
+                like_element = page.locator("a.EmbedShortcodeLikes, .EmbedShortcodeLikes, a[href*='liked_by']").first
+                if await like_element.is_visible():
+                    text_content = await like_element.text_content()
+                    print(f"🔍 Found visible like text: '{text_content}'")
+                    # Extract numbers from text (e.g., "12,450 likes" -> 12450)
+                    numbers = re.findall(r'\d+', text_content.replace(',', '').replace('.', ''))
+                    if numbers:
+                        like_count = int(numbers[0])
+            except Exception as dom_err:
+                print(f"⚠️ DOM extraction strategy skipped: {dom_err}")
+
+            # --- STRATEGY 2: Fallback to Page Source Context Parsing if DOM element search yielded 0 ---
+            if like_count == 0:
+                page_content = await page.content()
+                
+                # Broad look for counts inside native JS metadata structural properties
+                match = re.search(r'"edge_liked_by"\s*:\s*\{\s*"count"\s*:\s*(\d+)\}', page_content)
+                if match:
+                    like_count = int(match.group(1))
+                else:
+                    # Look for variations like "count":45123 inside generic interaction objects
+                    match_alt = re.search(r'"like_count"\s*:\s*(\d+)', page_content)
+                    if match_alt:
+                        like_count = int(match_alt.group(1))
+                    else:
+                        # Look for raw text strings in html like "55,231 likes"
+                        match_text = re.search(r'([\d,.]+)\s+likes', page_content, re.IGNORECASE)
+                        if match_text:
+                            like_count = int(match_text.group(1).replace(',', '').replace('.', ''))
+
             await browser.close()
         except Exception as e:
-            print(f"⚠️ Playwright like checker extraction failed: {e}")
+            print(f"⚠️ Playwright like checker extraction failed completely: {e}")
             
     return like_count
 
@@ -183,6 +213,8 @@ def commit_changes(reel_link, video_path=None):
         subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
         subprocess.run(["git", "push"], check=True)
         print("✅ Git Synchronization completed cleanly.")
+    except Exception as e:
+
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
 
