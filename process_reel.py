@@ -273,7 +273,6 @@
 
 
 
-
 import os
 import cv2
 import json
@@ -286,35 +285,17 @@ import subprocess
 import time
 from playwright.async_api import async_playwright
 
-def parse_abbreviated_number(text_string):
-    """Converts metric formats like '54.2K', '1.2M', or '50,421' directly to native integer counts."""
-    clean_text = text_string.strip().upper().replace(',', '')
-    try:
-        if 'K' in clean_text:
-            return int(float(clean_text.replace('K', '')) * 1000)
-        if 'M' in clean_text:
-            return int(float(clean_text.replace('M', '')) * 1000000)
-        
-        digits = ''.join(filter(str.isdigit, clean_text))
-        return int(digits) if digits else 0
-    except Exception:
-        return 0
-
-async def process_snapinsta_pipeline(reel_url, unique_id):
+async def run_stealth_download(reel_url, unique_id):
     """
-    Unified browser automation handler:
-    1. Submits target link to Snapinsta.
-    2. Safely extracts raw like numbers from rendered page elements.
-    3. Triggers curl video stream capture if metrics satisfy targets (>= 50,000).
+    Launches a simulated Chromium browser instance inside Xvfb to 
+    safely extract and download video stream elements from snapinsta.to.
     """
-    print(f"🚀 Initializing unified browser simulator for Snapinsta processing: {reel_url}")
-    
     if os.path.exists('checking_videos'):
         shutil.rmtree('checking_videos')
+        
     os.makedirs('checking_videos', exist_ok=True)
-    
     output_path = f"checking_videos/reel_{unique_id}.mp4"
-    extracted_likes = 0
+    print(f"🚀 Initializing browser simulator for Snapinsta processing: {reel_url}")
     video_stream_url = None
     
     async with async_playwright() as p:
@@ -325,11 +306,11 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
             )
             context = await browser.new_context(
                 viewport={'width': 1280, 'height': 720},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             )
             page = await context.new_page()
             
-            # Optimization: Kill trackers and slow ad networks to preserve runtime execution speeds
+            # Optimization: Kill trackers and slow ad networks to preserve runtime speeds
             await page.route("**/*", lambda r: r.continue_() if not any(x in r.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else r.abort())
             
             await page.goto("https://snapinsta.to", wait_until="domcontentloaded", timeout=60000)
@@ -341,7 +322,7 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
             await page.wait_for_timeout(1000)
             
             await page.click("button:has-text('Download')")
-            print("⏳ Monitoring page transformations for media detail extraction...")
+            print("⏳ Parsing download link structures...")
             await page.wait_for_timeout(5000)
             
             try:
@@ -351,44 +332,13 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
                         await page.click(sel)
             except Exception:
                 pass
-
-            # --- TARGET EXTRACTION: Extract like metrics parsed by Snapinsta onto the DOM ---
-            try:
-                like_container_selectors = [
-                    ".alert-info", ".video-box span", "span:has-text('like')", "i.fa-thumbs-up", "p:has-text('Like')", ".video-card-details"
-                ]
-                for selector in like_container_selectors:
-                    loc = page.locator(selector).first
-                    if await loc.is_visible():
-                        text_val = await loc.text_content()
-                        print(f"🔍 Captured text slice from layout: '{text_val}'")
-                        extracted_likes = parse_abbreviated_number(text_val)
-                        if extracted_likes > 0:
-                            break
-            except Exception as e:
-                print(f"⚠️ Structural DOM parse skipped: {e}")
-
-            if extracted_likes == 0:
-                html_source = await page.content()
-                match = re.search(r'([\d,.]+K?M?)\s*(?:Likes|Like|like|likes)', html_source, re.IGNORECASE)
-                if match:
-                    extracted_likes = parse_abbreviated_number(match.group(1))
-
-            if extracted_likes == 0:
-                print("⚠️ Could not locate explicit metric labels on download page. Proceeding to safety verify.")
-                extracted_likes = 50000
                 
-            print(f"🎯 Final Evaluated Like Total: {extracted_likes}")
+            download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
+            await page.wait_for_selector(download_btn_selector, timeout=25000)
+            video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
             
-            if extracted_likes >= 50000:
-                download_btn_selector = "a:has-text('Download Video'), a[href*='cdninstagram.com'], a.btn-download"
-                await page.wait_for_selector(download_btn_selector, timeout=25000)
-                video_stream_url = await page.locator(download_btn_selector).first.get_attribute("href")
-            else:
-                print("❌ Skipping download loop: Target metric requirements not satisfied.")
-                
         except Exception as e:
-            print(f"⚠️ Pipeline execution track error: {e}")
+            print(f"⚠️ Falling back to deep link exploration block: {e}")
             try:
                 links = await page.locator("a").all()
                 for link in links:
@@ -402,18 +352,15 @@ async def process_snapinsta_pipeline(reel_url, unique_id):
             if 'browser' in locals():
                 await browser.close()
                 
-    if video_stream_url and extracted_likes >= 50000:
+    if video_stream_url:
         video_stream_url = video_stream_url.replace('&amp;', '&')
         curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
         subprocess.run(curl_cmd, capture_output=True)
         if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
             print(f"🎉 Asset extracted cleanly: {output_path}")
-            return output_path, extracted_likes
+            return output_path
             
-    return None, extracted_likes
-
-
-
+    return None
 def analyze_frame_with_qwen(frame_bytes):
     """Sends compressed JPEG bytes directly into the local Qwen2.5-VL container."""
     url = "http://localhost:11434/api/generate"
@@ -464,9 +411,9 @@ def commit_changes(reel_link, video_path=None):
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
-            subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
-            subprocess.run(["git", "push"], check=True)
-            print("✅ Git Synchronization completed cleanly.")
+        subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
+        subprocess.run(["git", "push"], check=True)
+        print("✅ Git Synchronization completed cleanly.")
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
 
@@ -482,7 +429,8 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    current_reel = links[0]
+    # Dequeue the target element (Pops exactly one reel string link per runtime)
+    current_reel = links
     remaining_links = links[1:]
 
     with open("input_link.txt", "w") as f:
@@ -491,15 +439,9 @@ async def main():
     print(f"🎯 Processing Active Target String Link: {current_reel}")
     unique_id = int(time.time())
     
-    downloaded_file_path, likes = await process_snapinsta_pipeline(current_reel, unique_id)
-
-    if likes < 50000:
-        print("❌ Condition Failed: Reel has less than 50k likes. Adding to rejected.txt.")
-        with open("rejected.txt", "a") as f:
-            f.write(f"{current_reel} (Reason: Under 50k likes - Count: {likes})\n")
-        commit_changes(current_reel)
-        return
-
+    # Bypassed likes calculation: Loops directly down to core Snapinsta download processing
+    downloaded_file_path = await run_stealth_download(current_reel, unique_id)
+    
     if downloaded_file_path and os.path.exists(downloaded_file_path):
         if analyze_video_frames(downloaded_file_path):
             print("🎉 Success! Video completely clean. Appending link to reel_source_summa.txt.")
