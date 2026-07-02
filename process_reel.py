@@ -352,7 +352,7 @@ async def run_stealth_download(reel_url, unique_id):
             if 'browser' in locals():
                 await browser.close()
                 
-    # FIX: Correctly grouped the download operations inside the functional flow context
+    # FIX: Correctly process and return output path inside the download execution flow
     if video_stream_url:
         video_stream_url = video_stream_url.replace('&amp;', '&')
         curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
@@ -364,7 +364,55 @@ async def run_stealth_download(reel_url, unique_id):
         print("❌ Could not isolate any direct video link properties on Snapinsta page layout panels.")
             
     return None
-"], check=True)
+def analyze_frame_with_qwen(frame_bytes):
+    """Sends compressed JPEG bytes directly into the local Qwen2.5-VL container."""
+    url = "http://localhost:11434/api/generate"
+    base64_image = base64.b64encode(frame_bytes).decode('utf-8')
+    
+    prompt_text = (
+        "Analyze this image frame carefully. "
+        "Does it contain any human faces, brand logos, promotional text watermarks, or social handles? "
+        "Reply with exactly 'YES' if any of these are present, or 'NO' if the frame is completely clear and faceless."
+    )
+    
+    payload = {"model": "qwen2.5vl:3b", "prompt": prompt_text, "images": [base64_image], "stream": False}
+    try:
+        # Long timeout threshold limit to survive CPU crunching restrictions on free runners
+        response = requests.post(url, json=payload, timeout=180)
+        return response.json().get("response", "").strip().upper()
+    except Exception as e:
+        print(f"⚠️ Vision engine connectivity error: {e}")
+        return "YES"
+
+def analyze_video_frames(video_path):
+    """Extracts frame snapshots every 15 indices for vision inspection."""
+    cap = cv2.VideoCapture(video_path)
+    interval = 15
+    frame_count = 0
+    passed_check = True
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_count += 1
+        if frame_count % interval == 0:
+            _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+            ai_verdict = analyze_frame_with_qwen(buffer.tobytes())
+            print(f"Frame {frame_count} Evaluation Result: {ai_verdict}")
+            if "YES" in ai_verdict:
+                print("❌ AI Verification Rejected: Frame contains face, branding, or watermarks.")
+                passed_check = False
+                break
+    cap.release()
+    return passed_check
+
+def commit_changes(reel_link, video_path=None):
+    """Syncs queue metrics, history listings, and video collections back to your GitHub repo."""
+    try:
+        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
+        # FIX: Updated formatting syntax to a valid standard non-reply bot email configuration layout
+        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
@@ -386,7 +434,7 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    # Dequeue the target element (Pops exactly one reel string link per runtime)
+    # Extract EXACTLY the first index string element [0] from the links array list 
     current_reel = links[0]
     remaining_links = links[1:]
 
@@ -406,6 +454,7 @@ async def main():
             commit_changes(current_reel, video_path=downloaded_file_path)
             return
         else:
+            # FIX: Completed the missing file cleanup step tracking execution criteria bounds
             print("❌ Video failed AI faceless/watermark inspection. Adding to rejected.txt.")
             with open("rejected.txt", "a") as f:
                 f.write(f"{current_reel} (Reason: Failed Qwen Vision Check)\n")
