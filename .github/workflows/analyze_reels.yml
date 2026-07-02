@@ -39,8 +39,8 @@ jobs:
 
       - name: Download Vision Model
         run: |
-          # Pulling the compressed 4-bit version of Qwen2.5-VL 3B to survive on free 7GB RAM runners
-          ollama pull qwen2.5-vl:3b-instruct-q4_K_M
+          # Fix: Corrected model naming structure matching official repository schemas
+          ollama pull qwen2.5vl:3b
       - name: Set up Python Engine
         uses: actions/setup-python@v5
         with:
