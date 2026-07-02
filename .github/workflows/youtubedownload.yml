@@ -320,6 +320,7 @@
 #           retention-days: 5
 
 
+
 name: YouTube Video Downloader Automation (via Publer URL)
 
 on:
@@ -370,7 +371,6 @@ jobs:
             });
             const page = await browserContext.newPage();
 
-            // Ensure safe directory allocation path exists locally for troubleshooting screenshots
             const downloadFolder = './downloads';
             if (!fs.existsSync(downloadFolder)){
                 fs.mkdirSync(downloadFolder);
@@ -391,25 +391,41 @@ jobs:
               await page.click(buttonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // 🛠️ TARGET LINK BY HREF SUBSTRING PATTERN:
-              // Matches any <a> tag whose href contains "https://publer-media-downloader"
-              const targetHrefSelector = 'a[href*="https://publer-media-downloader"]';
-              
-              console.log("⏳ Explicitly waiting for matching href anchor link to render...");
-              await page.waitForSelector(targetHrefSelector, { timeout: 60000 });
-              console.log("🎯 Conversion complete! Found the matching anchor tag.");
+              // 🛠️ FUZZY HREF SEARCH LOOP:
+              // Manually search through every single <a> tag's href to find our partial substring match
+              let matchedHref = null;
+              const partialMatchString = 'publer-media-downloader';
 
-              // Initialize a promise block to trap the brand new page tab context opened by the click event
-              const newPagePromise = browserContext.waitForEvent('page');
+              console.log(`🔍 Scanning page elements for any href containing: "${partialMatchString}"`);
               
-              console.log("🖱️ Clicking anchor link to trigger redirection...");
-              await page.click(targetHrefSelector);
+              // Poll for up to 60 seconds for Publer backend to generate the link element
+              for (let i = 0; i < 60; i++) {
+                matchedHref = await page.$$eval('a', (anchors, searchStr) => {
+                  for (let a of anchors) {
+                    const hrefValue = a.getAttribute('href');
+                    if (hrefValue && hrefValue.includes(searchStr)) {
+                      return hrefValue; // Return the full matched link string back to our script
+                    }
+                  }
+                  return null;
+                }, partialMatchString);
+
+                if (matchedHref) break;
+                await page.waitForTimeout(1000); // Check again after 1 second if not rendered yet
+              }
+
+              if (!matchedHref) {
+                throw new Error(`Timeout: No anchor tag containing '${partialMatchString}' was found in any href attribute.`);
+              }
+
+              console.log(`🎯 Match found! Full target URL intercepted.`);
               
-              // Resolve the promise to control the new page object instance
-              const redirectedPage = await newPagePromise;
-              await redirectedPage.waitForLoadState('networkidle');
+              // 🛠️ TRIGGER REDIRECT MANUALLY:
+              // Instead of relying on a button click element, navigate the page context directly to the extracted URL path
+              console.log("🔄 Navigating current page to the redirected download page location...");
+              await page.goto(matchedHref, { waitUntil: 'networkidle' });
               
-              console.log(`✅ Successfully redirected! Current new page URL position: ${redirectedPage.url()}`);
+              console.log(`✅ Redirect complete! Current page URL position: ${page.url()}`);
 
             } catch (error) {
               console.error("❌ Automation routing routine caught failure exception:", error);
