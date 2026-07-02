@@ -14,12 +14,17 @@ async def get_reel_likes_via_playwright(reel_url):
     """Launches Playwright to load the Instagram embed frame and securely extract like counts."""
     print(f"🕵️  Checking like count via Playwright layout simulation: {reel_url}")
     
-    if "/reel/" in reel_url:
-        shortcode = reel_url.split("/reel/").split("/")
-    elif "/p/" in reel_url:
-        shortcode = reel_url.split("/p/").split("/")
-    else:
-        print("❌ Invalid URL structure format provided.")
+    # Clean the URL to extract the unique shortcode string safely
+    try:
+        if "/reel/" in reel_url:
+            shortcode = reel_url.split("/reel/")[1].split("/")[0]
+        elif "/p/" in reel_url:
+            shortcode = reel_url.split("/p/")[1].split("/")[0]
+        else:
+            print("❌ Invalid URL structure format provided.")
+            return 0
+    except Exception as e:
+        print(f"❌ Failed to parse shortcode string from URL: {e}")
         return 0
 
     embed_url = f"https://instagram.com{shortcode}/embed/captioned/"
@@ -56,7 +61,6 @@ async def get_reel_likes_via_playwright(reel_url):
 
 async def run_stealth_download(reel_url, unique_id):
     """Launches Playwright via Xvfb to grab source video downloads from snapinsta.to."""
-    # Changed folder path names to checking_videos
     if os.path.exists('checking_videos'):
         shutil.rmtree('checking_videos')
         
@@ -172,19 +176,17 @@ def commit_changes(reel_link, video_path=None):
     """Syncs queue metrics, history listings, and video collections back to your GitHub repo."""
     try:
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@://github.com"], check=True)
-        # Updated filename strings inside git tracking configuration lines
+        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
-        subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Evaluated {reel_link}"], check=True)
+        subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
         subprocess.run(["git", "push"], check=True)
         print("✅ Git Synchronization completed cleanly.")
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
 
 async def main():
-    # Changed path strings from links.txt to input_link.txt
     if not os.path.exists("input_link.txt"):
         print("ℹ️ Input queue input_link.txt file does not exist yet. Execution paused.")
         return
@@ -196,13 +198,14 @@ async def main():
         print("Queue is empty. No links found in input_link.txt.")
         return
 
-    current_reel = links
+    # FIX: Extracted exactly the first single link string element instead of the raw array object list
+    current_reel = links[0]
     remaining_links = links[1:]
 
     with open("input_link.txt", "w") as f:
         f.write("\n".join(remaining_links) + ("\n" if remaining_links else ""))
 
-    print(f"🎯 Processing Active Target: {current_reel}")
+    print(f"🎯 Processing Active Target String Link: {current_reel}")
     likes = await get_reel_likes_via_playwright(current_reel)
     print(f"📊 Like Metric Identified: {likes}")
 
@@ -218,26 +221,19 @@ async def main():
     
     if downloaded_file_path and os.path.exists(downloaded_file_path):
         if analyze_video_frames(downloaded_file_path):
-            # Changed destination output logger file string name to reel_source_summa.txt
             print("🎉 Success! Video completely clean. Appending link to reel_source_summa.txt.")
             with open("reel_source_summa.txt", "a") as f:
                 f.write(f"{current_reel}\n")
             commit_changes(current_reel, video_path=downloaded_file_path)
             return
         else:
-            print("❌ Video failed AI faceless/watermark inspection. Adding to rejected.txt.")
 
+            print("❌ Media link target parsing error. Adding to rejected.txt.")
             with open("rejected.txt", "a") as f:
-                f.write(f"{current_reel} (Reason: Failed Qwen Vision Check)\n")
-            if os.path.exists(downloaded_file_path):
-                os.remove(downloaded_file_path)
-    else:
-        print("❌ Media link target parsing error. Adding to rejected.txt.")
-        with open("rejected.txt", "a") as f:
-            f.write(f"{current_reel} (Reason: Snapinsta Download Stream Error)\n")
+                f.write(f"{current_reel} (Reason: Snapinsta Download Stream Error)\n")
 
-    # Final execution wrap up push to sync tracking modifications
-    commit_changes(current_reel)
+        # Final execution wrap up push to sync tracking modifications
+        commit_changes(current_reel)
 
 if __name__ == "__main__":
     asyncio.run(main())
