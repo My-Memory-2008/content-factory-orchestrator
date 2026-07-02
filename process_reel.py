@@ -405,7 +405,7 @@ def analyze_frame_with_qwen(frame_bytes):
     
     prompt_text = (
         "Analyze this image frame carefully. "
-        "Does it contain any human faces, brand logos, promotional text watermarks, or social handles? "
+        "Does it contain any human faces who promote themselves through products to folllow or subscribe them or others  , brand logos, promotional text watermarks like with special symbols like @, _ ,! , or social handles? "
         "Reply with exactly 'YES' if any of these are present, or 'NO' if the frame is completely clear and faceless."
     )
     
