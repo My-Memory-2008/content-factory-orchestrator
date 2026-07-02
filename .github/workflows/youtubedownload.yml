@@ -205,6 +205,121 @@
 
 
 
+# name: YouTube Video Downloader Automation (via Publer URL)
+
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       video_url:
+#         description: 'Paste the YouTube URL to pass to Publer'
+#         required: true
+#         type: string
+
+# jobs:
+#   download_video:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 15
+
+#     steps:
+#       - name: Codebase Checkout
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js Runtime
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 18
+
+#       - name: Install Playwright and System Dependencies
+#         run: |
+#           npm install playwright
+#           npx playwright install --with-deps chromium
+
+#       - name: Execute Web Automation Interface
+#         env:
+#           VIDEO_URL: ${{ github.event.inputs.video_url }}
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             const { chromium } = require('playwright');
+#             const fs = require('fs');
+
+#             const videoUrl = process.env.VIDEO_URL;
+#             console.log(`🚀 Processing automation targeting Publer engine for: ${videoUrl}`);
+
+#             const browser = await chromium.launch({ headless: true });
+            
+#             const browserContext = await browser.newContext({
+#               acceptDownloads: true,
+#               viewport: { width: 1280, height: 800 },
+#               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+#             });
+#             const page = await browserContext.newPage();
+
+#             // Ensure safe directory allocation path exists locally for troubleshooting screenshots
+#             const downloadFolder = './downloads';
+#             if (!fs.existsSync(downloadFolder)){
+#                 fs.mkdirSync(downloadFolder);
+#             }
+
+#             try {
+#               // Navigate to Publer's tool asset page
+#               await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
+              
+#               // Enter the target link
+#               const inputSelector = 'input[placeholder*="Paste the URL"], input[type="text"]';
+#               await page.waitForSelector(inputSelector);
+#               await page.fill(inputSelector, videoUrl);
+#               console.log("✏️ Link successfully entered into Publer framework container.");
+
+#               // Click the initial processing 'Download' execution button
+#               const buttonSelector = 'button:has-text("Download")';
+#               await page.click(buttonSelector);
+#               console.log("⏳ Processing conversion request on remote server...");
+
+#               // 🛠️ TARGET LINK BY HREF SUBSTRING PATTERN:
+#               // Matches any <a> tag whose href contains "https://publer-media-downloader"
+#               const targetHrefSelector = 'a[href*="https://publer-media-downloader"]';
+              
+#               console.log("⏳ Explicitly waiting for matching href anchor link to render...");
+#               await page.waitForSelector(targetHrefSelector, { timeout: 60000 });
+#               console.log("🎯 Conversion complete! Found the matching anchor tag.");
+
+#               // Initialize a promise block to trap the brand new page tab context opened by the click event
+#               const newPagePromise = browserContext.waitForEvent('page');
+              
+#               console.log("🖱️ Clicking anchor link to trigger redirection...");
+#               await page.click(targetHrefSelector);
+              
+#               // Resolve the promise to control the new page object instance
+#               const redirectedPage = await newPagePromise;
+#               await redirectedPage.waitForLoadState('networkidle');
+              
+#               console.log(`✅ Successfully redirected! Current new page URL position: ${redirectedPage.url()}`);
+
+#             } catch (error) {
+#               console.error("❌ Automation routing routine caught failure exception:", error);
+              
+#               try {
+#                 await page.screenshot({ path: 'downloads/error-layout-screenshot.png', fullPage: true });
+#                 console.log("📸 Saved failure visual screenshot layout state to artifact logs.");
+#               } catch (screenshotError) {
+#                 console.error("⚠️ Failed to capture error state screenshot:", screenshotError);
+#               }
+              
+#               core.setFailed(error.message);
+#             } finally {
+#               await browser.close();
+#             }
+
+#       - name: Export Workflow Execution Output Logs
+#         uses: actions/upload-artifact@v4
+#         if: always()
+#         with:
+#           name: publer-automation-logs
+#           path: ./downloads/
+#           retention-days: 5
+
+
 name: YouTube Video Downloader Automation (via Publer URL)
 
 on:
