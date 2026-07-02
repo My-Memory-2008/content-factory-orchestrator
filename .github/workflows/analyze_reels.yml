@@ -48,7 +48,7 @@ jobs:
 
       - name: Install System & Python Dependencies
         run: |
-          pip install requests opencv-python playwright
+          pip install requests opencv-python playwright instaloader
           playwright install chromium
 
       - name: Run Automation Pipeline Execution
