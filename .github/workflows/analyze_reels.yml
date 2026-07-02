@@ -1,72 +1,49 @@
-name: Instagram Reel Analyzer (Ollama Qwen2.5-VL + Playwright)
-
+name: Process Instagram Reels
 on:
-  schedule:
-    - cron: '0 */6 * * *' # Automated run every 6 hours
-  workflow_dispatch: # Allows manual trigger button click
+  workflow_dispatch:   # Allows you to click "Run workflow" manually inside GitHub
 
 jobs:
-  analyze:
+  process_reel:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Essential permission to push video and text files back to your repo
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Setup Execution Environment
-      - name: Set up Python
-        uses: actions/uses-python@v5
-        with:
-          python-version: '3.10'
-
-      # 2. System Layer Package Dependencies
-      - name: Install System Dependencies
+      - name: Initialize Virtual Display Framebuffer (Xvfb)
         run: |
-          sudo apt-get update 
-          sudo apt-get install -y ffmpeg xvfb curl
-          pip install opencv-python-headless pillow requests playwright
-          playwright install chromium
-
-      # 3. Cache Ollama Models to prevent downloading the 3B weights every single run
-      - name: Cache Ollama Models
-        id: cache-ollama
-        uses: actions/cache@v4
-        with:
-          path: ~/.ollama
-          key: ollama-qwen25-vl-3b-cache
-
-      # 4. Install Ollama and Boot Server Service
-      - name: Install and Run Ollama
-        run: |
-          # Download and install Ollama binary
-          curl -fsSL https://ollama.com | sh
-          
-          # Serve Ollama as a background process daemon
-          ollama serve &
-          
-          # Give the engine service 5 seconds to wake up completely
-          sleep 5
-          
-          # Download Qwen2.5-VL 3B weights if not pulled by the cache step
-          echo "Pulling Qwen2.5-VL model weights..."
-          ollama pull qwen2.5-vl:3b
-
-      # 5. Initialize Virtual Display Framebuffer for Headed Playwright Browser Simulation
-      - name: Initialize Virtual Display Framebuffer
-        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-glx
+          # Launch background display 99 so Chromium runs without crashing
           Xvfb :99 -screen 0 1280x720x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
           sleep 3
 
-      # 6. Execute Main Orchestration Script
-      - name: Run Analyzer Script
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com | sh
+
+      - name: Start Ollama & Pull Quantized Qwen2.5-VL
+        run: |
+          ollama serve &
+          echo "Waiting for local Ollama service host..."
+          until curl -s http://localhost:11434 > /dev/null; do sleep 2; done
+          
+          # Pulling the compressed 4-bit version of Qwen2.5-VL 3B to survive on free 7GB RAM runners
+          ollama pull qwen2.5-vl:3b-instruct-q4_K_M
+
+      - name: Set up Python Engine
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System & Python Dependencies
+        run: |
+          pip install requests opencv-python playwright
+          playwright install chromium
+
+      - name: Run Automation Pipeline Execution
         env:
           DISPLAY: :99
-        run: python analyzer.py
-
-      # 7. Write Back Code Base Changes 
-      - name: Commit and Push Results
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add approved.txt
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update approved reels [skip ci]" && git push)
+        run: python process_reel.py
