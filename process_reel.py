@@ -421,7 +421,7 @@ def analyze_frame_with_qwen(frame_bytes):
 def analyze_video_frames(video_path):
     """Extracts frame snapshots every 15 indices for vision inspection."""
     cap = cv2.VideoCapture(video_path)
-    interval = 30
+    interval = 60
     frame_count = 0
     passed_check = True
 
