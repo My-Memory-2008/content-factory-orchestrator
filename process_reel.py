@@ -293,15 +293,17 @@ def get_reel_likes_via_instaloader(reel_url):
     """
     print(f"🕵️  Querying Instaloader API for target link: {reel_url}")
     try:
-        # Strip query parameters out and target shortcode
-        clean_url = reel_url.split('?')
-        if "/reel/" in clean_url:
-            shortcode = clean_url.split("/reel/")[-1].replace('/', '')
-        elif "/p/" in clean_url:
-            shortcode = clean_url.split("/p/")[-1].replace('/', '')
-        else:
-            print("❌ Invalid URL structure format provided.")
+        # Step 1: Strip any trailing parameters starting with '?' safely
+        base_url = reel_url.split('?')[0]
+        
+        # Step 2: Use regex pattern matching to grab the shortcode from /reel/ or /p/
+        match = re.search(r'/(?:reel|p)/([^/]+)', base_url)
+        if not match:
+            print("❌ Invalid URL structure format provided. Could not isolate shortcode.")
             return 0
+            
+        shortcode = match.group(1)
+        print(f"🔗 Isolated Shortcode String: {shortcode}")
             
         # Initialize Instaloader instance context
         L = instaloader.Instaloader()
@@ -314,6 +316,7 @@ def get_reel_likes_via_instaloader(reel_url):
     except Exception as e:
         print(f"⚠️ Instaloader engine extraction dropped or throttled: {e}")
         return 0
+
 
 async def run_stealth_download(reel_url, unique_id):
     """Launches Playwright via Xvfb to grab source video downloads from snapinsta.to."""
