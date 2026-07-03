@@ -444,14 +444,30 @@ def analyze_video_frames(video_path):
 def commit_changes(reel_link, video_path=None):
     """Syncs queue metrics, history listings, and video collections back to your GitHub repo."""
     try:
+        # subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
+        # subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@://github.com"], check=True)
+        # subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
+        # if video_path and os.path.exists(video_path):
+        #     subprocess.run(["git", "add", video_path], check=True)
+        # subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
+        # subprocess.run(["git", "push"], check=True)
+        # print("✅ Git Synchronization completed cleanly.")
+
+        # 1. Configure Git with the correct official GitHub Actions bot email
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@://github.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+    
+        # 2. Stage the tracked files
         subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
-        subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
-        subprocess.run(["git", "push"], check=True)
-        print("✅ Git Synchronization completed cleanly.")
+    
+        # 3. Safe Commit: Only commit if there are actual changes staged
+        status = subprocess.run(["git", "diff", "--cached", "--quiet"])
+        if status.returncode == 1:  # returncode 1 means changes exist
+            subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
+            subprocess.run(["git", "push"], check=True)
+            print("✅ Git Synchronization completed cleanly.")
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
 
