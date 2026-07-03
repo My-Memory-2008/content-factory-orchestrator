@@ -397,7 +397,7 @@ jobs:
 
             try {
               // Navigate to SaveFrom.net main entry point
-              await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
+              await page.goto('https://en1.savefrom.net/19wr/', { waitUntil: 'networkidle' });
               
               // 🛠️ GENERIC INPUT POSITION LOCK ON:
               // Target the first input element rendering inside the page layout
