@@ -322,6 +322,7 @@
 
 
 
+
 name: YouTube Video Downloader Automation (via Publer + uBlock)
 
 on:
@@ -378,7 +379,6 @@ jobs:
 
             const extensionPath = path.resolve('./ublock-ext');
 
-            // Launch a persistent context to support extension parsing
             const browserContext = await chromium.launchPersistentContext('', {
               headless: false, 
               args: [
@@ -396,41 +396,38 @@ jobs:
             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             try {
-              // Navigate to Publer's dedicated media downloader tool page
-              await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
+              // Navigate directly to Publer's tool landing page
+              await page.goto('https://publer.com', { waitUntil: 'networkidle' });
               
-              // 🛠️ FIXING THE INPUT TRACKER:
-              // Publer uses an unlabelled text input right inside their main container. 
-              // We find the primary visible text field on the page directly.
-              const inputField = page.locator('input[type="text"], input[type="url"], input').first();
-              await inputField.waitFor({ state: 'visible', timeout: 30000 });
+              // 🛠️ ACCURATE TARGET INPUT SELECTOR FILTER:
+              // Excludes checkbox elements and targets text-type input forms nested inside the interactive zone
+              const inputSelector = 'input[type="text"]:not([type="checkbox"]), input[type="url"], div.flex > input';
+              await page.waitForSelector(inputSelector, { state: 'visible', timeout: 30000 });
               
-              // Click, clear out any default text, and fill the YouTube video URL
+              const inputField = page.locator(inputSelector).first();
               await inputField.click();
               await inputField.fill('');
               await inputField.fill(videoUrl);
-              console.log("✅ Link successfully entered into Publer input field.");
+              console.log("✅ Link successfully entered into Publer target form element.");
 
-              // 🛠️ FIXING THE ACTION BUTTON SELECTOR:
-              // Click the primary action button containing the literal text "Download" right next to the link input
+              // Click the primary operational download execution button next to it
               const submitButton = page.locator('button:has-text("Download"), button[type="submit"]').first();
               await submitButton.click();
               console.log("⏳ Processing conversion request on remote server...");
 
-              // 🛠️ STEP 3: HIGH-ACCURACY DYNAMIC ASSET INTERCEPTOR
-              // Targets the dynamic button containing the exact phrase "Save to your device" or the worker domain link
+              // STEP 3: HIGH-ACCURACY DYNAMIC ASSET INTERCEPTOR
               const targetedHrefSelector = 'a[href*="publer-media-downloader"], a:has-text("Save"), a:has-text("device")';
               
               console.log("⏳ Waiting for Publer backend to compile video files and render the Save button...");
               await page.waitForSelector(targetedHrefSelector, { state: 'attached', timeout: 60000 });
               console.log("🎯 Conversion complete! Target link element identified.");
 
-              // Drop advertising tab popups generated dynamically on button click loops
+              // Close background browser popups triggered on user mouse click sequences
               browserContext.on('page', async popup => {
                 await popup.close().catch(() => {});
               });
 
-              // STEP 4: TRAP AND EXECUTE REDIRECT DOWNLOAD
+              // STEP 4: TRAP AND EXECUTE DOWNLOAD PIPELINE
               const downloadPromise = page.waitForEvent('download');
               
               console.log("📥 Clicking anchor link to trigger direct asset capture...");
@@ -465,3 +462,4 @@ jobs:
           name: publer-downloaded-video
           path: ./downloads/
           retention-days: 5
+
