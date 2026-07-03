@@ -53,6 +53,6 @@ jobs:
 
       - name: Run Automation Pipeline Execution
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # DISPLAY: :99
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPLAY: :99
         run: python process_reel.py
