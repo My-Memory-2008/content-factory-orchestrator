@@ -468,7 +468,7 @@
 
 
 
-name: YouTube Video Downloader Automation (SaveFrom Structural Target)
+name: YouTube Video Downloader Automation (SaveFrom DomContentLoaded)
 
 on:
   workflow_dispatch:
@@ -541,11 +541,12 @@ jobs:
             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             try {
-              // Navigate to the target domain layout
-              await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
-              
-              // 🛠️ MULTI-LAYER INPUT FINDER FALLBACK STRATEGY:
-              // Instead of relying on placeholder strings, try specific attributes first, then generic fallbacks
+              // 🛠️ UPDATED LIFECYCLE TARGET TO DOMCONTENTLOADED:
+              // Navigates and breaks immediately once the core structural HTML parses, ignoring background ad networks
+              await page.goto('https://savefrom.net', { waitUntil: 'domcontentloaded' });
+              console.log("📍 Arrived at SaveFrom interface layout framework.");
+
+              // Multi-layer fallback input selector block
               const targetInputSelector = 'input#sf_url, input[name="sf_url"], input[type="text"], input[type="url"]';
               await page.waitForSelector(targetInputSelector, { state: 'visible', timeout: 30000 });
               
@@ -555,26 +556,23 @@ jobs:
               await inputField.fill(videoUrl);
               console.log("✅ Writable input element located structurally and link populated successfully.");
 
-              // 🛠️ MULTI-LAYER SUBMIT BUTTON STRATEGY:
-              // Targets specific IDs before falling back to generic button containers
+              // Multi-layer submit button execution mapping
               const submitButtonSelector = 'button#sf_submit, button.submit, button[type="submit"], button.btn-download';
               await page.click(submitButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // STEP 1: WAIT FOR VIDEO PREVIEW THUMBNAIL CONTAINER TO APPEAR
-              // SaveFrom renders an info box or media output card when compilation resolves
+              // Wait for the video download link or stream storage container cards to populate
               const downloadButtonSelector = '.download-icon, a.link-download, .link-group a, a[href*="storage"], button:has-text("Download")';
-              
               console.log("⏳ Waiting for the specific download grid options to render on screen...");
               await page.waitForSelector(downloadButtonSelector, { state: 'attached', timeout: 45000 });
               console.log("🎯 Quality download choices localized successfully!");
 
-              // Dynamic pop-under shield loop: instantly drops any ad tab windows spawned during click actions
+              // Drop advertisement tabs generated dynamically on button click actions
               browserContext.on('page', async popup => {
                 await popup.close().catch(() => {});
               });
 
-              // STEP 2: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
+              // Trigger and resolve the core file download tracking pipeline
               const downloadPromise = page.waitForEvent('download');
               
               console.log("📥 Clicking the primary video download link element node...");
