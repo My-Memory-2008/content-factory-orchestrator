@@ -710,8 +710,9 @@ jobs:
                       viewport={"width": 1280, "height": 800}
                   )
 
+                  # 🛠️ FIXED: Pull the first single item [0] out of the pages list instead of assigning the list object
                   pages = browser_context.pages
-                  page = pages if pages else await browser_context.new_page()
+                  page = pages[0] if pages else await browser_context.new_page()
 
                   try:
                       # Navigate directly to the provided target Y2mate endpoint URL
@@ -742,8 +743,7 @@ jobs:
                       except Exception:
                           print("ℹ️ Video options tab was pre-loaded or not found, looking for grid rows...")
 
-                      # 🛠️ TARGET FIRST BUTTON FROM YOUR EXACT CODE MATCH:
-                      # Class mapping matches snippet: button.btn.btn-success.y2link-download.custom
+                      # TARGET FIRST BUTTON FROM YOUR EXACT CODE MATCH:
                       first_download_selector = "button.y2link-download"
                       await page.wait_for_selector(first_download_selector, state="attached", timeout=45000)
                       print("🎯 Quality conversion row layout found successfully!")
@@ -761,8 +761,7 @@ jobs:
                       print("👆 First button row layout activated. Compiling asset download streams...")
                       await page.locator(first_download_selector).first.click(force=True)
 
-                      # 🛠️ TARGET SECOND BUTTON FROM YOUR EXACT CODE MATCH:
-                      # Class mapping matches snippet: a.btn.btn-success.btn-download-link
+                      # TARGET SECOND BUTTON FROM YOUR EXACT CODE MATCH:
                       second_download_selector = "a.btn-download-link"
                       
                       print("⏳ Waiting for backend generation to append the final Download anchor tag...")
@@ -782,7 +781,7 @@ jobs:
                       
                       # Save data payload stream securely down to disk path mapping routes
                       await download.save_as(final_path)
-                      print(f"✅ File successfully transferred down to path at: {final_path}")
+                      print(f"✅ File successfully transferred down to path at: ${final_path}")
 
                   except Exception as error:
                       print(f"❌ Automation routing routine caught failure exception: {error}", file=sys.stderr)
