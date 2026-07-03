@@ -1,105 +1,105 @@
 
 
 
-# name: YouTube Video Downloader Automation (via Publer)
+name: YouTube Video Downloader Automation (via Publer)
 
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       video_url:
-#         description: 'Paste the YouTube URL to pass to Publer'
-#         required: true
-#         type: string
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Paste the YouTube URL to pass to Publer'
+        required: true
+        type: string
 
-# jobs:
-#   download_video:
-#     runs-on: ubuntu-latest
-#     timeout-minutes: 15
+jobs:
+  download_video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-#     steps:
-#       - name: Codebase Checkout
-#         uses: actions/checkout@v4
+    steps:
+      - name: Codebase Checkout
+        uses: actions/checkout@v4
 
-#       - name: Setup Node.js Runtime
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 18
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-#       - name: Install Playwright and System Dependencies
-#         run: |
-#           npm install playwright
-#           npx playwright install --with-deps chromium
+      - name: Install Playwright and System Dependencies
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
 
-#       - name: Execute Web Automation Interface
-#         env:
-#           VIDEO_URL: ${{ github.event.inputs.video_url }}
-#         uses: actions/github-script@v7
-#         with:
-#           script: |
-#             const { chromium } = require('playwright');
-#             const fs = require('fs');
-#             const path = require('path');
+      - name: Execute Web Automation Interface
+        env:
+          VIDEO_URL: ${{ github.event.inputs.video_url }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { chromium } = require('playwright');
+            const fs = require('fs');
+            const path = require('path');
 
-#             const videoUrl = process.env.VIDEO_URL;
-#             console.log(`🚀 Processing automation targeting Publer engine for: ${videoUrl}`);
+            const videoUrl = process.env.VIDEO_URL;
+            console.log(`🚀 Processing automation targeting Publer engine for: ${videoUrl}`);
 
-#             const browser = await chromium.launch({ headless: true });
+            const browser = await chromium.launch({ headless: true });
             
-#             // Renamed 'context' to 'browserContext' to resolve the variable conflict
-#             const browserContext = await browser.newContext({
-#               acceptDownloads: true,
-#               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-#             });
-#             const page = await browserContext.newPage();
+            // Renamed 'context' to 'browserContext' to resolve the variable conflict
+            const browserContext = await browser.newContext({
+              acceptDownloads: true,
+              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            });
+            const page = await browserContext.newPage();
 
-#             try {
-#               // Navigate directly to Publer's free tool asset page
-#               await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
+            try {
+              // Navigate directly to Publer's free tool asset page
+              await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
               
-#               // Locate the text input field and type the YouTube link
-#               const inputSelector = 'input[placeholder*="Paste the URL"], input[type="text"]';
-#               await page.waitForSelector(inputSelector);
-#               await page.fill(inputSelector, videoUrl);
-#               console.log("✏️ Link successfully entered into Publer framework container.");
+              // Locate the text input field and type the YouTube link
+              const inputSelector = 'input[placeholder*="Paste the URL"], input[type="text"]';
+              await page.waitForSelector(inputSelector);
+              await page.fill(inputSelector, videoUrl);
+              console.log("✏️ Link successfully entered into Publer framework container.");
 
-#               // Locate and click the 'Download' action execution button
-#               const buttonSelector = 'button:has-text("Download")';
-#               await page.click(buttonSelector);
-#               console.log("⏳ Processing conversion request on remote server...");
+              // Locate and click the 'Download' action execution button
+              const buttonSelector = 'button:has-text("Download")';
+              await page.click(buttonSelector);
+              console.log("⏳ Processing conversion request on remote server...");
 
-#               // Wait for Publer to process video and generate the media resource item link
-#               const downloadLinkSelector = 'a[download], button:has-text("Download Video"), .download-link a';
-#               await page.waitForSelector(downloadLinkSelector, { timeout: 60000 });
+              // Wait for Publer to process video and generate the media resource item link
+              const downloadLinkSelector = 'a[download], button:has-text("Download Video"), .download-link a';
+              await page.waitForSelector(downloadLinkSelector, { timeout: 60000 });
 
-#               // Initialize a Playwright event promise block to capture incoming browser file download stream
-#               const downloadPromise = page.waitForEvent('download');
-#               await page.click(downloadLinkSelector);
-#               const download = await downloadPromise;
+              // Initialize a Playwright event promise block to capture incoming browser file download stream
+              const downloadPromise = page.waitForEvent('download');
+              await page.click(downloadLinkSelector);
+              const download = await downloadPromise;
 
-#               // Ensure safe directory allocation path exists locally
-#               const downloadFolder = './downloads';
-#               if (!fs.existsSync(downloadFolder)){
-#                   fs.mkdirSync(downloadFolder);
-#               }
+              // Ensure safe directory allocation path exists locally
+              const downloadFolder = './downloads';
+              if (!fs.existsSync(downloadFolder)){
+                  fs.mkdirSync(downloadFolder);
+              }
 
-#               // Save file storage mapping output payload
-#               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
-#               await download.saveAs(finalPath);
-#               console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
+              // Save file storage mapping output payload
+              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
+              await download.saveAs(finalPath);
+              console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
 
-#             } catch (error) {
-#               console.error("❌ Automation routing routine caught failure exception:", error);
-#               core.setFailed(error.message);
-#             } finally {
-#               await browser.close();
-#             }
+            } catch (error) {
+              console.error("❌ Automation routing routine caught failure exception:", error);
+              core.setFailed(error.message);
+            } finally {
+              await browser.close();
+            }
 
-#       - name: Export Extracted Media File as Pipeline Artifact
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: publer-downloaded-video
-#           path: ./youtubedownloads/
-#           retention-days: 5
+      - name: Export Extracted Media File as Pipeline Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: publer-downloaded-video
+          path: ./youtubedownloads/
+          retention-days: 5
 
 
 # name: YouTube Video Downloader Automation (via Publer)
@@ -323,143 +323,143 @@
 
 
 
-name: YouTube Video Downloader Automation (via Publer + uBlock)
+# name: YouTube Video Downloader Automation (via Publer + uBlock)
 
-on:
-  workflow_dispatch:
-    inputs:
-      video_url:
-        description: 'Paste the YouTube URL to pass to Publer'
-        required: true
-        type: string
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       video_url:
+#         description: 'Paste the YouTube URL to pass to Publer'
+#         required: true
+#         type: string
 
-jobs:
-  download_video:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+# jobs:
+#   download_video:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 15
 
-    steps:
-      - name: Codebase Checkout
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Codebase Checkout
+#         uses: actions/checkout@v4
 
-      - name: Setup Node.js Runtime
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+#       - name: Setup Node.js Runtime
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 18
 
-      - name: Install Playwright and Dependencies
-        run: |
-          npm install playwright
-          npx playwright install --with-deps chromium
+#       - name: Install Playwright and Dependencies
+#         run: |
+#           npm install playwright
+#           npx playwright install --with-deps chromium
 
-      - name: Download and Unpack uBlock Origin Lite
-        run: |
-          mkdir -p ./ublock-ext
-          curl -L -o ublock.zip "https://google.com"
-          unzip -o ublock.zip -d ./ublock-ext || true
-          echo "📦 Extension downloaded and unpacked into workspace directory structures."
+#       - name: Download and Unpack uBlock Origin Lite
+#         run: |
+#           mkdir -p ./ublock-ext
+#           curl -L -o ublock.zip "https://google.com"
+#           unzip -o ublock.zip -d ./ublock-ext || true
+#           echo "📦 Extension downloaded and unpacked into workspace directory structures."
 
-      - name: Execute Web Automation Interface
-        env:
-          VIDEO_URL: ${{ github.event.inputs.video_url }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { chromium } = require('playwright');
-            const fs = require('fs');
-            const path = require('path');
+#       - name: Execute Web Automation Interface
+#         env:
+#           VIDEO_URL: ${{ github.event.inputs.video_url }}
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             const { chromium } = require('playwright');
+#             const fs = require('fs');
+#             const path = require('path');
 
-            const videoUrl = process.env.VIDEO_URL;
-            console.log(`🚀 Launching Chrome Engine with uBlock Origin Lite for Publer: ${videoUrl}`);
+#             const videoUrl = process.env.VIDEO_URL;
+#             console.log(`🚀 Launching Chrome Engine with uBlock Origin Lite for Publer: ${videoUrl}`);
 
-            const downloadFolder = './downloads';
-            if (!fs.existsSync(downloadFolder)){
-                fs.mkdirSync(downloadFolder);
-            }
+#             const downloadFolder = './downloads';
+#             if (!fs.existsSync(downloadFolder)){
+#                 fs.mkdirSync(downloadFolder);
+#             }
 
-            const extensionPath = path.resolve('./ublock-ext');
+#             const extensionPath = path.resolve('./ublock-ext');
 
-            const browserContext = await chromium.launchPersistentContext('', {
-              headless: false, 
-              args: [
-                `--headless=new`, 
-                `--disable-extensions-except=${extensionPath}`,
-                `--load-extension=${extensionPath}`,
-                `--no-sandbox`,
-                `--disable-setuid-sandbox`
-              ],
-              acceptDownloads: true,
-              viewport: { width: 1440, height: 900 }
-            });
+#             const browserContext = await chromium.launchPersistentContext('', {
+#               headless: false, 
+#               args: [
+#                 `--headless=new`, 
+#                 `--disable-extensions-except=${extensionPath}`,
+#                 `--load-extension=${extensionPath}`,
+#                 `--no-sandbox`,
+#                 `--disable-setuid-sandbox`
+#               ],
+#               acceptDownloads: true,
+#               viewport: { width: 1440, height: 900 }
+#             });
 
-            const pages = browserContext.pages();
-            const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
+#             const pages = browserContext.pages();
+#             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
-            try {
-              // Navigate directly to Publer's tool landing page
-              await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
+#             try {
+#               // Navigate directly to Publer's tool landing page
+#               await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
               
-              // 🛠️ ACCURATE TARGET INPUT SELECTOR FILTER:
-              // Excludes checkbox elements and targets text-type input forms nested inside the interactive zone
-              const inputSelector = 'input[type="text"]:not([type="checkbox"]), input[type="url"], div.flex > input';
-              await page.waitForSelector(inputSelector, { state: 'visible', timeout: 30000 });
+#               // 🛠️ ACCURATE TARGET INPUT SELECTOR FILTER:
+#               // Excludes checkbox elements and targets text-type input forms nested inside the interactive zone
+#               const inputSelector = 'input[type="text"]:not([type="checkbox"]), input[type="url"], div.flex > input';
+#               await page.waitForSelector(inputSelector, { state: 'visible', timeout: 30000 });
               
-              const inputField = page.locator(inputSelector).first();
-              await inputField.click();
-              await inputField.fill('');
-              await inputField.fill(videoUrl);
-              console.log("✅ Link successfully entered into Publer target form element.");
+#               const inputField = page.locator(inputSelector).first();
+#               await inputField.click();
+#               await inputField.fill('');
+#               await inputField.fill(videoUrl);
+#               console.log("✅ Link successfully entered into Publer target form element.");
 
-              // Click the primary operational download execution button next to it
-              const submitButton = page.locator('button:has-text("Download"), button[type="submit"]').first();
-              await submitButton.click();
-              console.log("⏳ Processing conversion request on remote server...");
+#               // Click the primary operational download execution button next to it
+#               const submitButton = page.locator('button:has-text("Download"), button[type="submit"]').first();
+#               await submitButton.click();
+#               console.log("⏳ Processing conversion request on remote server...");
 
-              // STEP 3: HIGH-ACCURACY DYNAMIC ASSET INTERCEPTOR
-              const targetedHrefSelector = 'a[href*="publer-media-downloader"], a:has-text("Save"), a:has-text("device")';
+#               // STEP 3: HIGH-ACCURACY DYNAMIC ASSET INTERCEPTOR
+#               const targetedHrefSelector = 'a[href*="publer-media-downloader"], a:has-text("Save"), a:has-text("device")';
               
-              console.log("⏳ Waiting for Publer backend to compile video files and render the Save button...");
-              await page.waitForSelector(targetedHrefSelector, { state: 'attached', timeout: 60000 });
-              console.log("🎯 Conversion complete! Target link element identified.");
+#               console.log("⏳ Waiting for Publer backend to compile video files and render the Save button...");
+#               await page.waitForSelector(targetedHrefSelector, { state: 'attached', timeout: 60000 });
+#               console.log("🎯 Conversion complete! Target link element identified.");
 
-              // Close background browser popups triggered on user mouse click sequences
-              browserContext.on('page', async popup => {
-                await popup.close().catch(() => {});
-              });
+#               // Close background browser popups triggered on user mouse click sequences
+#               browserContext.on('page', async popup => {
+#                 await popup.close().catch(() => {});
+#               });
 
-              // STEP 4: TRAP AND EXECUTE DOWNLOAD PIPELINE
-              const downloadPromise = page.waitForEvent('download');
+#               // STEP 4: TRAP AND EXECUTE DOWNLOAD PIPELINE
+#               const downloadPromise = page.waitForEvent('download');
               
-              console.log("📥 Clicking anchor link to trigger direct asset capture...");
-              await page.locator(targetedHrefSelector).first().click();
+#               console.log("📥 Clicking anchor link to trigger direct asset capture...");
+#               await page.locator(targetedHrefSelector).first().click();
               
-              const download = await downloadPromise;
+#               const download = await downloadPromise;
 
-              // Save the file binary payload securely to pipeline container storage space
-              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
-              await download.saveAs(finalPath);
-              console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
+#               // Save the file binary payload securely to pipeline container storage space
+#               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
+#               await download.saveAs(finalPath);
+#               console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
 
-            } catch (error) {
-              console.error("❌ Automation routing routine caught failure exception:", error);
+#             } catch (error) {
+#               console.error("❌ Automation routing routine caught failure exception:", error);
               
-              try {
-                await page.screenshot({ path: 'downloads/error-layout-screenshot.png', fullPage: true });
-                console.log("📸 Saved failure visual screenshot layout state to artifact logs.");
-              } catch (screenshotError) {
-                console.error("⚠️ Failed to capture error state screenshot:", screenshotError);
-              }
+#               try {
+#                 await page.screenshot({ path: 'downloads/error-layout-screenshot.png', fullPage: true });
+#                 console.log("📸 Saved failure visual screenshot layout state to artifact logs.");
+#               } catch (screenshotError) {
+#                 console.error("⚠️ Failed to capture error state screenshot:", screenshotError);
+#               }
               
-              core.setFailed(error.message);
-            } finally {
-              await browserContext.close();
-            }
+#               core.setFailed(error.message);
+#             } finally {
+#               await browserContext.close();
+#             }
 
-      - name: Export Extracted Media File as Pipeline Artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: publer-downloaded-video
-          path: ./downloads/
-          retention-days: 5
+#       - name: Export Extracted Media File as Pipeline Artifact
+#         uses: actions/upload-artifact@v4
+#         if: always()
+#         with:
+#           name: publer-downloaded-video
+#           path: ./downloads/
+#           retention-days: 5
 
