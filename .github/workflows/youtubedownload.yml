@@ -542,10 +542,10 @@ jobs:
 
                   try:
                       # Navigate directly to the provided target Y2mate endpoint URL
-                      await page.goto("https://v22.www-y2mate.com/", wait_until="domcontentloaded")
+                      await page.goto("https://www-y2mate.com", wait_until="domcontentloaded")
                       print("📍 Arrived at Y2mate converter page infrastructure.")
 
-                      # 🛠️ EXACT MATCH INPUT FIELD SELECTOR FROM YOUR PROVIDED HTML:
+                      # EXACT MATCH INPUT FIELD SELECTOR FROM YOUR PROVIDED HTML:
                       # Class: y2mate_query keyword | placeholder: Search or paste link here...
                       input_selector = "input.y2mate_query.keyword"
                       await page.wait_for_selector(input_selector, state="visible", timeout=30000)
@@ -556,7 +556,7 @@ jobs:
                       await input_field.fill(video_url)
                       print("✅ Link successfully filled into targeted HTML input element.")
 
-                      # 🛠️ EXACT MATCH SUBMIT BUTTON SELECTOR FROM YOUR PROVIDED HTML:
+                      # EXACT MATCH SUBMIT BUTTON SELECTOR FROM YOUR PROVIDED HTML:
                       # ID: submit | Class: convert-btn | Containing text: Start
                       submit_selector = "button#submit.convert-btn"
                       await page.click(submit_selector)
@@ -564,11 +564,11 @@ jobs:
 
                       # STEP 1: FORCE THE "VIDEO" TAB LINK TO ENSURE MAXIMUM RESOLUTION ROWS POPULATE
                       video_tab_selector = 'a:has-text("Video"), li:has-text("Video"), button:has-text("Video")'
-                      try {
+                      try:
                           await page.wait_for_selector(video_tab_selector, timeout=15000)
                           await page.click(video_tab_selector)
                           print("🗂️ Video options view tab loaded explicitly.")
-                      } catch:
+                      except Exception:
                           print("ℹ️ Video options tab was pre-loaded or not found, looking for grid rows...")
 
                       # STEP 2: WAIT FOR THE DYNAMIC SELECTION TABLE TO COMPILE 
@@ -581,7 +581,7 @@ jobs:
                           try:
                               await popup_page.close()
                               print("🛡️ Suppressed ad network popup window container layout.")
-                          except:
+                          except Exception:
                               pass
                       browser_context.on("page", handle_popup)
 
@@ -598,7 +598,7 @@ jobs:
                       await final_download_button.wait_for(state="visible", timeout=30000)
                       print("🎯 Countdown expired! The final green download action button is ready.")
 
-                      # STEP 4: TRIGGER AND RESOLVE CORE ASYNCHRONOUS DOWNLOADING PROCESS
+                      # STEP 4: TRIGGER AND BASE ASYNCHRONOUS DOWNLOADING PROCESS
                       print("📥 Requesting asset stream download pipeline mapping...")
                       async with page.expect_download(timeout=60000) as download_info:
                           await final_download_button.click()
@@ -631,5 +631,3 @@ jobs:
           name: y2mate-async-downloaded-video
           path: ./downloads/
           retention-days: 5
-
-
