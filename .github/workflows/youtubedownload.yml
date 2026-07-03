@@ -397,7 +397,7 @@ jobs:
 
             try {
               // Navigate directly to Publer's tool landing page
-              await page.goto('https://publer.com', { waitUntil: 'networkidle' });
+              await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
               
               // 🛠️ ACCURATE TARGET INPUT SELECTOR FILTER:
               // Excludes checkbox elements and targets text-type input forms nested inside the interactive zone
