@@ -322,141 +322,113 @@
 
 
 
-
-name: YouTube Video Downloader Automation (via SaveFrom Position)
+name: Publer Video Downloader
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'Paste the YouTube URL to pass to SaveFrom'
+        description: 'Paste the Social Media Video URL'
         required: true
         type: string
 
 jobs:
-  download_video:
+  download-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
-      - name: Codebase Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js Runtime
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 18
+          python-version: '3.11'
 
-      - name: Install Playwright and Dependencies
+      - name: Install Dependencies
         run: |
-          npm install playwright
-          npx playwright install --with-deps chromium
+          python -m pip install --upgrade pip
+          pip install playwright
 
-      - name: Download and Unpack uBlock Origin Lite
+      - name: Ensure Playwright Browsers are Installed
         run: |
-          mkdir -p ./ublock-ext
-          curl -L -o ublock.zip "https://google.com"
-          unzip -o ublock.zip -d ./ublock-ext || true
-          echo "📦 Extension downloaded and unpacked into workspace directory structures."
+          python -m playwright install chromium --with-deps
 
-      - name: Execute Web Automation Interface
+      - name: Run Downloader Script
+        id: downloader
         env:
-          VIDEO_URL: ${{ github.event.inputs.video_url }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { chromium } = require('playwright');
-            const fs = require('fs');
-            const path = require('path');
+          TARGET_URL: ${{ github.event.inputs.video_url }}
+        run: |
+          cat << 'EOF' > download_script.py
+          import os
+          import sys
+          import time
+          from playwright.sync_api import sync_playwright
 
-            const videoUrl = process.env.VIDEO_URL;
-            console.log(`🚀 Launching Chrome Engine with uBlock Origin Lite for SaveFrom: ${videoUrl}`);
+          def run():
+              target_url = os.environ.get("TARGET_URL")
+              if not target_url:
+                  print("Error: TARGET_URL environment variable is missing.")
+                  sys.exit(1)
 
-            const downloadFolder = './downloads';
-            if (!fs.existsSync(downloadFolder)){
-                fs.mkdirSync(downloadFolder);
-            }
-
-            const extensionPath = path.resolve('./ublock-ext');
-
-            const browserContext = await chromium.launchPersistentContext('', {
-              headless: false, 
-              args: [
-                `--headless=new`, 
-                `--disable-extensions-except=${extensionPath}`,
-                `--load-extension=${extensionPath}`,
-                `--no-sandbox`,
-                `--disable-setuid-sandbox`
-              ],
-              acceptDownloads: true,
-              viewport: { width: 1280, height: 800 }
-            });
-
-            const pages = browserContext.pages();
-            const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
-
-            try {
-              // Navigate to SaveFrom.net main entry point
-              await page.goto('https://en1.savefrom.net/19wr/', { waitUntil: 'networkidle' });
+              print(f"Initializing browser to download: {target_url}")
               
-              // 🛠️ GENERIC INPUT POSITION LOCK ON:
-              // Target the first input element rendering inside the page layout
-              const targetInput = page.locator('input').first();
-              await targetInput.waitFor({ state: 'visible', timeout: 30000 });
-              await targetInput.fill(videoUrl);
-              console.log("✏️ Link successfully entered into SaveFrom input field.");
+              with sync_playwright() as p:
+                  # Launching headless with a normal user agent to avoid basic bot blocks
+                  browser = p.chromium.launch(headless=True)
+                  context = browser.new_context(
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                  )
+                  page = context.new_page()
 
-              // 🛠️ GENERIC SUBMIT POSITION LOCK ON:
-              // Target the primary text button or submit element adjacent to the input field
-              const targetSubmit = page.locator('button, input[type="submit"], .btn-download').first();
-              await targetSubmit.click();
-              console.log("⏳ Processing conversion request on remote server...");
+                  # Navigate to the Publer tools page
+                  print("Navigating to Publer Downloader...")
+                  page.goto("https://publer.com/tools/photo-video-downloader", wait_until="networkidle")
 
-              // 🛠️ GENERIC QUALITY DOWNLOAD SELECTOR STRATEGY:
-              // SaveFrom results always generate clickable text buttons or custom anchors containing the word "Download"
-              const conversionDownloadSelector = 'a[href*="storage"], a.link-download, button:has-text("Download"), a:has-text("Download"), .download-icon';
-              
-              console.log("⏳ Waiting for the specific download grid options to render on screen...");
-              await page.waitForSelector(conversionDownloadSelector, { state: 'attached', timeout: 45000 });
-              console.log("🎯 Quality download links localized successfully!");
+                  # Locate input box and paste the link
+                  print("Entering video URL...")
+                  input_selector = "input[placeholder*='Paste'], input[type='url'], #url"
+                  page.wait_for_selector(input_selector)
+                  page.fill(input_selector, target_url)
 
-              // Drop advertising tab popups generated dynamically on button interactions
-              browserContext.on('page', async popup => {
-                await popup.close().catch(() => {});
-              });
+                  # Click the 'Download' / Submit button
+                  print("Clicking the Download button to fetch details...")
+                  button_selector = "button:has-text('Download'), button[type='submit']"
+                  page.click(button_selector)
 
-              // Intercept the browser file download stream event loop
-              const downloadPromise = page.waitForEvent('download');
-              
-              console.log("📥 Clicking the primary video download link element node...");
-              await page.locator(conversionDownloadSelector).first().click();
+                  # Wait for processing and target the actual generated asset download button
+                  print("Waiting for Publer to process the link...")
+                  
+                  # Set up the event listener for the actual file streaming event
+                  with page.expect_download(timeout=60000) as download_info:
+                      # Click the final dynamic link or download action that pops up after rendering
+                      final_download_btn = "a:has-text('Download'), button:has-text('Download Video'), .download-link"
+                      page.wait_for_selector(final_download_btn)
+                      page.click(final_download_btn)
+                  
+                  download = download_info.value
+                  filename = download.suggested_filename or "downloaded_video.mp4"
+                  output_path = os.path.join(os.getcwd(), filename)
+                  
+                  # Save file locally into the working directory
+                  download.save_as(output_path)
+                  print(f"Success! Video safely saved to: {output_path}")
+                  
+                  browser.close()
 
-              const download = await downloadPromise;
+          if __name__ == "__main__":
+              run()
+          EOF
+          
+          python download_script.py
 
-              // Save the binary output payload securely to pipeline container storage space
-              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
-              await download.saveAs(finalPath);
-              console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
-
-            } catch (error) {
-              console.error("❌ Automation routing routine caught failure exception:", error);
-              
-              try {
-                await page.screenshot({ path: 'downloads/error-layout-screenshot.png', fullPage: true });
-                console.log("📸 Saved failure visual screenshot layout state to artifact logs.");
-              } catch (screenshotError) {
-                console.error("⚠️ Failed to capture error state screenshot:", screenshotError);
-              }
-              
-              core.setFailed(error.message);
-            } finally {
-              await browserContext.close();
-            }
-
-      - name: Export Extracted Media File as Pipeline Artifact
+      - name: Upload Video as Workflow Artifact
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: savefrom-downloaded-video
-          path: ./downloads/
-          retention-days: 5
+          name: Publer-Downloaded-Video
+          path: |
+            *.mp4
+            *.mov
+            *.mkv
+          if-no-files-found: error
+
