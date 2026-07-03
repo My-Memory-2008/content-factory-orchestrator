@@ -633,7 +633,6 @@
 #           retention-days: 5
 
 
-
 name: YouTube Video Downloader Automation (Y2mate Async Agent)
 
 on:
@@ -710,7 +709,6 @@ jobs:
                       viewport={"width": 1280, "height": 800}
                   )
 
-                  # 🛠️ FIXED: Pull the first single item [0] out of the pages list instead of assigning the list object
                   pages = browser_context.pages
                   page = pages[0] if pages else await browser_context.new_page()
 
@@ -743,10 +741,11 @@ jobs:
                       except Exception:
                           print("ℹ️ Video options tab was pre-loaded or not found, looking for grid rows...")
 
-                      # TARGET FIRST BUTTON FROM YOUR EXACT CODE MATCH:
-                      first_download_selector = "button.y2link-download"
-                      await page.wait_for_selector(first_download_selector, state="attached", timeout=45000)
-                      print("🎯 Quality conversion row layout found successfully!")
+                      # 🛠️ ROBUST TARGET SEARCH FIX:
+                      # Instead of a class locator, wait strictly for the first visible element containing the word "Download"
+                      first_download_button = page.get_by_role("button", name="Download").first
+                      await first_download_button.wait_for(state="visible", timeout=45000)
+                      print("🎯 Quality conversion row layout found successfully via structural Role check!")
 
                       # Global anti-redirect popup filter tracker: instantly drops rogue empty windows
                       async def handle_popup(popup_page):
@@ -759,7 +758,7 @@ jobs:
 
                       # Click the first highest-quality generation button element node
                       print("👆 First button row layout activated. Compiling asset download streams...")
-                      await page.locator(first_download_selector).first.click(force=True)
+                      await first_download_button.click(force=True)
 
                       # TARGET SECOND BUTTON FROM YOUR EXACT CODE MATCH:
                       second_download_selector = "a.btn-download-link"
@@ -777,11 +776,11 @@ jobs:
                           await final_download_link.click(force=True)
                       
                       download = await download_info.value
-                      final_path = os.path.join(download_folder, download.suggestedFilename or "video.mp4")
+                      final_path = os.path.join(download_folder, download.suggested_filename or "video.mp4")
                       
                       # Save data payload stream securely down to disk path mapping routes
                       await download.save_as(final_path)
-                      print(f"✅ File successfully transferred down to path at: ${final_path}")
+                      print(f"✅ File successfully transferred down to path at: {final_path}")
 
                   except Exception as error:
                       print(f"❌ Automation routing routine caught failure exception: {error}", file=sys.stderr)
