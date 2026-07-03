@@ -466,7 +466,9 @@
 
 
 
-name: YouTube Video Downloader Automation (SaveFrom Placeholder Target)
+
+
+name: YouTube Video Downloader Automation (SaveFrom Structural Target)
 
 on:
   workflow_dispatch:
@@ -522,7 +524,6 @@ jobs:
 
             const extensionPath = path.resolve('./ublock-ext');
 
-            // Launch a persistent browser context to carry our uBlock Origin Lite ad blocker extension
             const browserContext = await chromium.launchPersistentContext('', {
               headless: false, 
               args: [
@@ -540,27 +541,28 @@ jobs:
             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             try {
-              // Navigate to the target SaveFrom translation utility domain position
+              // Navigate to the target domain layout
               await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
-              console.log("gone to savefrom.net");
               
-              // 🛠️ TARGET THE INPUT FIELD DIRECTLY VIA ITS EXACT PLACEHOLDER TEXT:
-              // Matches your HTML's exact phrase: placeholder="Paste your video link here"
-              const inputField = page.getByPlaceholder('Paste your video link here');
-
-              // Playwright automatically waits for visibility and clicks before filling
-              await inputField.fill(videoUrl); 
+              // 🛠️ MULTI-LAYER INPUT FINDER FALLBACK STRATEGY:
+              // Instead of relying on placeholder strings, try specific attributes first, then generic fallbacks
+              const targetInputSelector = 'input#sf_url, input[name="sf_url"], input[type="text"], input[type="url"]';
+              await page.waitForSelector(targetInputSelector, { state: 'visible', timeout: 30000 });
               
-              console.log("✅ Link successfully targeted by placeholder and filled.");
+              const inputField = page.locator(targetInputSelector).first();
+              await inputField.click();
+              await inputField.fill('');
+              await inputField.fill(videoUrl);
+              console.log("✅ Writable input element located structurally and link populated successfully.");
 
-
-              // 🛠️ TARGET THE SUBMIT BUTTON VIA EXACT ID OR CLASS ATTRIBUTES:
-              // Matches your provided HTML: id="sf_submit" class="submit"
-              const submitButtonSelector = 'button#sf_submit, button.submit, button[name="sf_submit"]';
+              // 🛠️ MULTI-LAYER SUBMIT BUTTON STRATEGY:
+              // Targets specific IDs before falling back to generic button containers
+              const submitButtonSelector = 'button#sf_submit, button.submit, button[type="submit"], button.btn-download';
               await page.click(submitButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // STEP 1: WAIT FOR THE VIDEO RESULT CARD AND LINK GRID TO POPULATE
+              // STEP 1: WAIT FOR VIDEO PREVIEW THUMBNAIL CONTAINER TO APPEAR
+              // SaveFrom renders an info box or media output card when compilation resolves
               const downloadButtonSelector = '.download-icon, a.link-download, .link-group a, a[href*="storage"], button:has-text("Download")';
               
               console.log("⏳ Waiting for the specific download grid options to render on screen...");
@@ -607,4 +609,3 @@ jobs:
           name: savefrom-downloaded-video
           path: ./downloads/
           retention-days: 5
-
