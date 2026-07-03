@@ -464,7 +464,9 @@
 #           retention-days: 5
 
 
-name: YouTube Video Downloader Automation (Targeted SaveFrom + uBlock)
+
+
+name: YouTube Video Downloader Automation (SaveFrom Placeholder Target)
 
 on:
   workflow_dispatch:
@@ -520,7 +522,7 @@ jobs:
 
             const extensionPath = path.resolve('./ublock-ext');
 
-            // Launch persistent context to run uBlock Origin Lite headful engine in background
+            // Launch a persistent browser context to carry our uBlock Origin Lite ad blocker extension
             const browserContext = await chromium.launchPersistentContext('', {
               headless: false, 
               args: [
@@ -541,32 +543,30 @@ jobs:
               // Navigate to the target SaveFrom translation utility domain position
               await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
               
-              // 🛠️ EXACT MATCH INPUT FIELD SELECTOR FROM YOUR HTML:
-              // Targets the precise ID "sf_url" provided in your snippet
-              const inputSelector = 'input#sf_url, input[name="sf_url"]';
-              await page.waitForSelector(inputSelector, { state: 'visible', timeout: 30000 });
+              // 🛠️ TARGET THE INPUT FIELD DIRECTLY VIA ITS EXACT PLACEHOLDER TEXT:
+              // Matches your HTML's exact phrase: placeholder="Paste your video link here"
+              const inputField = page.getByPlaceholder('Paste your video link here');
+              await inputField.waitFor({ state: 'visible', timeout: 30000 });
               
-              const inputField = page.locator(inputSelector).first();
               await inputField.click();
               await inputField.fill('');
               await inputField.fill(videoUrl);
-              console.log("✅ Link successfully filled into the sf_url box.");
+              console.log("✅ Link successfully targeted by placeholder and filled.");
 
-              // 🛠️ EXACT MATCH SUBMIT BUTTON SELECTOR FROM YOUR HTML:
-              // Targets the precise button ID "sf_submit" provided in your snippet
-              const submitButtonSelector = 'button#sf_submit, button[name="sf_submit"]';
+              // 🛠️ TARGET THE SUBMIT BUTTON VIA EXACT ID OR CLASS ATTRIBUTES:
+              // Matches your provided HTML: id="sf_submit" class="submit"
+              const submitButtonSelector = 'button#sf_submit, button.submit, button[name="sf_submit"]';
               await page.click(submitButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
               // STEP 1: WAIT FOR THE VIDEO RESULT CARD AND LINK GRID TO POPULATE
-              // SaveFrom generates result boxes containing download buttons when ready
               const downloadButtonSelector = '.download-icon, a.link-download, .link-group a, a[href*="storage"], button:has-text("Download")';
               
               console.log("⏳ Waiting for the specific download grid options to render on screen...");
               await page.waitForSelector(downloadButtonSelector, { state: 'attached', timeout: 45000 });
               console.log("🎯 Quality download choices localized successfully!");
 
-              // Drop advertisement tabs generated dynamically on button click actions
+              // Dynamic pop-under shield loop: instantly drops any ad tab windows spawned during click actions
               browserContext.on('page', async popup => {
                 await popup.close().catch(() => {});
               });
@@ -575,12 +575,11 @@ jobs:
               const downloadPromise = page.waitForEvent('download');
               
               console.log("📥 Clicking the primary video download link element node...");
-              // We grab the highest available link choice option inside the parsed asset card
               await page.locator(downloadButtonSelector).first().click();
 
               const download = await downloadPromise;
 
-              // Save the binary output payload securely to pipeline container storage space
+              // Save the file payload securely to workspace runner directory paths
               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
               await download.saveAs(finalPath);
               console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
