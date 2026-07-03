@@ -388,7 +388,10 @@ jobs:
               viewport: { width: 1280, height: 800 }
             });
 
-            const page = browserContext.pages() || await browserContext.newPage();
+            // 🛠️ FIXED POPULATED PAGES ARRAY PARSING RULE:
+            // browserContext.pages() is an array. We index [0] to select the actual default open tab page.
+            const pages = browserContext.pages();
+            const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             try {
               // Navigate to the target conversion engine
@@ -421,22 +424,20 @@ jobs:
               await page.locator(conversionDownloadSelector).first().click();
               console.log("👆 Grid row button clicked. Waiting patiently for remote server processing popup...");
 
-              // 🛠️ EXTENDED MODAL WAITING BUFFER RULES:
-              // Increased timeout limit to 45 seconds to safely accommodate any backend generation lag
+              // STEP 3: EXTENDED MODAL WAITING BUFFER RULES
               const popupModal = page.locator('div.modal-dialog, #process-result, .modal-content');
               await popupModal.waitFor({ state: 'visible', timeout: 45000 });
               console.log("👀 Popup modal has appeared inside page DOM context structure.");
 
-              // 🛠️ STEP 3: WAIT FOR THE TIMER IN THE POPUP TO EXPIRE
-              // Instead of relying blindly on fixed millisecond timers, poll the page structure until the loading message shifts
+              // STEP 4: TRACK PROGRESS BAR AND VERIFY CONVERSION BUTTON
               console.log("⏳ Tracking popup progress bar text strings...");
               const finalDownloadButton = popupModal.locator('a:has-text("Download"), button:has-text("Download")').first();
               
-              // Wait up to 30 seconds for the countdown string message layout to transition into an operational green click link
+              // Wait for dynamic server generation to swap button into active states
               await finalDownloadButton.waitFor({ state: 'visible', timeout: 30000 });
               console.log("🎯 Countdown expired! The green 'Download' button inside the popup is ready.");
 
-              // 🛠️ STEP 4: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
+              // STEP 5: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
               const downloadPromise = page.waitForEvent('download');
               
               // Click the download button inside the popup modal container
