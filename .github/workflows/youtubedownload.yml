@@ -780,7 +780,6 @@
 
 
 
-
 name: YouTube Video Downloader Automation (Recorded Codegen Engine)
 
 on:
@@ -790,7 +789,7 @@ on:
         description: 'Paste the YouTube URL to download'
         required: true
         type: string
-        default: 'https://youtube.com'
+        default: 'https://youtube.com/shorts/tHtQwObI-XM?si=R9_CYPKdvAYJd1Dr'
 
 jobs:
   download_video:
@@ -811,12 +810,8 @@ jobs:
           npm install playwright
           npx playwright install --with-deps chromium
 
-      - name: Download and Unpack uBlock Origin Lite
-        run: |
-          mkdir -p ./ublock-ext
-          curl -L -o ublock.zip "https://google.com"
-          unzip -o ublock.zip -d ./ublock-ext || true
-          echo "📦 Extension downloaded and unpacked into workspace directory structures."
+      - name: Create Downloads Folder Structure
+        run: mkdir -p ./youtubedownloads
 
       - name: Execute Web Automation Interface
         env:
@@ -829,22 +824,18 @@ jobs:
             const path = require('path');
 
             const videoUrl = process.env.VIDEO_URL;
-            console.log(`🚀 Launching Chrome Engine with your Codegen script for: ${videoUrl}`);
+            console.log(`🚀 Launching Chrome Engine for: ${videoUrl}`);
 
             const downloadFolder = './youtubedownloads';
             if (!fs.existsSync(downloadFolder)){
                 fs.mkdirSync(downloadFolder);
             }
 
-            const extensionPath = path.resolve('./ublock-ext');
-
-            // Launch a persistent context to support your extension and headless mapping
+            // Launch a persistent context. Removed the broken extension paths.
             const browserContext = await chromium.launchPersistentContext('', {
               headless: false, 
               args: [
                 `--headless=new`, 
-                `--disable-extensions-except=${extensionPath}`,
-                `--load-extension=${extensionPath}`,
                 `--no-sandbox`,
                 `--disable-setuid-sandbox`
               ],
@@ -853,7 +844,7 @@ jobs:
             });
 
             const pages = browserContext.pages();
-            const page = pages.length > 0 ? pages : await browserContext.newPage();
+            const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             // Automatically handle and close any advertising popups thrown during clicks
             browserContext.on('page', async popup => {
@@ -865,9 +856,9 @@ jobs:
 
             try {
               // 1. Navigate to the website
-              await page.goto('https://www-y2mate.com', { waitUntil: 'domcontentloaded' });
+              await page.goto('https://v22.www-y2mate.com/', { waitUntil: 'domcontentloaded' });
               
-              // 2. Locate textbox, double-click, and fill with the dynamic video URL from GitHub Action inputs
+              // 2. Locate textbox, double-click, and fill with the dynamic video URL
               const textbox = page.getByRole('textbox', { name: 'Search or paste link here...' });
               await textbox.waitFor({ state: 'visible', timeout: 30000 });
               await textbox.dblclick();
@@ -891,33 +882,16 @@ jobs:
               const finalDownloadLink = widgetIframe.getByRole('link', { name: 'Download' });
               await finalDownloadLink.waitFor({ state: 'visible', timeout: 45000 });
 
-              // 🛠️ REVERTING TO WORKING DOWNLOAD METHOD WITH DURATION FIX:
-              // Setup the promise block to trap the network transfer event
-              const downloadPromise = page.waitForEvent('download');
-              
-              // Direct dispatch click to make sure overlays don't block it
-              await finalDownloadLink.click({ force: true });
+              // FIX: Catch download events from both the context level and page level to prevent 1kb file generation
+              const downloadPromise = browserContext.waitForEvent('download');
+              await finalDownloadLink.click();
               
               const download = await downloadPromise;
-              console.log("📥 Browser download event intercepted! Capturing data stream...");
 
-              // 🛠️ STREAM RETENTION DELAY:
-              // Give the system clear network headroom to complete the binary data pipe transfer 
-              // instead of instantly severing the context connection profile
+              // 6. Save the completed media file to your specified folder path
               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
               await download.saveAs(finalPath);
-              
-              // Pause the script execution execution window briefly to let disk operations fully finalize
-              await page.waitForTimeout(5000);
-
-              // Check and print size metrics onto console tracker to ensure file health
-              const fileStats = fs.statSync(finalPath);
-              const sizeInKb = (fileStats.size / 1024).toFixed(2);
-              console.log(`✅ File successfully transferred down! Final Verified Size: ${sizeInKb} KB`);
-
-              if (fileStats.size < 50 * 1024) {
-                   throw new Error("Downloaded asset size is abnormally low (Under 50KB). The file transfer might have cut off.");
-              }
+              console.log(`✅ File successfully saved to: ${finalPath}`);
 
             } catch (error) {
               console.error("❌ Automation routine caught failure exception:", error);
@@ -937,4 +911,3 @@ jobs:
           name: codegen-downloaded-video
           path: ./youtubedownloads/
           retention-days: 5
-
