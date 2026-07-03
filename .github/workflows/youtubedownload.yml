@@ -779,6 +779,8 @@
 
 
 
+
+
 name: YouTube Video Downloader Automation (Recorded Codegen Engine)
 
 on:
@@ -825,7 +827,6 @@ jobs:
             const { chromium } = require('playwright');
             const fs = require('fs');
             const path = require('path');
-            const https = require('https');
 
             const videoUrl = process.env.VIDEO_URL;
             console.log(`🚀 Launching Chrome Engine with your Codegen script for: ${videoUrl}`);
@@ -852,7 +853,7 @@ jobs:
             });
 
             const pages = browserContext.pages();
-            const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
+            const page = pages.length > 0 ? pages : await browserContext.newPage();
 
             // Automatically handle and close any advertising popups thrown during clicks
             browserContext.on('page', async popup => {
@@ -890,38 +891,24 @@ jobs:
               const finalDownloadLink = widgetIframe.getByRole('link', { name: 'Download' });
               await finalDownloadLink.waitFor({ state: 'visible', timeout: 45000 });
 
-              // 🛠️ FIXING THE CORRUPTED 1KB DOWNLOAD:
-              // Instead of calling page.waitForEvent('download') which can trap tracking hashes, 
-              // we extract the direct, raw source address string directly out of the element code block.
-              const directStreamUrl = await finalDownloadLink.getAttribute('href');
-              console.log(`🎯 Direct video source string extracted: ${directStreamUrl.substring(0, 45)}...`);
-
-              if (!directStreamUrl || directStreamUrl.startsWith('javascript:')) {
-                  throw new Error("Failed to extract a valid download URL path stream from the anchor tag.");
-              }
-
-              // Use an atomic verification module block to download the full media chunks from the server
-              const finalPath = path.join(downloadFolder, 'video.mp4');
-              const fileStream = fs.createWriteStream(finalPath);
-
-              console.log("📥 Initiating complete stream buffer pipeline download...");
+              // 🛠️ REVERTING TO WORKING DOWNLOAD METHOD WITH DURATION FIX:
+              // Setup the promise block to trap the network transfer event
+              const downloadPromise = page.waitForEvent('download');
               
-              await new Promise((resolve, reject) => {
-                  https.get(directStreamUrl, (response) => {
-                      if (response.statusCode !== 200) {
-                          reject(new Error(`Failed to pull stream binary file. Status Code: ${response.statusCode}`));
-                          return;
-                      }
-                      response.pipe(fileStream);
-                      fileStream.on('finish', () => {
-                          fileStream.close();
-                          resolve();
-                      });
-                  }).on('error', (err) => {
-                      fs.unlink(finalPath, () => {}); // Clear partial chunks on failure
-                      reject(err);
-                  });
-              });
+              // Direct dispatch click to make sure overlays don't block it
+              await finalDownloadLink.click({ force: true });
+              
+              const download = await downloadPromise;
+              console.log("📥 Browser download event intercepted! Capturing data stream...");
+
+              // 🛠️ STREAM RETENTION DELAY:
+              // Give the system clear network headroom to complete the binary data pipe transfer 
+              // instead of instantly severing the context connection profile
+              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
+              await download.saveAs(finalPath);
+              
+              // Pause the script execution execution window briefly to let disk operations fully finalize
+              await page.waitForTimeout(5000);
 
               // Check and print size metrics onto console tracker to ensure file health
               const fileStats = fs.statSync(finalPath);
@@ -929,7 +916,7 @@ jobs:
               console.log(`✅ File successfully transferred down! Final Verified Size: ${sizeInKb} KB`);
 
               if (fileStats.size < 50 * 1024) {
-                   console.log("⚠️ Warning: File size is smaller than expected. Reviewing layout screenshots...");
+                   throw new Error("Downloaded asset size is abnormally low (Under 50KB). The file transfer might have cut off.");
               }
 
             } catch (error) {
@@ -950,3 +937,4 @@ jobs:
           name: codegen-downloaded-video
           path: ./youtubedownloads/
           retention-days: 5
+
