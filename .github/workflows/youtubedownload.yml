@@ -352,9 +352,7 @@ jobs:
       - name: Download and Unpack uBlock Origin Lite
         run: |
           mkdir -p ./ublock-ext
-          # Fetch the official packed extension ZIP directly from the Chromium source delivery mirrors
           curl -L -o ublock.zip "https://google.com"
-          # Unzip the source files so Chrome can load it unpacked
           unzip -o ublock.zip -d ./ublock-ext || true
           echo "📦 Extension downloaded and unpacked into workspace directory structures."
 
@@ -376,15 +374,12 @@ jobs:
                 fs.mkdirSync(downloadFolder);
             }
 
-            // Path targeting our downloaded extension folder path
             const extensionPath = path.resolve('./ublock-ext');
 
-            // ⚠️ Playwright Extension Launch Constraint: 
-            // Extensions require launchPersistentContext instead of standard chromium.launch()
             const browserContext = await chromium.launchPersistentContext('', {
-              headless: false, // Chrome extensions can only load in persistent environments if headful configuration is set
+              headless: false, 
               args: [
-                `--headless=new`, // New modern headless engine format allows extension injection safely
+                `--headless=new`, 
                 `--disable-extensions-except=${extensionPath}`,
                 `--load-extension=${extensionPath}`,
                 `--no-sandbox`,
@@ -411,7 +406,7 @@ jobs:
               await page.click(startButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // STEP 1: CLICK THE "VIDEO" TAB VIA EXPLICIT TEXT LOCATOR CHECK
+              // STEP 1: CLICK THE "VIDEO" TAB
               const videoTabSelector = 'a:has-text("Video"), li:has-text("Video"), button:has-text("Video")';
               await page.waitForSelector(videoTabSelector, { timeout: 30000 });
               await page.click(videoTabSelector);
@@ -423,24 +418,34 @@ jobs:
               await page.waitForSelector(conversionDownloadSelector, { state: 'attached', timeout: 30000 });
               console.log("🎯 Quality download links localized successfully!");
 
-              // STEP 3: ARREST FILE STREAMS AND TRAP ROGUE BLANK AD-WINDOWS
+              // Click the first quality conversion option button to open the popup modal box
+              await page.locator(conversionDownloadSelector).first().click();
+              console.log("👆 Grid row button clicked. Popup modal detected.");
+
+              // 🛠️ STEP 3: WAIT FOR THE TIMER IN THE POPUP TO EXPIRE
+              // The text "Wait 10 - 15 sec" will show up. We wait for this status alert to disappear or change.
+              const popupModal = page.locator('div.modal-dialog, #process-result, .modal-content');
+              await popupModal.waitFor({ state: 'visible', timeout: 15000 });
+              console.log("👀 Popup modal is fully visible. Checking for countdown timer...");
+
+              // Give y2mate up to 20 seconds to process the video and activate the button inside the popup
+              const finalDownloadButton = popupModal.locator('a:has-text("Download"), button:has-text("Download")').first();
+              
+              // We wait until the countdown text is gone and the button is active and visible
+              await page.waitForTimeout(12000); // Forced safety wait matching the 10-15 seconds warning rule
+              await finalDownloadButton.waitFor({ state: 'visible', timeout: 15000 });
+              console.log("🎯 Countdown expired! The green 'Download' button inside the popup is ready.");
+
+              // 🛠️ STEP 4: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
               const downloadPromise = page.waitForEvent('download');
               
-              // Click the first quality conversion row target options button layout link
-              await page.locator(conversionDownloadSelector).first().click();
-              console.log("👆 Target option button triggered. Intercepting confirmation dialog box frame...");
+              // Click the download button inside the popup modal container
+              await finalDownloadButton.click();
+              console.log("📥 Clicked the final download link. Capturing network file stream...");
 
-              // STEP 4: CONFIRM THE FINAL Y2MATE API DOWNLOAD MODAL INTERACTION
-              const modalDownloadButton = page.locator('div.modal-dialog button:has-text("Download"), #process-result a, .modal-content a, a:has-text("Download")');
-              await page.waitForTimeout(4000); // Allow server engine to substitute link strings
-              
-              if (await modalDownloadButton.count() > 0) {
-                 console.log("👆 Confirming download request inside final dynamic modal layout block...");
-                 await modalDownloadButton.first().click();
-              }
-
-              // Save the binary output payload securely to pipeline container storage space
               const download = await downloadPromise;
+
+              // Save the file to the workflow runner environment directory
               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
               await download.saveAs(finalPath);
               console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
@@ -467,3 +472,4 @@ jobs:
           name: y2mate-ublock-downloaded-video
           path: ./downloads/
           retention-days: 5
+
