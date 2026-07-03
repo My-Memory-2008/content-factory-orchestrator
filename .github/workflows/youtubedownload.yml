@@ -321,7 +321,9 @@
 
 
 
-name: YouTube Video Downloader Automation (via SaveFrom)
+
+
+name: YouTube Video Downloader Automation (via SaveFrom Position)
 
 on:
   workflow_dispatch:
@@ -394,39 +396,40 @@ jobs:
             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             try {
-              // Navigate to the target SaveFrom translation utility domain position
+              // Navigate to SaveFrom.net main entry point
               await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
               
-              // 1. Locate the text input field box and fill your dynamic YouTube video URL
-              const inputSelector = 'input[placeholder*="Paste your video link here"], input#sf_url';
-              await page.waitForSelector(inputSelector);
-              await page.fill(inputSelector, videoUrl);
-              console.log("✏️ Link successfully entered into SaveFrom input container.");
+              // 🛠️ GENERIC INPUT POSITION LOCK ON:
+              // Target the first input element rendering inside the page layout
+              const targetInput = page.locator('input').first();
+              await targetInput.waitFor({ state: 'visible', timeout: 30000 });
+              await targetInput.fill(videoUrl);
+              console.log("✏️ Link successfully entered into SaveFrom input field.");
 
-              // 2. Click the processing arrow submit tracking action execution button
-              const submitButtonSelector = 'button[type="submit"], button#sf_submit';
-              await page.click(submitButtonSelector);
+              // 🛠️ GENERIC SUBMIT POSITION LOCK ON:
+              // Target the primary text button or submit element adjacent to the input field
+              const targetSubmit = page.locator('button, input[type="submit"], .btn-download').first();
+              await targetSubmit.click();
               console.log("⏳ Processing conversion request on remote server...");
 
-              // 🛠️ STEP 3: WAIT FOR THE VIDEO RESULT CARD AND LINK GRID TO POPULATE
-              // SaveFrom generates result boxes containing green download buttons when ready
-              const downloadButtonSelector = '.download-icon, a.link-download, .link-group a, a:has-text("Download")';
+              // 🛠️ GENERIC QUALITY DOWNLOAD SELECTOR STRATEGY:
+              // SaveFrom results always generate clickable text buttons or custom anchors containing the word "Download"
+              const conversionDownloadSelector = 'a[href*="storage"], a.link-download, button:has-text("Download"), a:has-text("Download"), .download-icon';
               
-              console.log("⏳ Waiting for the specific green download options to render on screen...");
-              await page.waitForSelector(downloadButtonSelector, { state: 'attached', timeout: 45000 });
-              console.log("🎯 Quality download links localized successfully on page framework!");
+              console.log("⏳ Waiting for the specific download grid options to render on screen...");
+              await page.waitForSelector(conversionDownloadSelector, { state: 'attached', timeout: 45000 });
+              console.log("🎯 Quality download links localized successfully!");
 
-              // Antirogue popup intercept pipeline: dynamically dumps advertising tab popups generated on button clicks
+              // Drop advertising tab popups generated dynamically on button interactions
               browserContext.on('page', async popup => {
                 await popup.close().catch(() => {});
               });
 
-              // 🛠️ STEP 4: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
+              // Intercept the browser file download stream event loop
               const downloadPromise = page.waitForEvent('download');
               
               console.log("📥 Clicking the primary video download link element node...");
-              // We grab the highest available link choice option inside the parsed asset card
-              await page.locator(downloadButtonSelector).first().click();
+              await page.locator(conversionDownloadSelector).first().click();
 
               const download = await downloadPromise;
 
