@@ -464,7 +464,7 @@
 #           retention-days: 5
 
 
-name: YouTube Video Downloader Automation (Savefrom US-Bypass)
+name: YouTube Video Downloader Automation (Y2mate Async Agent)
 
 on:
   workflow_dispatch:
@@ -513,21 +513,17 @@ jobs:
 
           async def main():
               video_url = os.environ.get("VIDEO_URL")
-              print(f"🚀 Launching Async Python Browser Agent for SaveFrom: {video_url}")
+              print(f"🚀 Launching Async Python Browser Agent for Y2mate: {video_url}")
 
               download_folder = os.path.abspath("./downloads")
               os.makedirs(download_folder, exist_ok=True)
               extension_path = os.path.abspath("./ublock-ext")
 
               async with async_playwright() as p:
-                  # 🛠️ FIXED: Added a proxy configuration to route the traffic outside the US
-                  # Uses a reliable, open HTTP proxy server to simulate connection from outside the US regional block
+                  # Initialize a persistent context to support extensions and bypass bot filters
                   browser_context = await p.chromium.launch_persistent_context(
                       user_data_dir="",
                       headless=False,
-                      proxy={
-                          "server": "http://185.162.229.170:80"  # Changes runner location signature to Europe (UK/Germany alternative network)
-                      },
                       args=[
                           "--headless=new", 
                           f"--disable-extensions-except={extension_path}",
@@ -543,49 +539,72 @@ jobs:
                   page = pages[0] if pages else await browser_context.new_page()
 
                   try:
-                      # Navigate to the target domain layout
-                      await page.goto("https://savefrom.net", wait_until="domcontentloaded", timeout=45000)
-                      print("📍 Arrived at SaveFrom interface layout framework.")
+                      # Navigate directly to the provided target Y2mate endpoint URL
+                      await page.goto("https://v22.www-y2mate.com/", wait_until="domcontentloaded")
+                      print("📍 Arrived at Y2mate converter page infrastructure.")
 
-                      # Target exact ID input match from your snippet
-                      input_selector = "input#sf_url"
+                      # 🛠️ EXACT MATCH INPUT FIELD SELECTOR FROM YOUR PROVIDED HTML:
+                      # Class: y2mate_query keyword | placeholder: Search or paste link here...
+                      input_selector = "input.y2mate_query.keyword"
                       await page.wait_for_selector(input_selector, state="visible", timeout=30000)
                       
                       input_field = page.locator(input_selector).first
                       await input_field.click()
                       await input_field.fill("")
                       await input_field.fill(video_url)
-                      print("✅ Link successfully targeted by structural ID and text filled.")
+                      print("✅ Link successfully filled into targeted HTML input element.")
 
-                      # Target exact ID button match from your snippet
-                      submit_selector = "button#sf_submit"
+                      # 🛠️ EXACT MATCH SUBMIT BUTTON SELECTOR FROM YOUR PROVIDED HTML:
+                      # ID: submit | Class: convert-btn | Containing text: Start
+                      submit_selector = "button#submit.convert-btn"
                       await page.click(submit_selector)
                       print("⏳ Processing conversion request on remote server...")
 
-                      # Wait for SaveFrom to generate the video quality output container cards
-                      download_button_selector = '.download-icon, a.link-download, .link-group a, a[href*="storage"], button:has-text("Download")'
-                      print("⏳ Waiting for the specific download grid options to render on screen...")
-                      await page.wait_for_selector(download_button_selector, state="attached", timeout=45000)
-                      print("🎯 Quality download choices localized successfully!")
+                      # STEP 1: FORCE THE "VIDEO" TAB LINK TO ENSURE MAXIMUM RESOLUTION ROWS POPULATE
+                      video_tab_selector = 'a:has-text("Video"), li:has-text("Video"), button:has-text("Video")'
+                      try {
+                          await page.wait_for_selector(video_tab_selector, timeout=15000)
+                          await page.click(video_tab_selector)
+                          print("🗂️ Video options view tab loaded explicitly.")
+                      } catch:
+                          print("ℹ️ Video options tab was pre-loaded or not found, looking for grid rows...")
 
-                      # Suppress unexpected advertising tab windows generated on click threads
+                      # STEP 2: WAIT FOR THE DYNAMIC SELECTION TABLE TO COMPILE 
+                      conversion_download_selector = '.btn-success, button:has-text("Download"), a:has-text("Download"), td a'
+                      await page.wait_for_selector(conversion_download_selector, state="attached", timeout=45000)
+                      print("🎯 Conversion table options populated successfully!")
+
+                      # Suppress rogue advertising tab popups generated dynamically on row click events
                       async def handle_popup(popup_page):
                           try:
                               await popup_page.close()
-                              print("🛡️ Blocked an advertising redirect pop-under context.")
+                              print("🛡️ Suppressed ad network popup window container layout.")
                           except:
                               pass
                       browser_context.on("page", handle_popup)
 
-                      # Capture and download file stream
-                      print("📥 Clicking primary video download link layout asset node...")
+                      # Open the dynamic download validation modal box container
+                      await page.locator(conversion_download_selector).first.click()
+                      print("👆 Row option clicked. Polling for secondary processing confirmation popup modal...")
+
+                      # STEP 3: WAIT FOR INLINE POPUP DIALOG MODAL COUNTDOWN TIMER TO FINISH
+                      popup_modal = page.locator('div.modal-dialog, #process-result, .modal-content')
+                      await popup_modal.wait_for(state="visible", timeout=45000)
+                      print("👀 Inner popup confirmation modal verified.")
+
+                      final_download_button = popup_modal.locator('a:has-text("Download"), button:has-text("Download")').first
+                      await final_download_button.wait_for(state="visible", timeout=30000)
+                      print("🎯 Countdown expired! The final green download action button is ready.")
+
+                      # STEP 4: TRIGGER AND RESOLVE CORE ASYNCHRONOUS DOWNLOADING PROCESS
+                      print("📥 Requesting asset stream download pipeline mapping...")
                       async with page.expect_download(timeout=60000) as download_info:
-                          await page.locator(download_button_selector).first.click()
+                          await final_download_button.click()
                       
                       download = await download_info.value
                       final_path = os.path.join(download_folder, download.suggested_filename or "video.mp4")
                       
-                      # Save asset stream down to physical disk mapping routes
+                      # Save data payload stream securely down to disk path mapping routes
                       await download.save_as(final_path)
                       print(f"✅ File successfully transferred down to path at: {final_path}")
 
@@ -607,8 +626,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: savefrom-bypass-video
+          name: y2mate-async-downloaded-video
           path: ./downloads/
           retention-days: 5
-
-
