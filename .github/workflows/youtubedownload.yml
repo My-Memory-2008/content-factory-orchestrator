@@ -542,6 +542,7 @@ jobs:
             try {
               // Navigate to the target SaveFrom translation utility domain position
               await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
+              console.log("gone to savefrom.net");
               
               // 🛠️ TARGET THE INPUT FIELD DIRECTLY VIA ITS EXACT PLACEHOLDER TEXT:
               // Matches your HTML's exact phrase: placeholder="Paste your video link here"
