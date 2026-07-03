@@ -1185,7 +1185,7 @@ def commit_changes(reel_link, video_path=None):
             else:
                 # Fallback step if running locally or missing configuration environment strings
                 subprocess.run(["git", "push", "origin", active_branch], check=True)
-        print("✅ Git Synchronization completed cleanly.")
+            print("✅ Git Synchronization completed cleanly.")
         else:
             print("ℹ️ No modification metrics detected in workspace files. Commit execution skipped.")
     except subprocess.CalledProcessError as e:
