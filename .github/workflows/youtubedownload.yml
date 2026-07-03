@@ -547,12 +547,12 @@ jobs:
               // 🛠️ TARGET THE INPUT FIELD DIRECTLY VIA ITS EXACT PLACEHOLDER TEXT:
               // Matches your HTML's exact phrase: placeholder="Paste your video link here"
               const inputField = page.getByPlaceholder('Paste your video link here');
-              await inputField.waitFor({ state: 'visible', timeout: 30000 });
+
+              // Playwright automatically waits for visibility and clicks before filling
+              await inputField.fill(videoUrl); 
               
-              await inputField.click();
-              await inputField.fill('');
-              await inputField.fill(videoUrl);
               console.log("✅ Link successfully targeted by placeholder and filled.");
+
 
               // 🛠️ TARGET THE SUBMIT BUTTON VIA EXACT ID OR CLASS ATTRIBUTES:
               // Matches your provided HTML: id="sf_submit" class="submit"
