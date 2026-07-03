@@ -996,7 +996,7 @@ def commit_changes(reel_link, video_path=None):
     try:
         # 1. Configure Git with the correct official GitHub Actions bot credentials
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "41898282+github-actions[bot]@://github.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
 
         # 2. Stage the core pipeline tracking files
         subprocess.run(["git", "add", "input_link.txt", "real_source_numma.txt", "rejected.txt"], check=True)
@@ -1009,15 +1009,15 @@ def commit_changes(reel_link, video_path=None):
         if status.returncode != 0: 
             subprocess.run(["git", "commit", "-m", f"🤖 Automated Pipeline: Processed single reel {reel_link}"], check=True)
 
-            # Pull remote upstream modifications using rebase strategy to prevent diverging head states
-            subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=True)
+            # Fetch the newest states from remote without altering the local checkout tree
+            subprocess.run(["git", "fetch", "origin", "main"], check=True)
 
             # Force restaging modifications to verify absolute sync states prior to target upload execution
             subprocess.run(["git", "add", "input_link.txt", "real_source_numma.txt", "rejected.txt"], check=True)
             if video_path and os.path.exists(video_path):
                 subprocess.run(["git", "add", video_path], check=True)
 
-            # Safely target upstream main branch reference context head
+            # Direct target push bypassing local tracking branches
             subprocess.run(["git", "push", "origin", "HEAD:main"], check=True)
             print("🚀 Git Synchronization completed cleanly.")
         else:
@@ -1025,6 +1025,7 @@ def commit_changes(reel_link, video_path=None):
 
     except Exception as e:
         print(f"❌ Git synchronization error exception raised: {e}")
+
 
 async def run_stealth_download(reel_url, unique_id):
     """
