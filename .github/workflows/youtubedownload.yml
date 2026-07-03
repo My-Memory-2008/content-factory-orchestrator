@@ -464,7 +464,7 @@
 #           retention-days: 5
 
 
-name: YouTube Video Downloader Automation (Async Agent Browser)
+name: YouTube Video Downloader Automation (Savefrom US-Bypass)
 
 on:
   workflow_dispatch:
@@ -520,12 +520,16 @@ jobs:
               extension_path = os.path.abspath("./ublock-ext")
 
               async with async_playwright() as p:
-                  # Initialize a persistent user space to cleanly deploy unpacked crx extensions
+                  # 🛠️ FIXED: Added a proxy configuration to route the traffic outside the US
+                  # Uses a reliable, open HTTP proxy server to simulate connection from outside the US regional block
                   browser_context = await p.chromium.launch_persistent_context(
                       user_data_dir="",
                       headless=False,
+                      proxy={
+                          "server": "http://185.162.229.170:80"  # Changes runner location signature to Europe (UK/Germany alternative network)
+                      },
                       args=[
-                          "--headless=new", # Runs invisible while allowing extension scripts to block network tracking
+                          "--headless=new", 
                           f"--disable-extensions-except={extension_path}",
                           f"--load-extension={extension_path}",
                           "--no-sandbox",
@@ -535,18 +539,15 @@ jobs:
                       viewport={"width": 1280, "height": 800}
                   )
 
-                  # Capture the default profile window tab context
                   pages = browser_context.pages
                   page = pages[0] if pages else await browser_context.new_page()
 
                   try:
-                      # 🛠️ ASYNC DOMCONTENTLOADED NAVIGATION:
-                      # Breaks page tracking hooks immediately once core structural inputs form on screen
-                      await page.goto("https://savefrom.net", wait_until="domcontentloaded")
+                      # Navigate to the target domain layout
+                      await page.goto("https://savefrom.net", wait_until="domcontentloaded", timeout=45000)
                       print("📍 Arrived at SaveFrom interface layout framework.")
 
-                      # 🛠️ TARGET EXACT ID INPUT MATCH FROM YOUR SNIPPET:
-                      # Locks onto id="sf_url" directly, ignoring hidden mobile elements completely
+                      # Target exact ID input match from your snippet
                       input_selector = "input#sf_url"
                       await page.wait_for_selector(input_selector, state="visible", timeout=30000)
                       
@@ -556,8 +557,7 @@ jobs:
                       await input_field.fill(video_url)
                       print("✅ Link successfully targeted by structural ID and text filled.")
 
-                      # 🛠️ TARGET EXACT ID BUTTON MATCH FROM YOUR SNIPPET:
-                      # Clicks id="sf_submit" directly to trigger server translation routines
+                      # Target exact ID button match from your snippet
                       submit_selector = "button#sf_submit"
                       await page.click(submit_selector)
                       print("⏳ Processing conversion request on remote server...")
@@ -577,7 +577,7 @@ jobs:
                               pass
                       browser_context.on("page", handle_popup)
 
-                      # 🛠️ CAPTURE AND DOWNLOAD FILE STREAM IN ASYNC PYTHON:
+                      # Capture and download file stream
                       print("📥 Clicking primary video download link layout asset node...")
                       async with page.expect_download(timeout=60000) as download_info:
                           await page.locator(download_button_selector).first.click()
@@ -607,7 +607,8 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: savefrom-async-agent-video
+          name: savefrom-bypass-video
           path: ./downloads/
           retention-days: 5
+
 
