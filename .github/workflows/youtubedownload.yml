@@ -349,12 +349,13 @@ jobs:
           npm install playwright
           npx playwright install --with-deps chromium
 
-      - name: Download and Install Brave Browser Binary
+      - name: Download and Install Brave
         run: |
           sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave.com
           echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave.com stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
           sudo apt-get update
           sudo apt-get install brave-browser -y
+
 
       - name: Execute Web Automation Interface via Brave
         env:
