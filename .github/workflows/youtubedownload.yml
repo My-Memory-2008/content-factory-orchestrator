@@ -633,6 +633,152 @@
 #           retention-days: 5
 
 
+
+
+
+
+# name: YouTube Video Downloader Automation (Recorded Codegen Engine)
+
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       video_url:
+#         description: 'Paste the YouTube URL to download'
+#         required: true
+#         type: string
+#         default: 'https://youtube.com/shorts/tHtQwObI-XM?si=R9_CYPKdvAYJd1Dr'
+
+# jobs:
+#   download_video:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 15
+
+#     steps:
+#       - name: Codebase Checkout
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js Runtime
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 18
+
+#       - name: Install Playwright and Dependencies
+#         run: |
+#           npm install playwright
+#           npx playwright install --with-deps chromium
+
+#       - name: Download and Unpack uBlock Origin Lite
+#         run: |
+#           mkdir -p ./ublock-ext
+#           curl -L -o ublock.zip "https://google.com"
+#           unzip -o ublock.zip -d ./ublock-ext || true
+#           echo "📦 Extension downloaded and unpacked into workspace directory structures."
+
+#       - name: Execute Web Automation Interface
+#         env:
+#           VIDEO_URL: ${{ github.event.inputs.video_url }}
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             const { chromium } = require('playwright');
+#             const fs = require('fs');
+#             const path = require('path');
+
+#             const videoUrl = process.env.VIDEO_URL;
+#             console.log(`🚀 Launching Chrome Engine with your Codegen script for: ${videoUrl}`);
+
+#             const downloadFolder = './youtubedownloads';
+#             if (!fs.existsSync(downloadFolder)){
+#                 fs.mkdirSync(downloadFolder);
+#             }
+
+#             const extensionPath = path.resolve('./ublock-ext');
+
+#             // Launch a persistent context to support your extension and headless mapping
+#             const browserContext = await chromium.launchPersistentContext('', {
+#               headless: false, 
+#               args: [
+#                 `--headless=new`, 
+#                 `--disable-extensions-except=${extensionPath}`,
+#                 `--load-extension=${extensionPath}`,
+#                 `--no-sandbox`,
+#                 `--disable-setuid-sandbox`
+#               ],
+#               acceptDownloads: true,
+#               viewport: { width: 1280, height: 800 }
+#             });
+
+#             const pages = browserContext.pages();
+#             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
+
+#             // Automatically handle and close any advertising popups thrown during clicks
+#             browserContext.on('page', async popup => {
+#               try {
+#                 await popup.close();
+#                 console.log("🛡️ Suppressed ad network popup window.");
+#               } catch (e) {}
+#             });
+
+#             try {
+#               // 1. Navigate to the website
+#               await page.goto('https://v22.www-y2mate.com/', { waitUntil: 'domcontentloaded' });
+              
+#               // 2. Locate textbox, double-click, and fill with the dynamic video URL from GitHub Action inputs
+#               const textbox = page.getByRole('textbox', { name: 'Search or paste link here...' });
+#               await textbox.waitFor({ state: 'visible', timeout: 30000 });
+#               await textbox.dblclick();
+#               await textbox.fill(videoUrl);
+#               await textbox.press('Enter');
+#               console.log("✏️ Link entered and search submitted.");
+
+#               // Isolate the dynamic widget iframe frame matching your codegen script
+#               const widgetIframe = page.frameLocator('#widgetv2Api');
+
+#               // 3. Switch to the Video tab inside the iframe
+#               console.log("🗂️ Switching to Video tab...");
+#               await widgetIframe.getByRole('link', { name: 'Video' }).click();
+
+#               // 4. Click the primary resolution download button inside the iframe
+#               console.log("👆 Clicking initial conversion row button...");
+#               await widgetIframe.getByRole('row', { name: '1080p (.mp4) Auto  Download' }).getByRole('button').click();
+
+#               // 5. Wait for the server-side conversion and target the final Download button inside the iframe
+#               console.log("⏳ Waiting for backend to compile stream and clicking final Download link...");
+#               const finalDownloadLink = widgetIframe.getByRole('link', { name: 'Download' });
+#               await finalDownloadLink.waitFor({ state: 'visible', timeout: 45000 });
+
+#               // Prepare the file download event interceptor loop
+#               const downloadPromise = page.waitForEvent('download');
+#               await finalDownloadLink.click();
+              
+#               const download = await downloadPromise;
+
+#               // 6. Save the completed media file to your specified folder path
+#               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
+#               await download.saveAs(finalPath);
+#               console.log(`✅ File successfully saved to: ${finalPath}`);
+
+#             } catch (error) {
+#               console.error("❌ Automation routine caught failure exception:", error);
+#               try {
+#                 await page.screenshot({ path: './youtubedownloads/error-layout-screenshot.png', fullPage: true });
+#                 console.log("📸 Saved failure screenshot to your logs.");
+#               } catch (e) {}
+#               core.setFailed(error.message);
+#             } finally {
+#               await browserContext.close();
+#             }
+
+#       - name: Export Extracted Media File as Pipeline Artifact
+#         uses: actions/upload-artifact@v4
+#         if: always()
+#         with:
+#           name: codegen-downloaded-video
+#           path: ./youtubedownloads/
+#           retention-days: 5
+
+
+
 name: YouTube Video Downloader Automation (Recorded Codegen Engine)
 
 on:
@@ -642,7 +788,7 @@ on:
         description: 'Paste the YouTube URL to download'
         required: true
         type: string
-        default: 'https://youtube.com/shorts/tHtQwObI-XM?si=R9_CYPKdvAYJd1Dr'
+        default: 'https://youtube.com'
 
 jobs:
   download_video:
@@ -679,6 +825,7 @@ jobs:
             const { chromium } = require('playwright');
             const fs = require('fs');
             const path = require('path');
+            const https = require('https');
 
             const videoUrl = process.env.VIDEO_URL;
             console.log(`🚀 Launching Chrome Engine with your Codegen script for: ${videoUrl}`);
@@ -717,7 +864,7 @@ jobs:
 
             try {
               // 1. Navigate to the website
-              await page.goto('https://v22.www-y2mate.com/', { waitUntil: 'domcontentloaded' });
+              await page.goto('https://www-y2mate.com', { waitUntil: 'domcontentloaded' });
               
               // 2. Locate textbox, double-click, and fill with the dynamic video URL from GitHub Action inputs
               const textbox = page.getByRole('textbox', { name: 'Search or paste link here...' });
@@ -743,16 +890,47 @@ jobs:
               const finalDownloadLink = widgetIframe.getByRole('link', { name: 'Download' });
               await finalDownloadLink.waitFor({ state: 'visible', timeout: 45000 });
 
-              // Prepare the file download event interceptor loop
-              const downloadPromise = page.waitForEvent('download');
-              await finalDownloadLink.click();
-              
-              const download = await downloadPromise;
+              // 🛠️ FIXING THE CORRUPTED 1KB DOWNLOAD:
+              // Instead of calling page.waitForEvent('download') which can trap tracking hashes, 
+              // we extract the direct, raw source address string directly out of the element code block.
+              const directStreamUrl = await finalDownloadLink.getAttribute('href');
+              console.log(`🎯 Direct video source string extracted: ${directStreamUrl.substring(0, 45)}...`);
 
-              // 6. Save the completed media file to your specified folder path
-              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
-              await download.saveAs(finalPath);
-              console.log(`✅ File successfully saved to: ${finalPath}`);
+              if (!directStreamUrl || directStreamUrl.startsWith('javascript:')) {
+                  throw new Error("Failed to extract a valid download URL path stream from the anchor tag.");
+              }
+
+              // Use an atomic verification module block to download the full media chunks from the server
+              const finalPath = path.join(downloadFolder, 'video.mp4');
+              const fileStream = fs.createWriteStream(finalPath);
+
+              console.log("📥 Initiating complete stream buffer pipeline download...");
+              
+              await new Promise((resolve, reject) => {
+                  https.get(directStreamUrl, (response) => {
+                      if (response.statusCode !== 200) {
+                          reject(new Error(`Failed to pull stream binary file. Status Code: ${response.statusCode}`));
+                          return;
+                      }
+                      response.pipe(fileStream);
+                      fileStream.on('finish', () => {
+                          fileStream.close();
+                          resolve();
+                      });
+                  }).on('error', (err) => {
+                      fs.unlink(finalPath, () => {}); // Clear partial chunks on failure
+                      reject(err);
+                  });
+              });
+
+              // Check and print size metrics onto console tracker to ensure file health
+              const fileStats = fs.statSync(finalPath);
+              const sizeInKb = (fileStats.size / 1024).toFixed(2);
+              console.log(`✅ File successfully transferred down! Final Verified Size: ${sizeInKb} KB`);
+
+              if (fileStats.size < 50 * 1024) {
+                   console.log("⚠️ Warning: File size is smaller than expected. Reviewing layout screenshots...");
+              }
 
             } catch (error) {
               console.error("❌ Automation routine caught failure exception:", error);
