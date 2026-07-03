@@ -635,100 +635,119 @@
 
 
 
-name: Automated Video Download
+name: YouTube Video Downloader Automation (Stable Engine)
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'The YouTube Video URL to download'
+        description: 'Paste the YouTube URL to download'
         required: true
-        default: 'https://youtube.com'
+        type: string
 
 jobs:
   download_video:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Codebase Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-node-version: '20'
+      - name: Setup Python Runtime Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        npm init -y
-        npm install playwright
+      - name: Install System Dependencies & Playwright Core
+        run: |
+          pip install playwright yt-dlp
+          playwright install --with-deps chromium
 
-    - name: Install Playwright Browsers
-      run: npx playwright install chromium --with-deps
+      - name: Execute Self-Contained Async Extraction Engine
+        env:
+          VIDEO_URL: ${{ github.event.inputs.video_url }}
+        shell: python
+        run: |
+          import os
+          import sys
+          import time
+          import asyncio
+          import subprocess
+          from playwright.async_api import async_playwright
 
-    - name: Create Download Script
-      run: |
-        cat << 'EOF' > download.js
-        const { chromium } = require('playwright');
-        const path = require('path');
+          async def main():
+              video_url = os.environ.get("VIDEO_URL")
+              print(f"🚀 Launching self-contained session for target link: {video_url}")
 
-        (async () => {
-          const downloadPath = path.resolve(__dirname, 'downloads');
-          
-          // Launch headless browser
-          const browser = await chromium.launch({ headless: true });
-          const context = await browser.newContext({
-            acceptDownloads: true // Crucial for headless downloads
-          });
-          const page = await context.newPage();
+              download_folder = os.path.abspath("./downloads")
+              os.makedirs(download_folder, exist_ok=True)
+              cookie_file = os.path.join(download_folder, "cookies.txt")
 
-          console.log('Navigating to Y2mate...');
-          await page.goto('https://www-y2mate.com/');
+              async with async_playwright() as p:
+                  # Initialize a sandboxed profile context to safely isolate browser sessions
+                  browser_context = await p.chromium.launch_persistent_context(
+                      user_data_dir="",
+                      headless=True,
+                      viewport={"width": 1280, "height": 800}
+                  )
+                  page = await browser_context.new_page()
 
-          // 1. Enter the YouTube URL
-          const videoUrl = process.env.VIDEO_URL;
-          await page.fill('#txtUrl', videoUrl);
-          await page.click('#btn-submit');
+                  try:
+                      # Navigate directly to the target YouTube video to seed real session validation headers
+                      await page.goto(video_url, wait_until="domcontentloaded")
+                      print("📍 Web page context initialized. Extracting active validation cookies...")
 
-          console.log('Waiting for video links to process...');
-          // 2. Wait for the download links table to render
-          await page.waitForSelector('.table-responsive');
+                      # Dump browser cookies to pass them securely to the background processing stream
+                      cookies = await browser_context.cookies()
+                      with open(cookie_file, "w") as f:
+                          f.write("# Netscape HTTP Cookie File\n")
+                          for c in cookies:
+                              domain = c['domain']
+                              include_sub = "TRUE" if domain.startswith(".") else "FALSE"
+                              path = c['path']
+                              secure = "TRUE" if c['secure'] else "FALSE"
+                              expires = int(c.get('expires', time.time() + 3600))
+                              name = c['name']
+                              value = c['value']
+                              f.write(f"{domain}\t{include_sub}\t{path}\t{secure}\t{expires}\t{name}\t{value}\n")
+                      print("✅ Validation cookies successfully saved inside the runner environment workspace.")
 
-          // 3. Click the first available download button (usually highest quality)
-          // Y2mate opens a conversion process on this click
-          await page.click('.table-responsive tbody tr:first-child .btn-primary');
+                      # Handoff extraction directly to the background engine using the secure cookie file
+                      print("📥 Initiating streaming asset pipeline download...")
+                      output_template = os.path.join(download_folder, "%(title)s.%(ext)s")
+                      
+                      cmd = [
+                          "yt-dlp",
+                          "--cookies", cookie_file,
+                          "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
+                          "--merge-output-format", "mp4",
+                          video_url,
+                          "-o", output_template
+                      ]
+                      
+                      # Execute processing pipeline inside the container shell window
+                      result = subprocess.run(cmd, capture_output=True, text=True)
+                      
+                      if result.returncode == 0:
+                          print("✅ Video successfully processed and downloaded to workspace!")
+                      else:
+                          raise RuntimeError(f"Extraction execution failed: {result.stderr}")
 
-          console.log('Waiting for file conversion...');
-          // 4. Wait for the final download button inside the pop-up/modal
-          const finalDownloadBtnSelector = '#process-result .btn-file';
-          await page.waitForSelector(finalDownloadBtnSelector, { timeout: 60000 });
+                  except Exception as error:
+                      print(f"❌ Automation pipeline caught failure exception: {error}", file=sys.stderr)
+                      sys.exit(1)
+                  finally:
+                      await browser_context.close()
 
-          // 5. Handle the actual download event triggered by the final click
-          const [download] = await Promise.all([
-            page.waitForEvent('download'), 
-            page.click(finalDownloadBtnSelector)
-          ]);
+          # Boot up the Python Asyncio loop manager
+          asyncio.run(main())
 
-          // Save the downloaded file into the folder
-          const suggestedFilename = download.suggestedFilename();
-          const finalPath = path.join(downloadPath, suggestedFilename);
-          await download.saveAs(finalPath);
-          
-          console.log(`Successfully downloaded: ${suggestedFilename}`);
-          await browser.close();
-        })();
-        EOF
-
-    - name: Run Playwright Script
-      env:
-        VIDEO_URL: ${{ github.event.inputs.video_url }}
-      run: |
-        mkdir -p downloads
-        node download.js
-
-    - name: Upload Video as Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: downloaded-video
-        path: downloads/
-        retention-days: 1
+      - name: Export Extracted Media File as Pipeline Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: downloaded-youtube-video
+          path: ./downloads/
+          retention-days: 5
