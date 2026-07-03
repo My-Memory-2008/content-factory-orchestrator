@@ -550,11 +550,10 @@ jobs:
 
                       # 🛠️ TARGET EXACT ID INPUT MATCH FROM YOUR SNIPPET:
                       # Locks onto id="sf_url" directly, ignoring hidden mobile elements completely
-                      input_selector = "input#sf_url"
+                      # Playwright automatically waits, clicks, and overwrites the text
+                      await page.get_by_placeholder("Paste your video link here").fill(video_url)
                       
-                      await page.wait_for_selector(input_selector, timeout=15000)
-                      await page.fill(input_selector, video_url)
-                      await page.wait_for_timeout(1000)
+
                       print("✅ Link successfully targeted by structural ID and text filled.")
 
                       # 🛠️ TARGET EXACT ID BUTTON MATCH FROM YOUR SNIPPET:
