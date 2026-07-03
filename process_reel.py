@@ -999,7 +999,7 @@ def commit_changes(reel_link, video_path=None):
         subprocess.run(["git", "config", "--global", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
 
         # 2. Stage the core pipeline tracking files
-        subprocess.run(["git", "add", "input_link.txt", "real_source_numma.txt", "rejected.txt"], check=True)
+        subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
         if video_path and os.path.exists(video_path):
             subprocess.run(["git", "add", video_path], check=True)
 
@@ -1013,7 +1013,7 @@ def commit_changes(reel_link, video_path=None):
             subprocess.run(["git", "fetch", "origin", "main"], check=True)
 
             # Force restaging modifications to verify absolute sync states prior to target upload execution
-            subprocess.run(["git", "add", "input_link.txt", "real_source_numma.txt", "rejected.txt"], check=True)
+            subprocess.run(["git", "add", "input_link.txt", "reel_source_summa.txt", "rejected.txt"], check=True)
             if video_path and os.path.exists(video_path):
                 subprocess.run(["git", "add", video_path], check=True)
 
@@ -1195,8 +1195,8 @@ async def main():
 
     if downloaded_file_path and os.path.exists(downloaded_file_path):
         if analyze_video_frames(downloaded_file_path):
-            print("🎉 Success! Video completely clean. Appending link to real_source_numma.txt.")
-            with open("real_source_numma.txt", "a") as f:
+            print("🎉 Success! Video completely clean. Appending link to reel_source_summa.txt.")
+            with open("reel_source_summa.txt", "a") as f:
                 f.write(f"{current_real}\n")
             commit_changes(current_real, downloaded_file_path)
             return
