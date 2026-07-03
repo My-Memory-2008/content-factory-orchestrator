@@ -319,13 +319,15 @@
 #           path: ./downloads/
 #           retention-days: 5
 
-name: YouTube Video Downloader Automation (Chrome + uBlock Lite)
+
+
+name: YouTube Video Downloader Automation (via SaveFrom)
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'Paste the YouTube URL to pass to Y2mate'
+        description: 'Paste the YouTube URL to pass to SaveFrom'
         required: true
         type: string
 
@@ -366,7 +368,7 @@ jobs:
             const path = require('path');
 
             const videoUrl = process.env.VIDEO_URL;
-            console.log(`🚀 Launching Chrome Engine with uBlock Origin Lite for: ${videoUrl}`);
+            console.log(`🚀 Launching Chrome Engine with uBlock Origin Lite for SaveFrom: ${videoUrl}`);
 
             const downloadFolder = './downloads';
             if (!fs.existsSync(downloadFolder)){
@@ -388,65 +390,47 @@ jobs:
               viewport: { width: 1280, height: 800 }
             });
 
-            // 🛠️ FIXED POPULATED PAGES ARRAY PARSING RULE:
-            // browserContext.pages() is an array. We index [0] to select the actual default open tab page.
             const pages = browserContext.pages();
             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
             try {
-              // Navigate to the target conversion engine
-              await page.goto('https://www-y2mate.com', { waitUntil: 'networkidle' });
+              // Navigate to the target SaveFrom translation utility domain position
+              await page.goto('https://savefrom.net', { waitUntil: 'networkidle' });
               
-              // Enter link into input field text box container elements
-              const inputSelector = 'input[placeholder*="Search or paste link here"], input#txt-url';
+              // 1. Locate the text input field box and fill your dynamic YouTube video URL
+              const inputSelector = 'input[placeholder*="Paste your video link here"], input#sf_url';
               await page.waitForSelector(inputSelector);
               await page.fill(inputSelector, videoUrl);
-              console.log("✏️ Link successfully entered into Y2mate input field.");
+              console.log("✏️ Link successfully entered into SaveFrom input container.");
 
-              // Click the initial processing 'Start' button
-              const startButtonSelector = 'button:has-text("Start"), input[value="Start"], #btn-submit';
-              await page.click(startButtonSelector);
+              // 2. Click the processing arrow submit tracking action execution button
+              const submitButtonSelector = 'button[type="submit"], button#sf_submit';
+              await page.click(submitButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // STEP 1: CLICK THE "VIDEO" TAB
-              const videoTabSelector = 'a:has-text("Video"), li:has-text("Video"), button:has-text("Video")';
-              await page.waitForSelector(videoTabSelector, { timeout: 30000 });
-              await page.click(videoTabSelector);
-              console.log("🗂️ Clicked and switched onto the Video files tab.");
-
-              // STEP 2: WAIT FOR THE DYNAMIC GRID ROWS TO LOAD
-              const conversionDownloadSelector = '.btn-success, button:has-text("Download"), a:has-text("Download")';
-              console.log("⏳ Waiting for the specific download grid options to render on screen...");
-              await page.waitForSelector(conversionDownloadSelector, { state: 'attached', timeout: 30000 });
-              console.log("🎯 Quality download links localized successfully!");
-
-              // Click the first quality conversion option button to open the popup modal box
-              await page.locator(conversionDownloadSelector).first().click();
-              console.log("👆 Grid row button clicked. Waiting patiently for remote server processing popup...");
-
-              // STEP 3: EXTENDED MODAL WAITING BUFFER RULES
-              const popupModal = page.locator('div.modal-dialog, #process-result, .modal-content');
-              await popupModal.waitFor({ state: 'visible', timeout: 45000 });
-              console.log("👀 Popup modal has appeared inside page DOM context structure.");
-
-              // STEP 4: TRACK PROGRESS BAR AND VERIFY CONVERSION BUTTON
-              console.log("⏳ Tracking popup progress bar text strings...");
-              const finalDownloadButton = popupModal.locator('a:has-text("Download"), button:has-text("Download")').first();
+              // 🛠️ STEP 3: WAIT FOR THE VIDEO RESULT CARD AND LINK GRID TO POPULATE
+              // SaveFrom generates result boxes containing green download buttons when ready
+              const downloadButtonSelector = '.download-icon, a.link-download, .link-group a, a:has-text("Download")';
               
-              // Wait for dynamic server generation to swap button into active states
-              await finalDownloadButton.waitFor({ state: 'visible', timeout: 30000 });
-              console.log("🎯 Countdown expired! The green 'Download' button inside the popup is ready.");
+              console.log("⏳ Waiting for the specific green download options to render on screen...");
+              await page.waitForSelector(downloadButtonSelector, { state: 'attached', timeout: 45000 });
+              console.log("🎯 Quality download links localized successfully on page framework!");
 
-              // STEP 5: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
+              // Antirogue popup intercept pipeline: dynamically dumps advertising tab popups generated on button clicks
+              browserContext.on('page', async popup => {
+                await popup.close().catch(() => {});
+              });
+
+              // 🛠️ STEP 4: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
               const downloadPromise = page.waitForEvent('download');
               
-              // Click the download button inside the popup modal container
-              await finalDownloadButton.click();
-              console.log("📥 Clicked the final download link. Capturing network file stream...");
+              console.log("📥 Clicking the primary video download link element node...");
+              // We grab the highest available link choice option inside the parsed asset card
+              await page.locator(downloadButtonSelector).first().click();
 
               const download = await downloadPromise;
 
-              // Save the file to the workflow runner environment directory
+              // Save the binary output payload securely to pipeline container storage space
               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
               await download.saveAs(finalPath);
               console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
@@ -470,6 +454,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: y2mate-ublock-downloaded-video
+          name: savefrom-downloaded-video
           path: ./downloads/
           retention-days: 5
