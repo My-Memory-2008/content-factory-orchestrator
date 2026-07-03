@@ -321,13 +321,14 @@
 
 
 
-name: YouTube Video Downloader Automation (via Publer Text Lookup)
+
+name: YouTube Video Downloader Automation (via Y2mate)
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'Paste the YouTube URL to pass to Publer'
+        description: 'Paste the YouTube URL to pass to Y2mate'
         required: true
         type: string
 
@@ -358,15 +359,16 @@ jobs:
           script: |
             const { chromium } = require('playwright');
             const fs = require('fs');
+            const path = require('path');
 
             const videoUrl = process.env.VIDEO_URL;
-            console.log(`🚀 Processing automation targeting Publer engine for: ${videoUrl}`);
+            console.log(`🚀 Processing automation targeting Y2mate engine for: ${videoUrl}`);
 
             const browser = await chromium.launch({ headless: true });
             
             const browserContext = await browser.newContext({
               acceptDownloads: true,
-              viewport: { width: 1440, height: 900 }, // Forced widespread desktop window matrix to trigger responsive visibility rules
+              viewport: { width: 1280, height: 800 },
               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             });
             const page = await browserContext.newPage();
@@ -377,40 +379,46 @@ jobs:
             }
 
             try {
-              // Navigate to Publer's tool asset page
-              await page.goto('https://publer.com/tools/photo-video-downloader', { waitUntil: 'networkidle' });
+              // Navigate to the target Y2mate domain provided
+              await page.goto('https://v22.www-y2mate.com/', { waitUntil: 'networkidle' });
               
-              // Enter the target link
-              const inputSelector = 'input[placeholder*="Paste the URL"], input[type="text"]';
+              // 1. Locate the text box search placeholder and fill the YouTube video URL
+              const inputSelector = 'input[placeholder*="Search or paste link here"], input#txt-url';
               await page.waitForSelector(inputSelector);
               await page.fill(inputSelector, videoUrl);
-              console.log("✏️ Link successfully entered into Publer framework container.");
+              console.log("✏️ Link successfully entered into Y2mate input field.");
 
-              // Click the initial processing 'Download' execution button
-              const buttonSelector = 'button:has-text("Download")';
-              await page.click(buttonSelector);
+              // 2. Locate and click the "Start" action conversion button
+              const startButtonSelector = 'button:has-text("Start"), input[value="Start"], #btn-submit';
+              await page.click(startButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // 🛠️ BYPASS RESPONSIVE HIDDEN ELEMENT VISIBILITY RULES:
-              // Locate the text block even if Publer's system applies a "hidden" CSS rule to the viewport
-              const internalTextSelector = 'text="to your device"';
-              
-              console.log("⏳ Explicitly tracking the phrase element 'to your device'...");
-              await page.waitForSelector(internalTextSelector, { state: 'attached', timeout: 60000 });
-              console.log("🎯 Anchor text token located inside page object map.");
+              // 3. Wait for the download conversion table / buttons to appear
+              // Y2mate generates table structures with green download buttons once the stream parsing completes
+              const conversionDownloadSelector = 'button:has-text("Download"), a.btn-success, .downloads-table a';
+              await page.waitForSelector(conversionDownloadSelector, { timeout: 60000 });
+              console.log("🎯 Conversion complete! Video quality links extracted.");
 
-              // Initialize a promise block to trap the brand new page tab context opened by the click event
-              const newPagePromise = browserContext.waitForEvent('page');
+              // 4. Intercept the browser file download stream event loop
+              const downloadPromise = page.waitForEvent('download');
               
-              console.log("🖱️ Triggering programmatic direct dispatch click on parent download anchor element...");
-              // We dispatch a direct DOM click event to ensure hidden layout layers do not block the pointer interaction
-              await page.dispatchEvent(internalTextSelector, 'click');
+              // Click the first high-quality download button available in the results
+              await page.locator(conversionDownloadSelector).first().click();
               
-              // Resolve the promise to control the new page object instance
-              const redirectedPage = await newPagePromise;
-              await redirectedPage.waitForLoadState('networkidle');
-              
-              console.log(`✅ Redirect complete! Current new page URL position: ${redirectedPage.url()}`);
+              // Note: Y2mate sometimes throws an intermediate processing confirmation popup modal. 
+              // If another "Download" confirmation button appears inside a modal window wrapper, click it:
+              const modalDownloadButton = page.locator('div.modal-dialog button:has-text("Download"), #process-result a');
+              if (await modalDownloadButton.count() > 0) {
+                 console.log("👆 Confirming download request inside modal wrapper layout...");
+                 await modalDownloadButton.click();
+              }
+
+              const download = await downloadPromise;
+
+              // Save video payload mapping directly to workspace runner disk
+              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
+              await download.saveAs(finalPath);
+              console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
 
             } catch (error) {
               console.error("❌ Automation routing routine caught failure exception:", error);
@@ -431,6 +439,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: publer-automation-logs
+          name: y2mate-automation-output
           path: ./downloads/
           retention-days: 5
