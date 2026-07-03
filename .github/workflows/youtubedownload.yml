@@ -319,7 +319,6 @@
 #           path: ./downloads/
 #           retention-days: 5
 
-
 name: YouTube Video Downloader Automation (Chrome + uBlock Lite)
 
 on:
@@ -389,7 +388,7 @@ jobs:
               viewport: { width: 1280, height: 800 }
             });
 
-            const page = browserContext.pages()[0] || await browserContext.newPage();
+            const page = browserContext.pages() || await browserContext.newPage();
 
             try {
               // Navigate to the target conversion engine
@@ -420,20 +419,21 @@ jobs:
 
               // Click the first quality conversion option button to open the popup modal box
               await page.locator(conversionDownloadSelector).first().click();
-              console.log("👆 Grid row button clicked. Popup modal detected.");
+              console.log("👆 Grid row button clicked. Waiting patiently for remote server processing popup...");
+
+              // 🛠️ EXTENDED MODAL WAITING BUFFER RULES:
+              // Increased timeout limit to 45 seconds to safely accommodate any backend generation lag
+              const popupModal = page.locator('div.modal-dialog, #process-result, .modal-content');
+              await popupModal.waitFor({ state: 'visible', timeout: 45000 });
+              console.log("👀 Popup modal has appeared inside page DOM context structure.");
 
               // 🛠️ STEP 3: WAIT FOR THE TIMER IN THE POPUP TO EXPIRE
-              // The text "Wait 10 - 15 sec" will show up. We wait for this status alert to disappear or change.
-              const popupModal = page.locator('div.modal-dialog, #process-result, .modal-content');
-              await popupModal.waitFor({ state: 'visible', timeout: 15000 });
-              console.log("👀 Popup modal is fully visible. Checking for countdown timer...");
-
-              // Give y2mate up to 20 seconds to process the video and activate the button inside the popup
+              // Instead of relying blindly on fixed millisecond timers, poll the page structure until the loading message shifts
+              console.log("⏳ Tracking popup progress bar text strings...");
               const finalDownloadButton = popupModal.locator('a:has-text("Download"), button:has-text("Download")').first();
               
-              // We wait until the countdown text is gone and the button is active and visible
-              await page.waitForTimeout(12000); // Forced safety wait matching the 10-15 seconds warning rule
-              await finalDownloadButton.waitFor({ state: 'visible', timeout: 15000 });
+              // Wait up to 30 seconds for the countdown string message layout to transition into an operational green click link
+              await finalDownloadButton.waitFor({ state: 'visible', timeout: 30000 });
               console.log("🎯 Countdown expired! The green 'Download' button inside the popup is ready.");
 
               // 🛠️ STEP 4: TRIGGER AND SAVE THE ACTUAL FILE DOWNLOAD
@@ -472,4 +472,3 @@ jobs:
           name: y2mate-ublock-downloaded-video
           path: ./downloads/
           retention-days: 5
-
