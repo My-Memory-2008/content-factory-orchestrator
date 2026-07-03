@@ -632,7 +632,6 @@
 #           path: ./downloads/
 #           retention-days: 5
 
-
 name: YouTube Video Downloader Automation (Y2mate Async Agent)
 
 on:
@@ -694,7 +693,7 @@ jobs:
               extension_path = os.path.abspath("./ublock-ext")
 
               async with async_playwright() as p:
-                  # Initialize a persistent context to support extensions and bypass bot filters
+                  # Initialize persistent context to keep extensions active and drop ad trackers
                   browser_context = await p.chromium.launch_persistent_context(
                       user_data_dir="",
                       headless=False,
@@ -713,7 +712,7 @@ jobs:
                   page = pages[0] if pages else await browser_context.new_page()
 
                   try:
-                      # Navigate directly to the provided target Y2mate endpoint URL
+                      # Navigate straight to the target Y2mate domain endpoint URL
                       await page.goto("https://www-y2mate.com", wait_until="domcontentloaded")
                       print("📍 Arrived at Y2mate converter page infrastructure.")
 
@@ -739,13 +738,7 @@ jobs:
                           await page.click(video_tab_selector)
                           print("🗂️ Video options view tab loaded explicitly.")
                       except Exception:
-                          print("ℹ️ Video options tab was pre-loaded or not found, looking for grid rows...")
-
-                      # 🛠️ ROBUST TARGET SEARCH FIX:
-                      # Instead of a class locator, wait strictly for the first visible element containing the word "Download"
-                      first_download_button = page.get_by_role("button", name="Download").first
-                      await first_download_button.wait_for(state="visible", timeout=45000)
-                      print("🎯 Quality conversion row layout found successfully via structural Role check!")
+                          print("ℹ️ Video options tab was pre-loaded or not found, scanning container frames...")
 
                       # Global anti-redirect popup filter tracker: instantly drops rogue empty windows
                       async def handle_popup(popup_page):
@@ -756,21 +749,51 @@ jobs:
                               pass
                       browser_context.on("page", handle_popup)
 
-                      # Click the first highest-quality generation button element node
-                      print("👆 First button row layout activated. Compiling asset download streams...")
-                      await first_download_button.click(force=True)
-
-                      # TARGET SECOND BUTTON FROM YOUR EXACT CODE MATCH:
-                      second_download_selector = "a.btn-download-link"
+                      # 🛠️ FRAME-AWARE MULTI-TARGET INTERCEPT ENGINE:
+                      # Loops to scan both the main frame and all sub-iframes for the dynamic download element
+                      print("⏳ Scanning page contexts and sub-frames for download asset options...")
+                      target_button = None
+                      target_frame = page  # Default to main page context template
                       
+                      # Poll up to 45 seconds for conversion elements to render inside the sub-frame blocks
+                      for _ in range(45):
+                          # Strategy A: Check top-level window layout container first
+                          btn = page.locator("button.y2link-download, button:has-text('Download')").first
+                          if await btn.count() > 0 and await btn.is_visible():
+                              target_button = btn
+                              target_frame = page
+                              break
+                              
+                          # Strategy B: Loop through all active child frames on screen to break hidden iframes
+                          for frame in page.frames:
+                              btn = frame.locator("button.y2link-download, button:has-text('Download')").first
+                              if await btn.count() > 0 and await btn.is_visible():
+                                  target_button = btn
+                                  target_frame = frame
+                                  break
+                          
+                          if target_button:
+                              break
+                          await asyncio.sleep(1)
+
+                      if not target_button:
+                          raise TimeoutError("Timeout: Download button was not found inside any main page layout or sub-iframe context.")
+
+                      print("🎯 Conversion row element discovered successfully within structural workspace frame context!")
+
+                      # Click the first highest-quality generation button element node inside its detected frame scope
+                      print("👆 First list button clicked. Compiling download streams...")
+                      await target_button.click(force=True)
+
+                      # 🛠️ CONCURRENT STEP 2 TRACKER: Isolate the dynamic final link within the exact same frame boundary
                       print("⏳ Waiting for backend generation to append the final Download anchor tag...")
-                      final_download_link = page.locator(second_download_selector).first
+                      final_download_link = target_frame.locator("a.btn-download-link").first
                       
-                      # Wait up to 45 seconds for the loading wheel svg spinner to swap out for the link node
+                      # Wait up to 45 seconds for the text label string to transition away from loading statuses into active modes
                       await final_download_link.wait_for(state="visible", timeout=45000)
-                      print("🎯 Compilation completed! The final 'Download' button is visible.")
+                      print("🎯 Compilation completed! The final 'Download' link button is visible.")
 
-                      # TRIGGER AND SAVE CORRESPONDING ENGINES DOWNLOADING PROCESS
+                      # TRIGGER AND SAVE FILE PIPELINE DOWNLOAD PROCESS
                       print("📥 Requesting asset stream download pipeline mapping...")
                       async with page.expect_download(timeout=60000) as download_info:
                           await final_download_link.click(force=True)
@@ -803,3 +826,4 @@ jobs:
           name: y2mate-async-downloaded-video
           path: ./downloads/
           retention-days: 5
+
