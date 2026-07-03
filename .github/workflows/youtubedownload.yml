@@ -464,8 +464,7 @@
 #           retention-days: 5
 
 
-
-name: YouTube Video Downloader Automation (Python Async + uBlock)
+name: YouTube Video Downloader Automation (Async Agent Browser)
 
 on:
   workflow_dispatch:
@@ -514,7 +513,7 @@ jobs:
 
           async def main():
               video_url = os.environ.get("VIDEO_URL")
-              print(f"🚀 Launching Async Python Chrome Engine with uBlock Lite for SaveFrom: {video_url}")
+              print(f"🚀 Launching Async Python Browser Agent for SaveFrom: {video_url}")
 
               download_folder = os.path.abspath("./downloads")
               os.makedirs(download_folder, exist_ok=True)
@@ -543,17 +542,18 @@ jobs:
                   try:
                       # 🛠️ ASYNC DOMCONTENTLOADED NAVIGATION:
                       # Breaks page tracking hooks immediately once core structural inputs form on screen
-                      await page.goto("https://savefrom.net", wait_until="domcontentloaded", timeout=60000)
-                      await page.wait_for_timeout(4000)
-
+                      await page.goto("https://savefrom.net", wait_until="domcontentloaded")
                       print("📍 Arrived at SaveFrom interface layout framework.")
 
                       # 🛠️ TARGET EXACT ID INPUT MATCH FROM YOUR SNIPPET:
                       # Locks onto id="sf_url" directly, ignoring hidden mobile elements completely
-                      # Playwright automatically waits, clicks, and overwrites the text
-                      await page.locator("#sf_url").fill(video_url)
-
-
+                      input_selector = "input#sf_url"
+                      await page.wait_for_selector(input_selector, state="visible", timeout=30000)
+                      
+                      input_field = page.locator(input_selector).first
+                      await input_field.click()
+                      await input_field.fill("")
+                      await input_field.fill(video_url)
                       print("✅ Link successfully targeted by structural ID and text filled.")
 
                       # 🛠️ TARGET EXACT ID BUTTON MATCH FROM YOUR SNIPPET:
@@ -607,8 +607,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: savefrom-python-async-video
+          name: savefrom-async-agent-video
           path: ./downloads/
           retention-days: 5
 
-          
