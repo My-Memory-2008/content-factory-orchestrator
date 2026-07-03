@@ -951,10 +951,13 @@ def upload_file_to_github_api(file_path, repo_slug, branch="main"):
 
     # Put/Write the file payload back up to GitHub
     put_resp = requests.put(url, headers=headers, json=payload)
-    if put_resp.status_code in:
+    
+    # --- FIXED LINE 954 BELOW ---
+    if put_resp.status_code in [200, 201]:
         print(f"🚀 API Dynamic Sync Successful: {file_path}")
     else:
         print(f"❌ API Dynamic Sync Failed for {file_path}: {put_resp.text}")
+
 
 
 def commit_changes_via_api(reel_link, video_path=None):
