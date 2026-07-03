@@ -320,7 +320,7 @@
 #           retention-days: 5
 
 
-name: YouTube Video Downloader Automation (With Built-in Ad-Blocker)
+name: YouTube Video Downloader Automation (via Brave Browser Engine)
 
 on:
   workflow_dispatch:
@@ -344,12 +344,19 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Playwright and System Dependencies
+      - name: Install Playwright Base Dependencies
         run: |
           npm install playwright
           npx playwright install --with-deps chromium
 
-      - name: Execute Web Automation Interface
+      - name: Download and Install Brave Browser Binary
+        run: |
+          sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave.com
+          echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave.com stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+          sudo apt-get update
+          sudo apt-get install brave-browser -y
+
+      - name: Execute Web Automation Interface via Brave
         env:
           VIDEO_URL: ${{ github.event.inputs.video_url }}
         uses: actions/github-script@v7
@@ -360,9 +367,13 @@ jobs:
             const path = require('path');
 
             const videoUrl = process.env.VIDEO_URL;
-            console.log(`🚀 Processing automation targeting Y2mate engine for: ${videoUrl}`);
+            console.log(`🚀 Launching Brave Browser automation for target: ${videoUrl}`);
 
-            const browser = await chromium.launch({ headless: true });
+            // Direct Playwright core to launch via Brave installation path binary
+            const browser = await chromium.launch({ 
+              executablePath: '/usr/bin/brave-browser',
+              headless: true 
+            });
             
             const browserContext = await browser.newContext({
               acceptDownloads: true,
@@ -371,38 +382,16 @@ jobs:
             });
             const page = await browserContext.newPage();
 
-            // 🛡️ BRAVE-STYLE NETWORK AD-BLOCKER:
-            // Intercepts every network request. If it matches common ad networks, pop-unders, or tracking scripts, it aborts it.
-            await page.route('**/*', route => {
-              const url = route.request().url();
-              const adDomains = [
-                'doubleclick', 'google-analytics', 'googlesyndication', 'popads', 
-                'popcash', 'propellerads', 'adsterra', 'exoclick', 'onclickads', 
-                'starmaven', 'creative', 'adservice', 'betweendigital'
-              ];
-              
-              const isAd = adDomains.some(domain => url.includes(domain));
-              // Block tracking scripts, styles, or images coming from unknown ad workers
-              const isAdResource = url.includes('js') && (url.includes('pop') || url.includes('click') || url.includes('zone'));
-
-              if (isAd || isAdResource) {
-                // console.log(`🛑 Blocked Ad Request: ${url}`); // Debugging line
-                route.abort();
-              } else {
-                route.continue();
-              }
-            });
-
             const downloadFolder = './downloads';
             if (!fs.existsSync(downloadFolder)){
                 fs.mkdirSync(downloadFolder);
             }
 
             try {
-              // Navigate to the target Y2mate engine
+              // Navigate to the target Y2mate domain page
               await page.goto('https://www-y2mate.com', { waitUntil: 'networkidle' });
               
-              // Enter the target YouTube link into the search box container
+              // Enter link into input field text box container elements
               const inputSelector = 'input[placeholder*="Search or paste link here"], input#txt-url';
               await page.waitForSelector(inputSelector);
               await page.fill(inputSelector, videoUrl);
@@ -413,43 +402,42 @@ jobs:
               await page.click(startButtonSelector);
               console.log("⏳ Processing conversion request on remote server...");
 
-              // STEP 1: SELECT THE "VIDEO" TAB
+              // STEP 1: CLICK THE "VIDEO" TAB VIA EXPLICIT TEXT LOCATOR CHECK
               const videoTabSelector = 'a:has-text("Video"), li:has-text("Video"), button:has-text("Video")';
               await page.waitForSelector(videoTabSelector, { timeout: 30000 });
               await page.click(videoTabSelector);
-              console.log("🗂️ Successfully clicked and switched onto the Video files tab.");
+              console.log("🗂️ Clicked and switched onto the Video files tab.");
 
-              // STEP 2: WAIT FOR CONVERSION TABLE ROWS
-              // Use a generic selector targeting any operational download link inside the main table data layout
-              const conversionDownloadSelector = 'td a, td button, .downloads-table a, button:has-text("Download")';
-              await page.waitForSelector(conversionDownloadSelector, { timeout: 30000 });
-              console.log("🎯 Quality links rendered! Target first download option.");
+              // 🛠️ FIXING THE TIMEOUT LOGIC:
+              // Instead of strict table markers, look for any structural element containing "Download" or green styling
+              const conversionDownloadSelector = '.btn-success, button:has-text("Download"), a:has-text("Download")';
+              
+              console.log("⏳ Waiting for the specific download grid options to render on screen...");
+              await page.waitForSelector(conversionDownloadSelector, { state: 'attached', timeout: 30000 });
+              console.log("🎯 Quality download links localized successfully!");
 
-              // STEP 3: PREPARE DOWNLOAD PROMISE PIPELINE
+              // STEP 2: ARREST FILE STREAMS AND TRAP ROGUE BLANK AD-WINDOWS
               const downloadPromise = page.waitForEvent('download');
               
-              // Trap and instantly close rogue window tabs if any ad scripts managed to bypass the router filter
               browserContext.on('page', async popup => {
                 await popup.close().catch(() => {});
               });
 
-              // Click the first high-quality download option present inside the table row index array
+              // Click the first quality conversion row target options button layout link
               await page.locator(conversionDownloadSelector).first().click();
-              console.log("👆 Download button triggered. Checking for follow-up confirmation modals...");
+              console.log("👆 Target option button triggered. Intercepting confirmation dialog box frame...");
 
-              // Step 4: Handle standard y2mate conversion processing modals
+              // STEP 3: CONFIRM THE FINAL Y2MATE API DOWNLOAD MODAL INTERACTION
               const modalDownloadButton = page.locator('div.modal-dialog button:has-text("Download"), #process-result a, .modal-content a, a:has-text("Download")');
-              await page.waitForTimeout(4000); // Wait briefly for the API download string token to swap
+              await page.waitForTimeout(4000); // Allow server engine to substitute link strings
               
               if (await modalDownloadButton.count() > 0) {
-                 console.log("👆 Confirming download request inside final dynamic modal context...");
+                 console.log("👆 Confirming download request inside final dynamic modal layout block...");
                  await modalDownloadButton.first().click();
               }
 
-              // Resolve and download file binary block stream data securely
+              // Save the binary output payload securely to pipeline container storage space
               const download = await downloadPromise;
-
-              // Save finalized media payload configuration to runner environment folder paths
               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
               await download.saveAs(finalPath);
               console.log(`✅ File successfully transferred down to workflow runner context path at: ${finalPath}`);
@@ -473,6 +461,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: y2mate-downloaded-video
+          name: y2mate-brave-downloaded-video
           path: ./downloads/
           retention-days: 5
