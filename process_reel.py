@@ -464,10 +464,18 @@ def commit_changes(reel_link, video_path=None):
     
         # 3. Safe Commit: Only commit if there are actual changes staged
         status = subprocess.run(["git", "diff", "--cached", "--quiet"])
+        # ... (your previous code staging and committing changes) ...
+
         if status.returncode == 1:  # returncode 1 means changes exist
             subprocess.run(["git", "commit", "-m", f"Automated Pipeline: Processed single reel {reel_link}"], check=True)
+            
+            # ADD THIS LINE: Pull remote changes gently using rebase to avoid merge conflicts
+            subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=True)
+            
+            # Now retry the push
             subprocess.run(["git", "push"], check=True)
             print("✅ Git Synchronization completed cleanly.")
+
     except Exception as e:
         print(f"⚠️ Git synchronization error: {e}")
 
