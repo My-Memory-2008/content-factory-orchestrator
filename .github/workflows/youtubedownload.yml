@@ -632,124 +632,103 @@
 #           path: ./downloads/
 #           retention-days: 5
 
-name: YouTube Video Downloader Automation (Async Stable Agent)
+
+
+
+name: Automated Video Download
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'Paste the YouTube URL to download'
+        description: 'The YouTube Video URL to download'
         required: true
-        type: string
+        default: 'https://youtube.com'
 
 jobs:
   download_video:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
-      - name: Codebase Checkout
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup Python Runtime Environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
+    - name: Set up Node.js
+      uses: actions/愛情/setup-node@v4
+      with:
+        node-node-version: '20'
 
-      - name: Install System Dependencies & Playwright Core
-        run: |
-          pip install playwright yt-dlp
-          playwright install --with-deps chromium
+    - name: Install dependencies
+      run: |
+        npm init -y
+        npm install playwright
 
-      - name: Execute Async Web Extraction Engine
-        env:
-          VIDEO_URL: ${{ github.event.inputs.video_url }}
-        shell: python
-        run: |
-          import os
-          import sys
-          import asyncio
-          import subprocess
-          from playwright.async_api import async_playwright
+    - name: Install Playwright Browsers
+      run: npx playwright install chromium --with-deps
 
-          async def main():
-              video_url = os.environ.get("VIDEO_URL")
-              print(f"🚀 Launching Async Python Browser Session for: {video_url}")
+    - name: Create Download Script
+      run: |
+        cat << 'EOF' > download.js
+        const { chromium } = require('playwright');
+        const path = require('path');
 
-              download_folder = os.path.abspath("./downloads")
-              os.makedirs(download_folder, exist_ok=True)
-              cookie_file = os.path.join(download_folder, "cookies.txt")
+        (async () => {
+          const downloadPath = path.resolve(__dirname, 'downloads');
+          
+          // Launch headless browser
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            acceptDownloads: true // Crucial for headless downloads
+          });
+          const page = await context.newPage();
 
-              async with async_playwright() as p:
-                  # Initialize an isolated browser context to capture active web sessions
-                  browser_context = await p.chromium.launch_persistent_context(
-                      user_data_dir="",
-                      headless=True,
-                      viewport={"width": 1280, "height": 800}
-                  )
-                  page = await browser_context.new_page()
+          console.log('Navigating to Y2mate...');
+          await page.goto('https://www-y2mate.com/');
 
-                  try:
-                      # Navigate straight to target video url to seed clean session metadata headers
-                      await page.goto(video_url, wait_until="domcontentloaded")
-                      print("📍 YouTube page initialized. Extracting active validation context...")
+          // 1. Enter the YouTube URL
+          const videoUrl = process.env.VIDEO_URL;
+          await page.fill('#txtUrl', videoUrl);
+          await page.click('#btn-submit');
 
-                      # Dump the session authentication tokens into a standard Netscape cookie format
-                      cookies = await browser_context.cookies()
-                      with open(cookie_file, "w") as f:
-                          f.write("# Netscape HTTP Cookie File\n")
-                          for c in cookies:
-                              domain = c['domain']
-                              include_sub = "TRUE" if domain.startswith(".") else "FALSE"
-                              path = c['path']
-                              secure = "TRUE" if c['secure'] else "FALSE"
-                              expires = int(c.get('expires', time.time() + 3600))
-                              name = c['name']
-                              value = c['value']
-                              f.write(f"{domain}\t{include_sub}\t{path}\t{secure}\t{expires}\t{name}\t{value}\n")
-                      print("✅ Authentication cookies successfully packaged into workspace environment.")
+          console.log('Waiting for video links to process...');
+          // 2. Wait for the download links table to render
+          await page.waitForSelector('.table-responsive');
 
-                      # Hand off the download directly to the background engine utilizing our secure cookie wrapper
-                      print("📥 Initiating streaming asset pipeline download...")
-                      output_template = os.path.join(download_folder, "%(title)s.%(ext)s")
-                      
-                      cmd = [
-                          "yt-dlp",
-                          "--cookies", cookie_file,
-                          "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
-                          "--merge-output-format", "mp4",
-                          video_url,
-                          "-o", output_template
-                      ]
-                      
-                      # Run processing pipeline synchronously inside the isolated terminal shell window
-                      result = subprocess.run(cmd, capture_output=True, text=True)
-                      
-                      if result.returncode == 0:
-                          print("✅ Video successfully processed and downloaded to workspace!")
-                      else:
-                          raise RuntimeError(f"Extraction execution failed: {result.stderr}")
+          // 3. Click the first available download button (usually highest quality)
+          // Y2mate opens a conversion process on this click
+          await page.click('.table-responsive tbody tr:first-child .btn-primary');
 
-                  except Exception as error:
-                      print(f"❌ Automation pipeline caught failure exception: {error}", file=sys.stderr)
-                      try:
-                          await page.screenshot(path="./downloads/error-layout-screenshot.png", full_page=True)
-                          print("📸 Saved error visual layout state to artifact logs.")
-                      except Exception as e:
-                          print(f"⚠️ Failed to capture error screenshot: {e}")
-                      sys.exit(1)
-                  finally:
-                      await browser_context.close()
+          console.log('Waiting for file conversion...');
+          // 4. Wait for the final download button inside the pop-up/modal
+          const finalDownloadBtnSelector = '#process-result .btn-file';
+          await page.waitForSelector(finalDownloadBtnSelector, { timeout: 60000 });
 
-          # Boot up the Python Asyncio loop manager
-          import time
-          asyncio.run(main())
+          // 5. Handle the actual download event triggered by the final click
+          const [download] = await Promise.all([
+            page.waitForEvent('download'), 
+            page.click(finalDownloadBtnSelector)
+          ]);
 
-      - name: Export Extracted Media File as Pipeline Artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: downloaded-youtube-video
-          path: ./downloads/
-          retention-days: 5
+          // Save the downloaded file into the folder
+          const suggestedFilename = download.suggestedFilename();
+          const finalPath = path.join(downloadPath, suggestedFilename);
+          await download.saveAs(finalPath);
+          
+          console.log(`Successfully downloaded: ${suggestedFilename}`);
+          await browser.close();
+        })();
+        EOF
+
+    - name: Run Playwright Script
+      env:
+        VIDEO_URL: ${{ github.event.inputs.video_url }}
+      run: |
+        mkdir -p downloads
+        node download.js
+
+    - name: Upload Video as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: downloaded-video
+        path: downloads/
+        retention-days: 1
