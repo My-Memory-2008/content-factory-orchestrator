@@ -1122,7 +1122,7 @@ jobs:
                   
                   # Navigate to the target downloader platform layout
                   print("🌐 Loading downloader frontend...")
-                  await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=60000)
+                  await page.goto("https://downreels.com/", wait_until="domcontentloaded", timeout=60000)
                   await page.wait_for_timeout(2000)
                   
                   # Target the precise input element field by its ARIA placeholder role matching downreels.com
@@ -1149,31 +1149,25 @@ jobs:
                   except Exception:
                       pass
                   
-                  # Target the specific inner result link structure rendered by downreels.com
-                  download_btn_locator = page.get_by_role('button', name='Download HD MP4')
                   video_stream_url = None
                   
                   try:
-                      # Give the backend up to 25 seconds to process and print out the media cards
-                      await download_btn_locator.wait_for(state='visible', timeout=25000)
-                      # Downreels wraps its stream download buttons inside a parent form action string or custom attribute link mapping
-                      # We'll extract its location via standard parent attribute properties or inner window pointers
-                      video_stream_url = await download_btn_locator.evaluate("el => el.getAttribute('onclick') or el.closest('form')?.getAttribute('action') or el.getAttribute('href')")
+                      # Flexible selector search block: checks for both a button structure or standard anchor tag mappings
+                      # to bypass layout variations across different global proxy locales
+                      await page.wait_for_selector("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')", timeout=35000)
+                      target_node = page.locator("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')").first
                       
-                      # Clean up onclick strings if downreels uses window.open() wrappers inside the button
-                      if video_stream_url and "window.open" in video_stream_url:
-                          import re
-                          urls = re.findall(r"'(https?://[^']+)'", video_stream_url)
-                          if urls:
-                              video_stream_url = urls[0]
+                      # Evaluate element structural markers to parse exact string addresses
+                      video_stream_url = await target_node.evaluate("el => el.getAttribute('href') or el.getAttribute('onclick') or el.closest('form')?.getAttribute('action')")
                   except Exception as e:
-                      print(f"❌ Could not isolate the direct stream link node on page: {e}")
-                      # Fallback step: search broadly for any active href/action strings pointing directly to video containers
+                      print(f"⚠️ Primary node timed out, initiating broad scraper routing lookup... ({e})")
+                      
+                      # Fallback step: search broadly for any active elements pointing directly to media components or files
                       links = await page.locator("a, form, button").all()
                       for link in links:
                           try:
-                              href = await link.get_attribute("href") or await link.get_attribute("action")
-                              if href and ("instagram" in href or "cdn" in href or ".mp4" in href):
+                              href = await link.get_attribute("href") or await link.get_attribute("action") or await link.get_attribute("onclick")
+                              if href and any(x in href.lower() for x in ["instagram", "cdn", ".mp4", "download"]):
                                   video_stream_url = href
                                   break
                           except Exception:
@@ -1181,8 +1175,20 @@ jobs:
                               
                   await browser.close()
               
-              # 2. Download the isolated source .mp4 string using standard curl utility
+              # 2. FIX: Validate stream structure and prepend base domain if path is relative
               if video_stream_url:
+                  # Sanitize js wrapper frameworks out of onclick targets if present
+                  if "window.open" in video_stream_url:
+                      import re
+                      urls = re.findall(r"'(https?://[^']+)'", video_stream_url)
+                      if urls:
+                          video_stream_url = urls[0]
+                  
+                  # Reconstruct relative paths into explicit absolute destination addresses
+                  if video_stream_url.startswith("/"):
+                      print("🔧 Relative link path configuration identified. Applying absolute root repairs...")
+                      video_stream_url = f"https://downreels.com{video_stream_url}"
+                      
                   # Clean up URL encoding formats
                   video_stream_url = video_stream_url.replace('&amp;', '&')
                   print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
@@ -1206,6 +1212,7 @@ jobs:
           
           asyncio.run(run_stealth_download())
           EOF
+
 
 
 
