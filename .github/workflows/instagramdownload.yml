@@ -1,0 +1,122 @@
+name: Instagram Video Downloader Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Paste the Instagram Reel/Video URL to download'
+        required: true
+        type: string
+        
+
+jobs:
+  download_video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Codebase Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Playwright and Dependencies
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Create Downloads Folder Structure
+        run: mkdir -p ./instagramdownloads
+
+      - name: Execute Web Automation Interface
+        env:
+          VIDEO_URL: ${{ github.event.inputs.video_url }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { chromium } = require('playwright');
+            const fs = require('fs');
+            const path = require('path');
+
+            const videoUrl = process.env.VIDEO_URL;
+            console.log(`🚀 Launching Chrome Engine for Instagram Downloader: ${videoUrl}`);
+
+            const downloadFolder = './instagramdownloads';
+            if (!fs.existsSync(downloadFolder)){
+                fs.mkdirSync(downloadFolder);
+            }
+
+            // Launch a persistent context to reliably track ad popups and cross-page downloads
+            const browserContext = await chromium.launchPersistentContext('', {
+              headless: false, 
+              args: [
+                `--headless=new`, 
+                `--no-sandbox`,
+                `--disable-setuid-sandbox`
+              ],
+              acceptDownloads: true,
+              viewport: { width: 1280, height: 800 }
+            });
+
+            const pages = browserContext.pages();
+            const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
+
+            // Automatically close intrusive advertising popups thrown during download clicks
+            browserContext.on('page', async popup => {
+              try {
+                await popup.close();
+                console.log("🛡️ Suppressed ad network popup window.");
+              } catch (e) {}
+            });
+
+            try {
+              // 1. Navigate to the tool website
+              await page.goto('https://fastvideosave.net/', { waitUntil: 'domcontentloaded' });
+              
+              // 2. Locate, focus, and fill input field with the dynamic Instagram link
+              const textbox = page.getByRole('textbox', { name: 'Paste Link Here...' });
+              await textbox.waitFor({ state: 'visible', timeout: 30000 });
+              await textbox.click();
+              await textbox.fill(videoUrl);
+              console.log("✏️ Instagram link entered into search wrapper.");
+
+              // 3. Click the process/submit trigger if applicable (handling dynamic form entry)
+              await textbox.press('Enter');
+              console.log("⏳ Processing URL submission...");
+
+              // 4. Target the final download link resource
+              const downloadBtn = page.getByRole('link', { name: 'Download Video' });
+              await downloadBtn.waitFor({ state: 'visible', timeout: 45000 });
+
+              // FIX: Catch download events from the context level to capture separate window routing
+              const downloadPromise = browserContext.waitForEvent('download');
+              await downloadBtn.click();
+              
+              const download = await downloadPromise;
+
+              // 5. Save the completed media file to your specified runner workspace folder path
+              const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'instagram_video.mp4');
+              await download.saveAs(finalPath);
+              console.log(`✅ Instagram file successfully saved to: ${finalPath}`);
+
+            } catch (error) {
+              console.error("❌ Automation routine caught failure exception:", error);
+              try {
+                await page.screenshot({ path: './instagramdownloads/error-layout-screenshot.png', fullPage: true });
+                console.log("📸 Saved failure screenshot to your logs.");
+              } catch (e) {}
+              core.setFailed(error.message);
+            } finally {
+              await browserContext.close();
+            }
+
+      - name: Export Extracted Media File as Pipeline Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: instagram-downloaded-video
+          path: ./instagramdownloads/
+          retention-days: 5
