@@ -1414,23 +1414,22 @@ def analyze_frame_with_qwen(frame_bytes):
     url = "http://localhost:11434/api/generate"
     base64_image = base64.b64encode(frame_bytes).decode('utf-8')
     
-    # prompt_text = (
-    #     "Analyze this image frame carefully. "
-    #     "Does it contain any human faces who promote themselves through products to folllow or subscribe them or others  , brand logos, promotional text watermarks like with special symbols like @, _ ,! , or social handles? "
-    #     "Reply with exactly 'YES' if any of these are present, or 'NO' if the frame is completely clear and faceless."
-    # )
-
-    prompt_text=(
+    prompt_text = (
         "Analyze this image frame carefully. "
-        "Does this frame contain ANY of the following elements?"
-        "1.Human Faces: Any visible human face or creator presence, especially if acting as the subject of the video or directing the viewer to follow, subscribe, or buy products."
-        "2.Brand Logos: Any recognizable company logos, watermarks, or trademarks."
-        "3.Promotional Text & Handles: Any text containing promotional calls to action (e.g., 'Follow', 'Subscribe', 'Like', 'Link in bio'), social media handles (e.g., handles starting with '@'), or special symbols and characters (e.g., _, !, #)."
-        "4.On-Screen Graphics: Any distracting graphical overlays, banners, or Channel IDs."
-        "If ANY of these elements are present in the frame, reply with exactly: YES ."
-        "If the frame is completely clear, faceless, unbranded, and free of promotional text, reply with exactly: NO ."
-        
-        )
+        "Does it contain any human faces who promote themselves through products to folllow or subscribe them or others  , brand logos, promotional text watermarks like with special symbols like @, _ ,! , or social handles? "
+        "Reply with exactly 'YES' if any of these are present, or 'NO' if the frame is completely clear and faceless."
+    )
+
+    # prompt_text=(
+    #     "Analyze this image frame carefully. "
+    #     "Does this frame contain ANY of the following elements?"
+    #     "1.Human Faces: Any visible human face or creator presence, especially if acting as the subject of the video or directing the viewer to follow, subscribe, or buy products."
+    #     "2.Brand Logos: Any recognizable company logos, watermarks, or trademarks."
+    #     "3.Promotional Text & Handles: Any text containing promotional calls to action (e.g., 'Follow', 'Subscribe', 'Like', 'Link in bio'), social media handles (e.g., handles starting with '@'), or special symbols and characters (e.g., _, !, #)."
+    #     "4.On-Screen Graphics: Any distracting graphical overlays, banners, or Channel IDs."
+    #     "If ANY of these elements are present in the frame, reply with exactly: YES ."
+    #     "If the frame is completely clear, faceless, unbranded, and free of promotional text, reply with exactly: NO ."
+    #     )
     
     payload = {"model": "qwen2.5vl:3b", "prompt": prompt_text, "images": [base64_image], "stream": False}
     try:
