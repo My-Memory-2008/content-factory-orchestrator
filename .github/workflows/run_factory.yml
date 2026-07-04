@@ -1152,16 +1152,34 @@ jobs:
                   video_stream_url = None
                   
                   try:
-                      # Flexible selector search block: checks for both a button structure or standard anchor tag mappings
-                      await page.wait_for_selector("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')", timeout=25000)
-                      target_node = page.locator("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')").first
+                      # Wait for either the text results container or the download button container to load into DOM tree structure
+                      await page.wait_for_selector("button:has-text('Download HD MP4'), a:has-text('Download HD MP4'), [class*='result']", timeout=25000)
                       
-                      # FIX: Swapped out python 'or' operator with JavaScript '||' operators inside evaluate block
-                      video_stream_url = await target_node.evaluate("el => el.getAttribute('href') || el.getAttribute('onclick') || el.closest('form')?.getAttribute('action')")
+                      # JAVASCRIPT INJECTION METHOD: Evaluates the page globally to query and extract the direct stream source
+                      video_stream_url = await page.evaluate("""() => {
+                          // Look for absolute video anchors or result stream references in forms/buttons
+                          let elements = Array.from(document.querySelectorAll('a, button, form'));
+                          for (let el of elements) {
+                              let href = el.getAttribute('href') || '';
+                              let onclick = el.getAttribute('onclick') || '';
+                              let action = el.getAttribute('action') || '';
+                              
+                              if (href.includes('/download-video-instagram/') || href.includes('.mp4') || href.includes('cdninstagram')) return href;
+                              if (action.includes('download') || action.includes('.mp4')) return action;
+                              
+                              // Check if link is inside an onclick routing string
+                              if (onclick.includes('http')) {
+                                  let match = onclick.match(/'(https?://[^']+)'/);
+                                  if (match) return match[1];
+                              }
+                          }
+                          return null;
+                      }""")
                   except Exception as e:
-                      print(f"⚠️ Primary node timed out, initiating broad scraper routing lookup... ({e})")
+                      print(f"⚠️ JavaScript Injection selector lookup missed direct hook: ({e})")
                       
-                      # Fallback step: search broadly for any active elements pointing directly to media components or files
+                  # Fallback step: search broadly for any active elements pointing directly to media components or files if injection missed
+                  if not video_stream_url:
                       links = await page.locator("a, form, button").all()
                       for link in links:
                           try:
@@ -1177,24 +1195,25 @@ jobs:
               # 2. Validate stream structure and prepend base domain if path is relative
               if video_stream_url:
                   # Sanitize js wrapper frameworks out of onclick targets if present
-                  if "window.open" in video_stream_url:
+                  if isinstance(video_stream_url, str) and "window.open" in video_stream_url:
                       import re
                       urls = re.findall(r"'(https?://[^']+)'", video_stream_url)
                       if urls:
                           video_stream_url = urls[0]
                   
                   # Reconstruct relative paths into explicit absolute destination addresses
-                  if video_stream_url.startswith("/"):
+                  if isinstance(video_stream_url, str) and video_stream_url.startswith("/"):
                       print("🔧 Relative link path configuration identified. Applying absolute root repairs...")
                       video_stream_url = f"https://downreels.com{video_stream_url}"
                       
                   # Clean up URL encoding formats
-                  video_stream_url = video_stream_url.replace('&amp;', '&')
-                  print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
-                  print("Streaming media blocks directly into workspace directory...")
-                  
-                  curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
-                  subprocess.run(curl_cmd, capture_output=True)
+                  if isinstance(video_stream_url, str):
+                      video_stream_url = video_stream_url.replace('&amp;', '&')
+                      print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
+                      print("Streaming media blocks directly into workspace directory...")
+                      
+                      curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
+                      subprocess.run(curl_cmd, capture_output=True)
                   
                   # 3. Size Guard Checklist
                   if os.path.exists(output_path):
@@ -1207,10 +1226,11 @@ jobs:
                   else:
                       print("❌ Core system disk space rejected file creation execution.")
               else:
-                  print("❌ Could not extract the raw download asset URL path property.")
+                  print("❌ Could not extract the raw download asset URL path property via JavaScript Injection.")
           
           asyncio.run(run_stealth_download())
           EOF
+
 
 
 
