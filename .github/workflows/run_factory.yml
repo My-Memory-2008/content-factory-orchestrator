@@ -1153,12 +1153,11 @@ jobs:
                   
                   try:
                       # Flexible selector search block: checks for both a button structure or standard anchor tag mappings
-                      # to bypass layout variations across different global proxy locales
-                      await page.wait_for_selector("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')", timeout=35000)
+                      await page.wait_for_selector("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')", timeout=25000)
                       target_node = page.locator("button:has-text('Download HD MP4'), a:has-text('Download HD MP4')").first
                       
-                      # Evaluate element structural markers to parse exact string addresses
-                      video_stream_url = await target_node.evaluate("el => el.getAttribute('href') or el.getAttribute('onclick') or el.closest('form')?.getAttribute('action')")
+                      # FIX: Swapped out python 'or' operator with JavaScript '||' operators inside evaluate block
+                      video_stream_url = await target_node.evaluate("el => el.getAttribute('href') || el.getAttribute('onclick') || el.closest('form')?.getAttribute('action')")
                   except Exception as e:
                       print(f"⚠️ Primary node timed out, initiating broad scraper routing lookup... ({e})")
                       
@@ -1175,7 +1174,7 @@ jobs:
                               
                   await browser.close()
               
-              # 2. FIX: Validate stream structure and prepend base domain if path is relative
+              # 2. Validate stream structure and prepend base domain if path is relative
               if video_stream_url:
                   # Sanitize js wrapper frameworks out of onclick targets if present
                   if "window.open" in video_stream_url:
@@ -1212,6 +1211,7 @@ jobs:
           
           asyncio.run(run_stealth_download())
           EOF
+
 
 
 
