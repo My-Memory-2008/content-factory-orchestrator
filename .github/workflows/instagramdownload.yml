@@ -7,7 +7,7 @@ on:
         description: 'Paste the Instagram Reel/Video URL to download'
         required: true
         type: string
-        default: 'https://www.instagram.com/reel/DYKDd2VBlxB/'
+        
 
 jobs:
   download_video:
