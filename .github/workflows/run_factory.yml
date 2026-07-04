@@ -1121,7 +1121,7 @@ jobs:
                   await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
                   
                   print("🌐 Loading downloader frontend...")
-                  await page.goto("https://downreels.com/", wait_until="domcontentloaded", timeout=60000)
+                  await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=60000)
                   await page.wait_for_timeout(2000)
                   
                   input_locator = page.get_by_role('textbox', name='Paste Instagram Reel URL')
@@ -1144,7 +1144,7 @@ jobs:
                       pass
                   
                   try:
-                      # FIX: Swapped explicit get_by_role locator out for a flexible tag-agnostic selector text hook
+                      # Fixed tag-agnostic selector text hook
                       download_btn = page.locator("a:has-text('Download HD MP4'), button:has-text('Download HD MP4')").first
                       await download_btn.wait_for(state='visible', timeout=25000)
                       
@@ -1195,6 +1195,7 @@ jobs:
                       curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
                       subprocess.run(curl_cmd, capture_output=True)
               
+              # FIX: Fixed indentation layout alignment on the validation tree checklist
               if os.path.exists(output_path):
                   file_size = os.path.getsize(output_path)
                   if file_size > 50000:
@@ -1202,14 +1203,11 @@ jobs:
                   else:
                       os.remove(output_path)
                       print("❌ Download output contains light text metrics instead of video data. Dropping placeholder.")
-                  else:
-                      print("❌ Core system disk space rejected file creation execution.")
+              else:
+                  print("❌ Core system disk space rejected file creation execution.")
           
           asyncio.run(run_stealth_download())
           EOF
-
-
-
 
 
 
