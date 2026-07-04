@@ -1414,16 +1414,20 @@ async def run_stealth_download(reel_url, unique_id):
     Launches a simulated Chromium browser instance inside Xvfb to 
     safely extract and download video stream elements from downreels.com,
     with an automatic embedded secondary fallback engine to handle site errors.
-    Overrides the prior file on every loop execution block.
+    
+    FIXED: No longer wipes out the entire folder on every single loop iteration.
+    Only replaces the specific matching video file if it already exists.
     """
-    if os.path.exists('checking_videos'):
-        shutil.rmtree('checking_videos')
-        print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
-        
+    # Create the workspace folder if it doesn't exist yet (does not delete existing files)
     os.makedirs('checking_videos', exist_ok=True)
     
-    # MODIFICATION: Changed dynamic variable name to a static string path to cleanly override past media completely
-    output_path = "checking_videos/current_reel.mp4"
+    # Keeps your original dynamic unique path structure
+    output_path = f"checking_videos/reel_{unique_id}.mp4"
+    
+    # TARGETED OVERWRITE FIXED: Only delete this specific video ID before starting a clean download rewrite
+    if os.path.exists(output_path):
+        os.remove(output_path)
+        print(f"🧹 Overwrite Guard: Cleared out previous version of reel_{unique_id}.mp4 to replace it.")
     
     print(f"🚀 Launching real browser instance to download from downreels.com: {reel_url}")
     video_stream_url = None
@@ -1447,7 +1451,7 @@ async def run_stealth_download(reel_url, unique_id):
             
             # --- ENGINE 1: DOWNREELS ---
             print("🌐 Loading primary engine frontend (downreels.com)...")
-            await page.goto("https://downreels.com/", wait_until="domcontentloaded", timeout=45000)
+            await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=45000)
             await page.wait_for_timeout(2000)
             
             input_locator = page.get_by_role('textbox', name='Paste Instagram Reel URL')
