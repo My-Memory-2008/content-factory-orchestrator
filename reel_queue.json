@@ -1,10 +1,10 @@
 {
   "queue": [
     {
-      "url": "https://www.instagram.com/sarcasm_only/reel/C2Q_-tfu6FZ/",
-      "username": "sarcasm_only",
+      "url": "https://www.instagram.com/enjoythenostalgia/reel/DT_Yo51jDAv/",
+      "username": "enjoythenostalgia",
       "notes": "Auto-added from reels_source.txt",
-      "added_at": "2026-07-06T11:30:31.311576+00:00"
+      "added_at": "2026-07-07T00:17:13.900342+00:00"
     }
   ],
   "processed": [
@@ -1164,7 +1164,7 @@
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
-    "last_run": "2026-07-06T11:30:31.311822+00:00",
+    "last_run": "2026-07-07T00:17:13.900616+00:00",
     "next_scheduled": null
   }
 }
