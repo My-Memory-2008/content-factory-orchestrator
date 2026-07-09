@@ -1546,10 +1546,22 @@ jobs:
                   context.on("page", handle_popup)
                   
                   page = await context.new_page()
-                  await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
+                  
+                  # FIXED ROUTING LOGIC: Asynchronous request handling protects context channel execution
+                  async def block_ads(route):
+                      try:
+                          url = route.request.url.lower()
+                          if any(x in url for x in ["googlesyndication", "doubleclick", "adservice", "popads", "analytics"]):
+                              await route.abort()
+                          else:
+                              await route.continue_()
+                      except Exception:
+                          pass  # Gracefully swallow errors if page contexts close mid-execution
+                          
+                  await page.route("**/*", block_ads)
                   
                   print("🌐 Loading downloader frontend...")
-                  await page.goto("https://downreels.com/", wait_until="domcontentloaded", timeout=60000)
+                  await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=60000)
                   await page.wait_for_timeout(2000)
                   
                   input_locator = page.get_by_role('textbox', name='Paste Instagram Reel URL')
