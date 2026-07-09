@@ -1486,6 +1486,8 @@ jobs:
       #     Xvfb :99 -screen 0 1280x720x24 &
       #     echo "DISPLAY=:99" >> $GITHUB_ENV
       #     sleep 3
+
+      
      # 4a. Use genuine persistent browser context simulation to process downreels.com completely safely
       - name: Cloud Download Video Asset via Playwright Simulation
         run: |
@@ -1509,7 +1511,7 @@ jobs:
                   print("❌ Missing video URL target path inside JSON queue.")
                   return
               
-              # CRITICAL AUTOMATED RESET: Wipes out previous video file frames completely
+              # Storage Workspace Reset
               if os.path.exists('downloads'):
                   shutil.rmtree('downloads')
                   print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
@@ -1522,9 +1524,9 @@ jobs:
               download_success = False
               
               async with async_playwright() as p:
-                  # Using launch_persistent_context to avoid sandbox context crashes
+                  # MIRROR PART 3 PERSISTENT CONTEXT
                   context = await p.chromium.launch_persistent_context(
-                      user_data_dir="",  # Temporary profile folder directory
+                      user_data_dir="", 
                       headless=False,     
                       args=[
                           "--headless=new", 
@@ -1536,7 +1538,7 @@ jobs:
                       viewport={'width': 1280, 'height': 800}
                   )
                   
-                  # GLOBAL CONTEXT POPUP SUPPRESSION
+                  # MIRROR PART 3 POPUP SUPPRESSION
                   async def handle_popup(popup_page):
                       try:
                           await popup_page.close()
@@ -1545,28 +1547,28 @@ jobs:
                           pass
                   context.on("page", handle_popup)
                   
-                  # PAGE INITIALIZATION
+                  # FIXED PYTHON PAGES SELECTION LOGIC
                   pages = context.pages
-                  page = pages if len(pages) > 0 else await context.new_page()
+                  page = pages[0] if len(pages) > 0 else await context.new_page()
                   
                   try:
                       # 1. Open Downreels platform
                       print("🌐 Loading downloader frontend...")
                       await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=60000)
                       
-                      # 2. Click, fill field with input video URL, and click process button
+                      # 2. Fill the URL text field
                       input_locator = page.get_by_role('textbox', name='Paste Instagram Reel URL')
                       await input_locator.wait_for(state='visible', timeout=30000)
                       await input_locator.click()
                       await input_locator.fill(reel_url)
                       print("✏️ Link entered into the processing wrapper.")
                       
-                      # Click the initial query/submit button
+                      # Click the initial processing button
                       print("⚡ Dispatching submission click event on primary download engine button...")
                       await page.get_by_role('button', name='DOWNLOAD', exact=True).click()
                       print("⏳ Running server-side lookup on target reel...")
                       
-                      # 3. FIXED FLEXIBLE TARGET SELECTOR (Matches button tags OR raw text link hooks)
+                      # 3. Dynamic layout selector targeting links or buttons
                       download_btn = page.locator("a:has-text('Download HD MP4'), button:has-text('Download HD MP4')").first
                       await download_btn.wait_for(state='visible', timeout=45000)
                       
@@ -1603,7 +1605,6 @@ jobs:
 
           asyncio.run(run_stealth_download())
           EOF
-
       # 5. Commit changes back to GitHub
       - name: Commit Updates
         run: |
