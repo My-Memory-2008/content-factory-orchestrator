@@ -1569,6 +1569,7 @@ jobs:
         
                       # Click the initial query/submit button
                       await page.get_by_role('button', name='DOWNLOAD', exact=True).click()
+                      print("⚡ Dispatching submission click event on primary download engine button...")
                       print("⏳ Running server-side lookup on target reel...")
         
                       # EVENT MONITOR B: Continuous layout scanner for the Download HD MP4 element appearance
@@ -1581,9 +1582,9 @@ jobs:
                               break
                           await asyncio.sleep(1)
         
-                      # Listen for download globally on browser_context so popup tabs don't hijack the stream event
+                      # FIXED PYTHON EVENT MANAGER: expect_download belongs to page, not browser_context
                       # timeout=0 tells Playwright to disable the timeout rule completely
-                      async with browser_context.expect_download(timeout=0) as download_info:
+                      async with page.expect_download(timeout=0) as download_info:
                           await download_btn.click()
                       
                       download = await download_info.value
@@ -1615,7 +1616,6 @@ jobs:
 
           asyncio.run(run_stealth_download())
           EOF
-
       # 5. Commit changes back to GitHub
       - name: Commit Updates
         run: |
