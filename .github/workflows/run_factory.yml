@@ -1512,7 +1512,7 @@ jobs:
                   print("❌ Missing video URL target path inside JSON queue.")
                   return
               
-              # CRITICAL AUTOMATED RESET: Wipes out previous video file frames completely
+              # Storage Reset
               if os.path.exists('downloads'):
                   shutil.rmtree('downloads')
                   print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
@@ -1536,7 +1536,21 @@ jobs:
                       accept_downloads=True
                   )
                   
-                  # MIRROR PART 3 POPUP SUPPRESSION: Close background popups / malicious ad networks immediately
+                  # 1. INTERCEPT ADS GLOBAL CONTEXT ROUTE (FIXES TARGET_CLOSED_ERROR)
+                  async def block_ads_globally(route):
+                      try:
+                          url = route.request.url.lower()
+                          if any(x in url for x in ["googlesyndication", "doubleclick", "adservice", "popads", "analytics"]):
+                              await route.abort()
+                          else:
+                              await route.continue_()
+                      except Exception:
+                          pass
+                          
+                  # Attaching directly to context prevents page lifecycle teardown errors
+                  await context.route("**/*", block_ads_globally)
+                  
+                  # 2. POPUP SUPPRESSION (MIRRORS PART 3 PERFECTLY)
                   async def handle_popup(popup_page):
                       try:
                           await popup_page.close()
@@ -1545,20 +1559,8 @@ jobs:
                           pass
                   context.on("page", handle_popup)
                   
+                  # 3. PAGE INITIALIZATION
                   page = await context.new_page()
-                  
-                  # FIXED ROUTING LOGIC: Asynchronous request handling protects context channel execution
-                  async def block_ads(route):
-                      try:
-                          url = route.request.url.lower()
-                          if any(x in url for x in ["googlesyndication", "doubleclick", "adservice", "popads", "analytics"]):
-                              await route.abort()
-                          else:
-                              await route.continue_()
-                      except Exception:
-                          pass  # Gracefully swallow errors if page contexts close mid-execution
-                          
-                  await page.route("**/*", block_ads)
                   
                   print("🌐 Loading downloader frontend...")
                   await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=60000)
@@ -1576,13 +1578,13 @@ jobs:
                   print("⏳ Running server-side lookup on target reel...")
                   
                   try:
-                      # MIRROR PART 3 TARGETS: Use precise role match layout pattern matching
+                      # Precise accessibility role selection matching Part 3
                       download_btn = page.get_by_role('button', name='Download HD MP4')
                       await download_btn.wait_for(state='visible', timeout=45000)
                       
                       print("🎯 Native Playwright event listener active. Triggering physical browser stream click...")
                       
-                      # MIRROR PART 3 PIPELINE: Track stream on the context object level to intercept redirects safely
+                      # Track stream on context wrapper level to bypass background hijack scripts safely
                       async with context.expect_download(timeout=45000) as download_info:
                           await download_btn.click()
                       
