@@ -1,10 +1,10 @@
 {
   "queue": [
     {
-      "url": "https://www.instagram.com/transitions.community/reel/DKIJ0hsPPOS/",
-      "username": "transitions.community",
+      "url": "https://www.instagram.com/wasted/reel/DTCagWGDLC2/",
+      "username": "wasted",
       "notes": "Auto-added from reels_source.txt",
-      "added_at": "2026-07-08T06:17:45.769261+00:00"
+      "added_at": "2026-07-09T06:26:53.504444+00:00"
     }
   ],
   "processed": [
@@ -1182,7 +1182,7 @@
   "metadata": {
     "total_queued": 1,
     "total_processed": 0,
-    "last_run": "2026-07-08T06:17:45.769513+00:00",
+    "last_run": "2026-07-09T06:26:53.504692+00:00",
     "next_scheduled": null
   }
 }
