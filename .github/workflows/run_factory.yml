@@ -1491,14 +1491,26 @@ jobs:
      # 4a. Use genuine persistent browser context simulation to process downreels.com completely safely
       
 
+       - name: Initialize Virtual Display Framebuffer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          # Start Xvfb background display port 99
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 3
+
+      # 4b. Use genuine browser simulation to process downreels.com completely safely
       - name: Cloud Download Video Asset via Playwright Simulation
+        env:
+          DISPLAY: :99
         run: |
           python3 << 'EOF'
           import json, os, subprocess, asyncio, shutil
           from playwright.async_api import async_playwright
           
           async def run_stealth_download():
-              # 1. Extraction safety checks
+              # 1. Extraction safety checks matching pipeline files
               if not os.path.exists('pipeline_data.json'):
                   print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
                   return
@@ -1513,7 +1525,7 @@ jobs:
                   print("❌ Missing video URL target path inside JSON queue.")
                   return
               
-              # Storage Workspace Reset
+              # Storage Reset: Purges prior video files from the memory workspace
               if os.path.exists('downloads'):
                   shutil.rmtree('downloads')
                   print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
@@ -1526,12 +1538,11 @@ jobs:
               download_success = False
               
               async with async_playwright() as p:
-                  # MIRROR JAVASCRIPT PERSISTENT CONTEXT ENVIRONMENT EXACTLY
+                  # MATCHES JAVASCRIPT PERSISTENT CONTEXT ENVIRONMENT
                   browser_context = await p.chromium.launch_persistent_context(
                       user_data_dir="", 
                       headless=False,     
                       args=[
-                          "--headless=new", 
                           "--no-sandbox", 
                           "--disable-setuid-sandbox"
                       ],
@@ -1539,7 +1550,7 @@ jobs:
                       viewport={'width': 1280, 'height': 800}
                   )
                   
-                  # MIRROR JAVASCRIPT CONTEXT POPUP WINDOW CLOSER
+                  # MATCHES JAVASCRIPT POPUP WINDOW CLOSER TO SUPPRESS ADS
                   async def handle_popup(popup):
                       try:
                           await popup.close()
@@ -1548,17 +1559,16 @@ jobs:
                           pass
                   browser_context.on("page", handle_popup)
                   
-                  # PYTHON PAGE LIST SELECTION HOOK
+                  # EXTRACTS VALID FIRST PAGE FROM CONTEXT POOL
                   pages = browser_context.pages
                   page = pages[0] if len(pages) > 0 else await browser_context.new_page()
                   
                   try:
                       # 1. Open Downreels platform
-                      await page.goto('https://downreels.com', wait_until='domcontentloaded')
+                      await page.goto('https://downreels.com/', wait_until='domcontentloaded')
                       
-                      # EVENT MONITOR A: Wait indefinitely for the input textbox to become ready
+                      # 2. Monitor and wait for the input textbox element
                       textbox = page.get_by_role('textbox', name='Paste Instagram Reel URL')
-                      print("📡 Monitoring interface: Checking for link entry availability...")
                       while True:
                           if await textbox.is_visible():
                               break
@@ -1568,33 +1578,28 @@ jobs:
                       await textbox.fill(reel_url)
                       print("✏️ Link entered into the processing wrapper.")
         
-                      # Click the initial query/submit button
+                      # Click the initial submit button
                       await page.get_by_role('button', name='DOWNLOAD', exact=True).click()
-                      print("⚡ Dispatching submission click event on primary download engine button...")
                       print("⏳ Running server-side lookup on target reel...")
         
-                      # EVENT MONITOR B: Continuous layout scanner for the Download HD MP4 element appearance
+                      # 3. Monitor and wait for the Download HD MP4 element to render
                       download_btn = page.get_by_role('button', name='Download HD MP4')
-                      print("📡 Monitoring interface: Waiting until remote video extraction renders components...")
-                      
                       while True:
                           if await download_btn.is_visible():
-                              print("🎯 Layout event matched! Video ready for stream payload extraction.")
+                              print("🎯 Layout event matched! Video ready for stream extraction.")
                               break
                           await asyncio.sleep(1)
         
-                      # MIRROR JAVASCRIPT LOGIC: Initialize the download listener asynchronously 
-                      # as a separate background task BEFORE triggering the click action.
-                      # This prevents ad network redirects from blocking the thread.
+                      # MATCHES JAVASCRIPT WORKFLOW: Spawns the download listener in the background before clicking
                       download_task = asyncio.create_task(page.wait_for_event("download", timeout=0))
                       
-                      # Trigger the download button click action
+                      # Trigger the physical button click action
                       await download_btn.click()
                       
-                      # Await the independent download completion task
+                      # Resolve the background download stream
                       download = await download_task
                       
-                      # 4. Extract stream payload data and write out the valid final file bytes
+                      # 4. Extract data and write bytes to destination folder
                       await download.save_as(output_path)
                       download_success = True
                       print(f"✅ Instagram media asset saved to runner file pipeline: {output_path}")
@@ -1609,6 +1614,7 @@ jobs:
                   finally:
                       await browser_context.close()
               
+              # Size check safety parameters
               if os.path.exists(output_path):
                   file_size = os.path.getsize(output_path)
                   if file_size > 50000:
@@ -1621,6 +1627,7 @@ jobs:
 
           asyncio.run(run_stealth_download())
           EOF
+          
       # 5. Commit changes back to GitHub
       - name: Commit Updates
         run: |
