@@ -1490,6 +1490,7 @@ jobs:
       
      # 4a. Use genuine persistent browser context simulation to process downreels.com completely safely
       
+
       - name: Cloud Download Video Asset via Playwright Simulation
         run: |
           python3 << 'EOF'
@@ -1582,12 +1583,16 @@ jobs:
                               break
                           await asyncio.sleep(1)
         
-                      # FIXED PYTHON EVENT MANAGER: expect_download belongs to page, not browser_context
-                      # timeout=0 tells Playwright to disable the timeout rule completely
-                      async with page.expect_download(timeout=0) as download_info:
-                          await download_btn.click()
+                      # MIRROR JAVASCRIPT LOGIC: Initialize the download listener asynchronously 
+                      # as a separate background task BEFORE triggering the click action.
+                      # This prevents ad network redirects from blocking the thread.
+                      download_task = asyncio.create_task(page.wait_for_event("download", timeout=0))
                       
-                      download = await download_info.value
+                      # Trigger the download button click action
+                      await download_btn.click()
+                      
+                      # Await the independent download completion task
+                      download = await download_task
                       
                       # 4. Extract stream payload data and write out the valid final file bytes
                       await download.save_as(output_path)
