@@ -1486,8 +1486,7 @@ jobs:
       #     Xvfb :99 -screen 0 1280x720x24 &
       #     echo "DISPLAY=:99" >> $GITHUB_ENV
       #     sleep 3
-
-      # 4b. Use genuine browser simulation to process downreels.com completely safely
+     # 4a. Use genuine persistent browser context simulation to process downreels.com completely safely
       - name: Cloud Download Video Asset via Playwright Simulation
         run: |
           python3 << 'EOF'
@@ -1523,10 +1522,10 @@ jobs:
               download_success = False
               
               async with async_playwright() as p:
-                  # MIRROR PART 3 EXACTLY: Using launch_persistent_context to avoid sandbox context crashes
+                  # Using launch_persistent_context to avoid sandbox context crashes
                   context = await p.chromium.launch_persistent_context(
                       user_data_dir="",  # Temporary profile folder directory
-                      headless=False,     # Kept false as per JavaScript logic to trick anti-bot walls
+                      headless=False,     
                       args=[
                           "--headless=new", 
                           "--no-sandbox", 
@@ -1537,7 +1536,7 @@ jobs:
                       viewport={'width': 1280, 'height': 800}
                   )
                   
-                  # MIRROR PART 3 GLOBAL CONTEXT POPUP SUPPRESSION
+                  # GLOBAL CONTEXT POPUP SUPPRESSION
                   async def handle_popup(popup_page):
                       try:
                           await popup_page.close()
@@ -1546,14 +1545,14 @@ jobs:
                           pass
                   context.on("page", handle_popup)
                   
-                  # MIRROR PART 3 PAGE INITIALIZATION
+                  # PAGE INITIALIZATION
                   pages = context.pages
-                  page = pages[0] if len(pages) > 0 else await context.new_page()
+                  page = pages if len(pages) > 0 else await context.new_page()
                   
                   try:
                       # 1. Open Downreels platform
                       print("🌐 Loading downloader frontend...")
-                      await page.goto("https://downreels.com/", wait_until="domcontentloaded", timeout=60000)
+                      await page.goto("https://downreels.com", wait_until="domcontentloaded", timeout=60000)
                       
                       # 2. Click, fill field with input video URL, and click process button
                       input_locator = page.get_by_role('textbox', name='Paste Instagram Reel URL')
@@ -1567,13 +1566,13 @@ jobs:
                       await page.get_by_role('button', name='DOWNLOAD', exact=True).click()
                       print("⏳ Running server-side lookup on target reel...")
                       
-                      # 3. Target the dynamically rendered video asset download container button
-                      download_btn = page.get_by_role('button', name='Download HD MP4')
+                      # 3. FIXED FLEXIBLE TARGET SELECTOR (Matches button tags OR raw text link hooks)
+                      download_btn = page.locator("a:has-text('Download HD MP4'), button:has-text('Download HD MP4')").first
                       await download_btn.wait_for(state='visible', timeout=45000)
                       
                       print("🎯 Native Playwright event listener active. Triggering physical browser stream click...")
                       
-                      # FIX: Track download globally on context wrapper level to bypass ad hijack scripts safely
+                      # Track download globally on context wrapper level to bypass ad hijack scripts safely
                       async with context.expect_download(timeout=45000) as download_info:
                           await download_btn.click()
                       
