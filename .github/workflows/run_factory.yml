@@ -1456,6 +1456,7 @@ jobs:
           asyncio.run(run_stealth_download())
           EOF
 
+      # ====================================================================
 
       # 5. Commit changes back to GitHub
       - name: Commit Updates
@@ -1473,6 +1474,7 @@ jobs:
             git commit -m "Auto: Picked next reel & downloaded media asset [skip ci]"
             git push
           fi
+
 
       # # 4b. Use genuine browser simulation to process snapinsta.to completely safely
       # - name: Cloud Download Video Asset via Playwright Simulation
