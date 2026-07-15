@@ -1,0 +1,10 @@
+[
+  {
+    "time_ist": "18:00",
+    "workflow_file": "morning-shift.yml"
+  },
+  {
+    "time_ist": "21:30",
+    "workflow_file": "night-shift.yml"
+  }
+]
