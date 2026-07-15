@@ -17,11 +17,11 @@ def run_command(command):
 
 def trigger_workflow(workflow_file):
     """Triggers a GitHub workflow using the GitHub CLI (gh)."""
-    print(f"[{get_current_ist().strftime('%Y-%m-%d %H:%M:%S')}] Triggering workflow: {workflow_file}")
+    print(f"[{get_current_ist().strftime('%Y-%m-%d %H:%M:%S')}] Triggering workflow: {workflow_file}", flush=True)
     cmd = f"gh workflow run {workflow_file} --ref main"
     out, err = run_command(cmd)
     if err:
-        print(f"Error triggering workflow: {err}")
+        print(f"Error triggering workflow: {err}", flush=True)
         return None
     
     # Wait for GitHub to register the run, then fetch the Run ID
@@ -35,34 +35,34 @@ def monitor_workflow(run_id, workflow_file):
     start_time = time.time()
     five_hours_in_seconds = 5 * 60 * 60
 
-    print(f"Monitoring Workflow Run ID: {run_id} for {workflow_file}")
+    print(f"Monitoring Workflow Run ID: {run_id} for {workflow_file}", flush=True)
     
     while True:
         elapsed_time = time.time() - start_time
         
         # Check if the workflow has hit the 5-hour mark
         if elapsed_time >= five_hours_in_seconds:
-            print(f"⚠️ Alert: Workflow {workflow_file} (Run ID: {run_id}) has reached the 5-hour limit!")
+            print(f"⚠️ Alert: Workflow {workflow_file} (Run ID: {run_id}) has reached the 5-hour limit!", flush=True)
             
             # 1. Execute the rerun.py script synchronously
-            print("Executing rerun.py...")
-            result = subprocess.run(["python", "rerun.py"], text=True, capture_output=True)
-            print(f"rerun.py output:\n{result.stdout}\n{result.stderr}")
+            print("Executing rerun.py...", flush=True)
+            result = subprocess.run(["python", "-u", "rerun.py"], text=True, capture_output=True)
+            print(f"rerun.py output:\n{result.stdout}\n{result.stderr}", flush=True)
             
             # 2. Check if rerun.py succeeded (Exit code 0 means success)
             if result.returncode == 0:
-                print("✅ rerun.py finished successfully. Proceeding to eliminate the workflow...")
+                print("✅ rerun.py finished successfully. Proceeding to eliminate the workflow...", flush=True)
                 
                 # 3. Eliminate/Cancel the running target workflow
-                print(f"Eliminating workflow run {run_id}...")
+                print(f"Eliminating workflow run {run_id}...", flush=True)
                 cancel_cmd = f"gh run cancel {run_id}"
                 c_out, c_err = run_command(cancel_cmd)
                 if c_err:
-                    print(f"Error cancelling workflow: {c_err}")
+                    print(f"Error cancelling workflow: {c_err}", flush=True)
                 else:
-                    print(f"Successfully eliminated workflow {workflow_file}.")
+                    print(f"Successfully eliminated workflow {workflow_file}.", flush=True)
             else:
-                print("❌ rerun.py failed to execute successfully. Aborting workflow termination.")
+                print("❌ rerun.py failed to execute successfully. Aborting workflow termination.", flush=True)
             
             break
 
@@ -76,7 +76,7 @@ def monitor_workflow(run_id, workflow_file):
             conclusion = status_data.get("conclusion")
             
             if status == "completed":
-                print(f"Workflow {workflow_file} finished naturally with conclusion: {conclusion}")
+                print(f"Workflow {workflow_file} finished naturally with conclusion: {conclusion}", flush=True)
                 break
         except Exception:
             pass # Keep trying if API temporarily fails
@@ -89,11 +89,11 @@ def check_and_execute_jobs():
         with open("config.json", "r") as f:
             schedules = json.load(f)
     except Exception as e:
-        print(f"Error reading config.json: {e}")
+        print(f"Error reading config.json: {e}", flush=True)
         return
 
     now_ist = get_current_ist()
-    print(f"\n⏰ Checking schedules at {now_ist.strftime('%H:%M:%S')} IST...")
+    print(f"\n⏰ Checking schedules at {now_ist.strftime('%H:%M:%S')} IST...", flush=True)
     
     for item in schedules:
         target_time = datetime.strptime(item["time_ist"], "%H:%M").time()
@@ -104,21 +104,20 @@ def check_and_execute_jobs():
         
         # If current time is within 0 to 5 minutes past the target time
         if 0 <= time_difference <= 5:
-            print(f"🎯 Match found! {item['workflow_file']} is scheduled for {item['time_ist']}.")
+            print(f"🎯 Match found! {item['workflow_file']} is scheduled for {item['time_ist']}.", flush=True)
             run_id = trigger_workflow(item["workflow_file"])
             if run_id:
-                # This pauses the main scheduler loop to monitor the active sub-workflow
                 monitor_workflow(run_id, item["workflow_file"])
             break 
 
 def main():
-    print("🚀 Long-running master scheduler started via Python loop...")
+    print("🚀 Long-running master scheduler started via Python loop...", flush=True)
     
     while True:
         check_and_execute_jobs()
         
         # Sleep for exactly 5 minutes (300 seconds) before checking again
-        print("Sleeping for 5 minutes...")
+        print("Sleeping for 5 minutes...", flush=True)
         time.sleep(300)
 
 if __name__ == "__main__":
