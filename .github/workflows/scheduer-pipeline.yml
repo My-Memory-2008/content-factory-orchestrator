@@ -19,7 +19,7 @@ jobs:
         run: pip install pytz
 
       - name: Run Master Scheduler Script
-        run: python scheduler.py
+        run: python github-scheduler.py
         env:
           # Pulls the Personal Access Token from your repository configuration secrets
           GH_TOKEN: ${{ secrets.MY_CUSTOM_PAT }} 
