@@ -1500,143 +1500,288 @@ jobs:
           echo "DISPLAY=:99" >> $GITHUB_ENV
           sleep 3
 
-      # 4b. Use genuine browser simulation to process downreels.com completely safely
-
+     # 4b. Use genuine browser simulation to process fastdl.app completely safely
       - name: Cloud Download Video Asset via Playwright Simulation
         env:
           DISPLAY: :99
         run: |
-              python3 << 'EOF'
-              import json, os, subprocess, asyncio, shutil
-              from playwright.async_api import async_playwright
-              
-              async def run_stealth_download():
-                  # 1. Extraction safety checks
-                  if not os.path.exists('pipeline_data.json'):
-                      print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
-                      return
-                      
-                  with open('pipeline_data.json', 'r') as f:
-                      pipeline = json.load(f)
-                  
-                  reel_url = pipeline.get('reel_url')
-                  
-                  if not reel_url or "unknown" in reel_url:
-                      print("❌ Missing video URL target path inside JSON queue.")
-                      return
-                  
-                  # Wipes out previous video file frames completely
-                  if os.path.exists('downloads'):
-                      shutil.rmtree('downloads')
-                      print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
-                      
-                  os.makedirs('downloads', exist_ok=True)
-                  output_path = f"downloads/reelforyoutube.mp4"
-                  
-                  print(f"🚀 Launching real browser instance to download from snap-insta.to: {reel_url}")
-                  
-                  download_success = False
-                  
-                  async with async_playwright() as p:
-                      # Enhanced stealth args to prevent frontend timeouts from Cloudflare or bot defense mechanisms
-                      browser = await p.chromium.launch(
-                          headless=False,
-                          args=[
-                              "--disable-blink-features=AutomationControlled", 
-                              "--no-sandbox",
-                              "--disable-web-security",
-                              "--allow-running-insecure-content"
-                          ]
-                      )
-                      
-                      context = await browser.new_context(
-                          viewport={'width': 1280, 'height': 720},
-                          user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                          accept_downloads=True
-                      )
-                      
-                      page = await context.new_page()
-                      
-                      # Ad-blocking layer to prevent malware popups from stealing focus
-                      await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads", "onclick", "exoclick"]) else route.abort())
-                      
-                      print("🌐 Loading downloader frontend...")
-                      await page.goto("https://snap-insta.to/en", wait_until="networkidle", timeout=60000)
-                      
-                      # --- EVENT MONITORING WORKFLOW ---
-                      
-                      # 1. Broadly target any form input on the page dynamically
-                      print("📥 Target Isolation: Intercepting text input systems...")
-                      input_box = page.locator("input[type='text'], input[type='url'], input[name='url'], #url").first
-                      await input_box.fill(reel_url)
-                      
-                      # 2. Monitor API request transitions on submit action
-                      print("⚡ Monitoring Network Event Loops for token assignment...")
-                      submit_btn = page.locator("button[type='submit'], button:has-text('Download'), #btn-submit").first
-                      
-                      # Concurrently listen for layout updates while clicking 
-                      async with page.expect_response(lambda response: "action" in response.url or response.status == 200, timeout=30000):
-                          await submit_btn.click()
-                          
-                      print("⏳ Event captured! Awaiting generation of download streaming pointers...")
-                      
-                      # Handle hidden overlay wrappers that block clicks
-                      try:
-                          await page.evaluate("() => { document.querySelectorAll('.modal, .fade, #close-button, .close').forEach(el => el.remove()); }")
-                      except Exception:
-                          pass
-                          
-                      # 3. Stream monitoring framework for native OS downloads
-                      try:
-                          # Find download anchor by semantic relationship rather than exact text strings
-                          download_anchor = page.locator("a[href*='download'], a[href*='cdn'], a.btn-download, a:has-text('Download')").first
-                          await download_anchor.wait_for(state='attached', timeout=20000)
-                          
-                          print("🎯 Native Stream Event Listener Active. Forcing file pipeline download...")
-                          
-                          # Setup unified event structure: waits for OS window download context
-                          async with page.expect_download(timeout=60000) as download_info:
-                              # Force JavaScript-level click to bypass missing element click visual blockers
-                              await download_anchor.evaluate("node => node.click()")
-                          
-                          download = await download_info.value
-                          await download.save_as(output_path)
-                          download_success = True
-                          print("✅ Successfully captured file directly via native browser download event.")
-                          
-                      except Exception as event_error:
-                          print(f"❌ Event monitoring loop timed out: ({event_error})")
-                          print("🔄 Initializing dynamic HTML scraper fallback extraction...")
-                          try:
-                              # Alternative event loop extraction: look directly inside the DOM links
-                              html_source = await page.content()
-                              import re
-                              # Scan for raw CDN mp4 links inside JavaScript or elements
-                              found_urls = re.findall(r'https?://[^\s"\']+\.mp4[^\s"\']*', html_source)
-                              if found_urls:
-                                  stream_target = found_urls[0].replace("&amp;", "&")
-                                  print(f"🔗 Clean stream link isolated from source data: {stream_target[:50]}...")
-                                  curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, stream_target]
-                                  subprocess.run(curl_cmd, capture_output=True)
-                                  download_success = True
-                          except Exception as fallback_err:
-                              print(f"⚠️ Fallback monitoring broke down: {fallback_err}")
-                                  
-                      await browser.close()
-                  
-                  # Output evaluation and sizing validation rules
-                  if download_success and os.path.exists(output_path):
-                      file_size = os.path.getsize(output_path)
-                      if file_size > 50000:
-                          print(f"🎉 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
-                      else:
-                          os.remove(output_path)
-                          print("❌ Download output contains light text metrics instead of video data.")
-                  else:
-                      print("❌ Execution rejected: Stream structure completely missing.")
+          python3 << 'EOF'
+          import json, os, subprocess, asyncio, shutil
+          from playwright.async_api import async_playwright
           
-              asyncio.run(run_stealth_download())
-              EOF
+          async def run_stealth_download():
+              # 1. Extraction safety checks
+              if not os.path.exists('pipeline_data.json'):
+                  print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
+                  return
+                  
+              with open('pipeline_data.json', 'r') as f:
+                  pipeline = json.load(f)
+              
+              reel_url = pipeline.get('reel_url')
+              shortcode = pipeline.get('shortcode', 'downloaded_reel')
+              
+              if not reel_url or "unknown" in reel_url:
+                  print("❌ Missing video URL target path inside JSON queue.")
+                  return
+              
+              # CRITICAL AUTOMATED RESET: Wipes out previous video file frames completely
+              if os.path.exists('downloads'):
+                  shutil.rmtree('downloads')
+                  print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
+                  
+              os.makedirs('downloads', exist_ok=True)
+              output_path = f"downloads/reelforyoutube.mp4"
+              
+              print(f"🚀 Launching real browser instance to download from fastdl.app: {reel_url}")
+              
+              video_stream_url = None
+              download_success = False
+              
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(
+                      headless=False,
+                      args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                  )
+                  
+                  context = await browser.new_context(
+                      viewport={'width': 1280, 'height': 720},
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                      accept_downloads=True
+                  )
+                  
+                  page = await context.new_page()
+                  await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads"]) else route.abort())
+                  
+                  print("🌐 Loading downloader frontend...")
+                  await page.goto("https://fastdl.app/en4", wait_until="domcontentloaded", timeout=60000)
+                  await page.wait_for_timeout(2000)
+                  
+                  # Target the input box matching placeholder criteria
+                  input_locator = page.get_by_placeholder('Insert instagram link here')
+                  await input_locator.wait_for(state='visible', timeout=15000)
+                  await input_locator.click()
+                  await input_locator.fill(reel_url)
+                  await page.wait_for_timeout(1000)
+                  
+                  print("⚡ Dispatching submission click event on primary download engine button...")
+                  await page.get_by_role('button', name='Download').click()
+                  
+                  print("⏳ Monitoring page layout transformations, waiting for direct download links...")
+                  
+                  # Dismiss aggressive overlays if any are visible 
+                  try:
+                      close_selectors = [".modal-footer button", ".close", "button:has-text('Close')", "#close-button"]
+                      for sel in close_selectors:
+                          if await page.locator(sel).is_visible():
+                              await page.click(sel)
+                  except Exception:
+                      pass
+                  
+                  try:
+                      # Python Async Playwright syntax targeting exact anchor elements matching "Download"
+                      download_btn = page.get_by_role('link', name='Download', exact=True).first
+                      await download_btn.wait_for(state='visible', timeout=25000)
+                      
+                      print("🎯 Native Playwright event listener active. Triggering physical browser stream click...")
+                      
+                      async with page.expect_download(timeout=30000) as download_info:
+                          await download_btn.click()
+                      
+                      download = await download_info.value
+                      await download.save_as(output_path)
+                      download_success = True
+                      print("✅ Successfully captured file directly via native browser download event.")
+                      
+                  except Exception as event_error:
+                      print(f"⚠️ Native browser download event failed or timed out: ({event_error})")
+                      print("🔄 Activating scraping fallback pipeline...")
+                      
+                      try:
+                          links = await page.locator("a, form, button").all()
+                          for link in links:
+                              try:
+                                  href = await link.get_attribute("href") or await link.get_attribute("action") or await link.get_attribute("onclick")
+                                  if href and any(x in href.lower() for x in ["instagram", "cdn", ".mp4", "download"]):
+                                      video_stream_url = href
+                                      break
+                              except Exception:
+                                  continue
+                      except Exception as fallback_error:
+                          print(f"❌ Fallback link identification failed: {fallback_error}")
+                              
+                  await browser.close()
+              
+              if not download_success and video_stream_url:
+                  if isinstance(video_stream_url, str) and "window.open" in video_stream_url:
+                      import re
+                      urls = re.findall(r"https?://[^']+", video_stream_url)
+                      if urls:
+                          video_stream_url = urls
+                  
+                  if isinstance(video_stream_url, str) and video_stream_url.startswith("/"):
+                      print("🔧 Relative link path configuration identified. Applying absolute root repairs...")
+                      video_stream_url = f"https://fastdl.app{video_stream_url}"
+                      
+                  if isinstance(video_stream_url, str):
+                      video_stream_url = video_stream_url.replace('&amp;', '&')
+                      print(f"🔗 Clean stream link isolated: {video_stream_url[:60]}...")
+                      print("Streaming media blocks directly into workspace directory...")
+                      
+                      curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, video_stream_url]
+                      subprocess.run(curl_cmd, capture_output=True)
+              
+              if os.path.exists(output_path):
+                  file_size = os.path.getsize(output_path)
+                  if file_size > 5000:
+                      print(f"🎬 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
+                  else:
+                      os.remove(output_path)
+                      print("❌ Download output contains light text metrics instead of video data. Dropping placeholder.")
+              else:
+                  print("❌ Core system disk space rejected file creation execution.")
+
+          asyncio.run(run_stealth_download())
+          EOF
+
+
+      # 4b. Use genuine browser simulation to process downreels.com completely safely
+
+      # - name: Cloud Download Video Asset via Playwright Simulation
+      #   env:
+      #     DISPLAY: :99
+      #   run: |
+      #         python3 << 'EOF'
+      #         import json, os, subprocess, asyncio, shutil
+      #         from playwright.async_api import async_playwright
+              
+      #         async def run_stealth_download():
+      #             # 1. Extraction safety checks
+      #             if not os.path.exists('pipeline_data.json'):
+      #                 print("ℹ️ pipeline_data.json missing. Skipping download cycle.")
+      #                 return
+                      
+      #             with open('pipeline_data.json', 'r') as f:
+      #                 pipeline = json.load(f)
+                  
+      #             reel_url = pipeline.get('reel_url')
+                  
+      #             if not reel_url or "unknown" in reel_url:
+      #                 print("❌ Missing video URL target path inside JSON queue.")
+      #                 return
+                  
+      #             # Wipes out previous video file frames completely
+      #             if os.path.exists('downloads'):
+      #                 shutil.rmtree('downloads')
+      #                 print("🧹 Storage Reset: Prior video files completely purged from memory workspace.")
+                      
+      #             os.makedirs('downloads', exist_ok=True)
+      #             output_path = f"downloads/reelforyoutube.mp4"
+                  
+      #             print(f"🚀 Launching real browser instance to download from snap-insta.to: {reel_url}")
+                  
+      #             download_success = False
+                  
+      #             async with async_playwright() as p:
+      #                 # Enhanced stealth args to prevent frontend timeouts from Cloudflare or bot defense mechanisms
+      #                 browser = await p.chromium.launch(
+      #                     headless=False,
+      #                     args=[
+      #                         "--disable-blink-features=AutomationControlled", 
+      #                         "--no-sandbox",
+      #                         "--disable-web-security",
+      #                         "--allow-running-insecure-content"
+      #                     ]
+      #                 )
+                      
+      #                 context = await browser.new_context(
+      #                     viewport={'width': 1280, 'height': 720},
+      #                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      #                     accept_downloads=True
+      #                 )
+                      
+      #                 page = await context.new_page()
+                      
+      #                 # Ad-blocking layer to prevent malware popups from stealing focus
+      #                 await page.route("**/*", lambda route: route.continue_() if not any(x in route.request.url for x in ["googlesyndication", "doubleclick", "adservice", "popads", "onclick", "exoclick"]) else route.abort())
+                      
+      #                 print("🌐 Loading downloader frontend...")
+      #                 await page.goto("https://snap-insta.to/en", wait_until="networkidle", timeout=60000)
+                      
+      #                 # --- EVENT MONITORING WORKFLOW ---
+                      
+      #                 # 1. Broadly target any form input on the page dynamically
+      #                 print("📥 Target Isolation: Intercepting text input systems...")
+      #                 input_box = page.locator("input[type='text'], input[type='url'], input[name='url'], #url").first
+      #                 await input_box.fill(reel_url)
+                      
+      #                 # 2. Monitor API request transitions on submit action
+      #                 print("⚡ Monitoring Network Event Loops for token assignment...")
+      #                 submit_btn = page.locator("button[type='submit'], button:has-text('Download'), #btn-submit").first
+                      
+      #                 # Concurrently listen for layout updates while clicking 
+      #                 async with page.expect_response(lambda response: "action" in response.url or response.status == 200, timeout=30000):
+      #                     await submit_btn.click()
+                          
+      #                 print("⏳ Event captured! Awaiting generation of download streaming pointers...")
+                      
+      #                 # Handle hidden overlay wrappers that block clicks
+      #                 try:
+      #                     await page.evaluate("() => { document.querySelectorAll('.modal, .fade, #close-button, .close').forEach(el => el.remove()); }")
+      #                 except Exception:
+      #                     pass
+                          
+      #                 # 3. Stream monitoring framework for native OS downloads
+      #                 try:
+      #                     # Find download anchor by semantic relationship rather than exact text strings
+      #                     download_anchor = page.locator("a[href*='download'], a[href*='cdn'], a.btn-download, a:has-text('Download')").first
+      #                     await download_anchor.wait_for(state='attached', timeout=20000)
+                          
+      #                     print("🎯 Native Stream Event Listener Active. Forcing file pipeline download...")
+                          
+      #                     # Setup unified event structure: waits for OS window download context
+      #                     async with page.expect_download(timeout=60000) as download_info:
+      #                         # Force JavaScript-level click to bypass missing element click visual blockers
+      #                         await download_anchor.evaluate("node => node.click()")
+                          
+      #                     download = await download_info.value
+      #                     await download.save_as(output_path)
+      #                     download_success = True
+      #                     print("✅ Successfully captured file directly via native browser download event.")
+                          
+      #                 except Exception as event_error:
+      #                     print(f"❌ Event monitoring loop timed out: ({event_error})")
+      #                     print("🔄 Initializing dynamic HTML scraper fallback extraction...")
+      #                     try:
+      #                         # Alternative event loop extraction: look directly inside the DOM links
+      #                         html_source = await page.content()
+      #                         import re
+      #                         # Scan for raw CDN mp4 links inside JavaScript or elements
+      #                         found_urls = re.findall(r'https?://[^\s"\']+\.mp4[^\s"\']*', html_source)
+      #                         if found_urls:
+      #                             stream_target = found_urls[0].replace("&amp;", "&")
+      #                             print(f"🔗 Clean stream link isolated from source data: {stream_target[:50]}...")
+      #                             curl_cmd = ["curl", "-L", "-A", "Mozilla/5.0", "-o", output_path, stream_target]
+      #                             subprocess.run(curl_cmd, capture_output=True)
+      #                             download_success = True
+      #                     except Exception as fallback_err:
+      #                         print(f"⚠️ Fallback monitoring broke down: {fallback_err}")
+                                  
+      #                 await browser.close()
+                  
+      #             # Output evaluation and sizing validation rules
+      #             if download_success and os.path.exists(output_path):
+      #                 file_size = os.path.getsize(output_path)
+      #                 if file_size > 50000:
+      #                     print(f"🎉 Real video asset captured successfully! Size: {file_size / (1024*1024):.2f} MB")
+      #                 else:
+      #                     os.remove(output_path)
+      #                     print("❌ Download output contains light text metrics instead of video data.")
+      #             else:
+      #                 print("❌ Execution rejected: Stream structure completely missing.")
+          
+      #         asyncio.run(run_stealth_download())
+      #         EOF
 
       # # 4b. Use genuine browser simulation to process downreels.com completely safely
       # - name: Cloud Download Video Asset via Playwright Simulation
