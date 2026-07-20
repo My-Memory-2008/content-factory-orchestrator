@@ -91,9 +91,11 @@ on:
   workflow_dispatch: # Manual button to start the loop the first time
 
 jobs:
-  refresh-notebook:
-    runs-on: ubuntu-latest
-    steps:
+   prepare-data:
+     runs-on: ubuntu-latest
+     permissions:
+       contents: write
+     steps:
       # 1. Checkout your repository
       - name: Checkout Code
         uses: actions/checkout@v4
