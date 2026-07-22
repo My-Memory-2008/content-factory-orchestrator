@@ -780,140 +780,7 @@
 
 
 
-# name: YouTube Video Downloader Automation (Recorded Codegen Engine)
-
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       video_url:
-#         description: 'Paste the YouTube URL to download'
-#         required: true
-#         type: string
-#         default: 'https://youtube.com/shorts/tHtQwObI-XM?si=R9_CYPKdvAYJd1Dr'
-
-# jobs:
-#   download_video:
-#     runs-on: ubuntu-latest
-#     timeout-minutes: 15
-
-#     steps:
-#       - name: Codebase Checkout
-#         uses: actions/checkout@v4
-
-#       - name: Setup Node.js Runtime
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 18
-
-#       - name: Install Playwright and Dependencies
-#         run: |
-#           npm install playwright
-#           npx playwright install --with-deps chromium
-
-#       - name: Create Downloads Folder Structure
-#         run: mkdir -p ./youtubedownloads
-
-#       - name: Execute Web Automation Interface
-#         env:
-#           VIDEO_URL: ${{ github.event.inputs.video_url }}
-#         uses: actions/github-script@v7
-#         with:
-#           script: |
-#             const { chromium } = require('playwright');
-#             const fs = require('fs');
-#             const path = require('path');
-
-#             const videoUrl = process.env.VIDEO_URL;
-#             console.log(`🚀 Launching Chrome Engine for: ${videoUrl}`);
-
-#             const downloadFolder = './youtubedownloads';
-#             if (!fs.existsSync(downloadFolder)){
-#                 fs.mkdirSync(downloadFolder);
-#             }
-
-#             // Launch a persistent context. Removed the broken extension paths.
-#             const browserContext = await chromium.launchPersistentContext('', {
-#               headless: false, 
-#               args: [
-#                 `--headless=new`, 
-#                 `--no-sandbox`,
-#                 `--disable-setuid-sandbox`
-#               ],
-#               acceptDownloads: true,
-#               viewport: { width: 1280, height: 800 }
-#             });
-
-#             const pages = browserContext.pages();
-#             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
-
-#             // Automatically handle and close any advertising popups thrown during clicks
-#             browserContext.on('page', async popup => {
-#               try {
-#                 await popup.close();
-#                 console.log("🛡️ Suppressed ad network popup window.");
-#               } catch (e) {}
-#             });
-
-#             try {
-#               // 1. Navigate to the website
-#               await page.goto('https://v22.www-y2mate.com/', { waitUntil: 'domcontentloaded' });
-              
-#               // 2. Locate textbox, double-click, and fill with the dynamic video URL
-#               const textbox = page.getByRole('textbox', { name: 'Search or paste link here...' });
-#               await textbox.waitFor({ state: 'visible', timeout: 30000 });
-#               await textbox.dblclick();
-#               await textbox.fill(videoUrl);
-#               await textbox.press('Enter');
-#               console.log("✏️ Link entered and search submitted.");
-
-#               // Isolate the dynamic widget iframe frame matching your codegen script
-#               const widgetIframe = page.frameLocator('#widgetv2Api');
-
-#               // 3. Switch to the Video tab inside the iframe
-#               console.log("🗂️ Switching to Video tab...");
-#               await widgetIframe.getByRole('link', { name: 'Video' }).click();
-
-#               // 4. Click the primary resolution download button inside the iframe
-#               console.log("👆 Clicking initial conversion row button...");
-#               await widgetIframe.getByRole('row', { name: '1080p (.mp4) Auto  Download' }).getByRole('button').click();
-
-#               // 5. Wait for the server-side conversion and target the final Download button inside the iframe
-#               console.log("⏳ Waiting for backend to compile stream and clicking final Download link...");
-#               const finalDownloadLink = widgetIframe.getByRole('link', { name: 'Download' });
-#               await finalDownloadLink.waitFor({ state: 'visible', timeout: 45000 });
-
-#               // FIX: Catch download events from both the context level and page level to prevent 1kb file generation
-#               const downloadPromise = browserContext.waitForEvent('download');
-#               await finalDownloadLink.click();
-              
-#               const download = await downloadPromise;
-
-#               // 6. Save the completed media file to your specified folder path
-#               const finalPath = path.join(downloadFolder, download.suggestedFilename() || 'video.mp4');
-#               await download.saveAs(finalPath);
-#               console.log(`✅ File successfully saved to: ${finalPath}`);
-
-#             } catch (error) {
-#               console.error("❌ Automation routine caught failure exception:", error);
-#               try {
-#                 await page.screenshot({ path: './youtubedownloads/error-layout-screenshot.png', fullPage: true });
-#                 console.log("📸 Saved failure screenshot to your logs.");
-#               } catch (e) {}
-#               core.setFailed(error.message);
-#             } finally {
-#               await browserContext.close();
-#             }
-
-#       - name: Export Extracted Media File as Pipeline Artifact
-#         uses: actions/upload-artifact@v4
-#         if: always()
-#         with:
-#           name: codegen-downloaded-video
-#           path: ./youtubedownloads/
-#           retention-days: 5
-
-
-name: YouTube Video Downloader Automation (Event Monitored Engine)
+name: YouTube Video Downloader Automation (Recorded Codegen Engine)
 
 on:
   workflow_dispatch:
@@ -922,7 +789,7 @@ on:
         description: 'Paste the YouTube URL to download'
         required: true
         type: string
-        default: 'https://youtube.com'
+        default: 'https://youtube.com/shorts/tHtQwObI-XM?si=R9_CYPKdvAYJd1Dr'
 
 jobs:
   download_video:
@@ -964,7 +831,7 @@ jobs:
                 fs.mkdirSync(downloadFolder);
             }
 
-            // Launch context with completely disabled default time limits to rely purely on events
+            // Launch a persistent context. Removed the broken extension paths.
             const browserContext = await chromium.launchPersistentContext('', {
               headless: false, 
               args: [
@@ -976,14 +843,10 @@ jobs:
               viewport: { width: 1280, height: 800 }
             });
 
-            // Strip out global timeouts entirely so operations await clean event resolution
-            browserContext.setDefaultTimeout(0);
-            browserContext.setDefaultNavigationTimeout(0);
-
             const pages = browserContext.pages();
             const page = pages.length > 0 ? pages[0] : await browserContext.newPage();
 
-            // EVENT MONITOR 1: Continuous background ad suppression loop
+            // Automatically handle and close any advertising popups thrown during clicks
             browserContext.on('page', async popup => {
               try {
                 await popup.close();
@@ -992,12 +855,12 @@ jobs:
             });
 
             try {
-              // 1. Navigate to the website and monitor network event stream
-              await page.goto('https://www-y2mate.com', { waitUntil: 'networkidle' });
+              // 1. Navigate to the website
+              await page.goto('https://v22.www-y2mate.com/', { waitUntil: 'domcontentloaded' });
               
-              // 2. Target textbox using visibility events rather than a 30s countdown clock
+              // 2. Locate textbox, double-click, and fill with the dynamic video URL
               const textbox = page.getByRole('textbox', { name: 'Search or paste link here...' });
-              await textbox.waitFor({ state: 'visible' });
+              await textbox.waitFor({ state: 'visible', timeout: 30000 });
               await textbox.dblclick();
               await textbox.fill(videoUrl);
               await textbox.press('Enter');
@@ -1008,23 +871,18 @@ jobs:
 
               // 3. Switch to the Video tab inside the iframe
               console.log("🗂️ Switching to Video tab...");
-              const videoTab = widgetIframe.getByRole('link', { name: 'Video' });
-              await videoTab.waitFor({ state: 'visible' });
-              await videoTab.click();
+              await widgetIframe.getByRole('link', { name: 'Video' }).click();
 
-              // 4. Track visibility state events of the initial conversion row button
+              // 4. Click the primary resolution download button inside the iframe
               console.log("👆 Clicking initial conversion row button...");
-              const initialDownloadBtn = widgetIframe.getByRole('row', { name: '1080p (.mp4) Auto  Download' }).getByRole('button');
-              await initialDownloadBtn.waitFor({ state: 'visible' });
-              await initialDownloadBtn.click();
+              await widgetIframe.getByRole('row', { name: '1080p (.mp4) Auto  Download' }).getByRole('button').click();
 
-              // 5. Watch for final conversion element to arrive in the DOM tree via attached visibility state events
-              console.log("⏳ Waiting for backend to compile stream via DOM mutation events...");
+              // 5. Wait for the server-side conversion and target the final Download button inside the iframe
+              console.log("⏳ Waiting for backend to compile stream and clicking final Download link...");
               const finalDownloadLink = widgetIframe.getByRole('link', { name: 'Download' });
-              await finalDownloadLink.waitFor({ state: 'attached' });
-              await finalDownloadLink.waitFor({ state: 'visible' });
+              await finalDownloadLink.waitFor({ state: 'visible', timeout: 45000 });
 
-              // EVENT MONITOR 2: Intercept browser-level download events natively
+              // FIX: Catch download events from both the context level and page level to prevent 1kb file generation
               const downloadPromise = browserContext.waitForEvent('download');
               await finalDownloadLink.click();
               
@@ -1053,4 +911,5 @@ jobs:
           name: codegen-downloaded-video
           path: ./youtubedownloads/
           retention-days: 5
+
 
